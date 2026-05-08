@@ -1,0 +1,87 @@
+:root {
+  --tblr-primary-rgb: 6, 111, 209;
+  --tblr-font-sans-serif: 'Inter Var', -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif;
+}
+
+/* Custom Card Gradient */
+.card-gradient {
+  background: linear-gradient(135deg, #066fd1 0%, #4299e1 100%);
+  color: #fff !important;
+  border: none;
+  box-shadow: 0 10px 15px -3px rgba(6, 111, 209, 0.2), 0 4px 6px -2px rgba(6, 111, 209, 0.1);
+}
+
+.card-gradient .card-body {
+  padding: 1.5rem;
+}
+
+.card-gradient h3, 
+.card-gradient .h2, 
+.card-gradient .text-secondary,
+.card-gradient .subheader {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.card-gradient .progress {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.card-gradient .progress-bar {
+  background-color: #fff;
+}
+
+/* Glassmorphism effects */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Sidebar Customizations */
+.navbar-vertical.navbar-expand-lg .navbar-nav .nav-link.active {
+  background: rgba(var(--tblr-primary-rgb), 0.1);
+  color: var(--tblr-primary);
+  border-right: 3px solid var(--tblr-primary);
+}
+
+.navbar-vertical.navbar-expand-lg .navbar-nav .nav-link:hover {
+  background: rgba(var(--tblr-primary-rgb), 0.05);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.page-body {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+}
