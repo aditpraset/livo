@@ -95,7 +95,7 @@
           <p class="footer-desc">Lembaga pendidikan yang mengembangkan kemampuan berpikir kritis dan kreatif siswa TK–SMP melalui program Matematika dan Bahasa Inggris.</p>
           <div class="mt-4">
             <a href="#" class="social-icon" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
-            <a href="#" class="social-icon" aria-label="WhatsApp"><i class="bi bi-whatsapp"></i></a>
+            <a href="https://wa.me/628118179511" class="social-icon" aria-label="WhatsApp" target="_blank"><i class="bi bi-whatsapp"></i></a>
             <a href="#" class="social-icon" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
             <a href="#" class="social-icon" aria-label="TikTok"><i class="bi bi-tiktok"></i></a>
           </div>
@@ -122,7 +122,7 @@
           <h3 class="footer-heading">Kontak</h3>
           <address class="mb-0">
             <p class="footer-link mb-2" style="cursor:default;"><i class="bi bi-geo-alt me-2" aria-hidden="true"></i>Srengseng Sawah, Jakarta Selatan</p>
-            <a href="https://wa.me/62xxxxxxxxxx" class="footer-link mb-2 d-block"><i class="bi bi-whatsapp me-2" aria-hidden="true"></i>+62 xxx-xxxx-xxxx</a>
+            <a href="https://wa.me/628118179511" class="footer-link mb-2 d-block" target="_blank"><i class="bi bi-whatsapp me-2" aria-hidden="true"></i>+62 811-8179-511</a>
             <a href="mailto:info@livo-learning.id" class="footer-link d-block"><i class="bi bi-envelope me-2" aria-hidden="true"></i>info.center@livo.co.id</a>
           </address>
         </div>
@@ -165,6 +165,11 @@
       });
     }
   </script>
+  <a href="https://wa.me/628118179511" class="btn-whatsapp-floating" target="_blank" aria-label="Hubungi kami via WhatsApp">
+    <div class="pulse"></div>
+    <i class="bi bi-whatsapp"></i>
+  </a>
+
   @stack('js')
 </body>
 </html>

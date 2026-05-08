@@ -216,7 +216,7 @@
         <h3 class="konsultasi-title">Konsultasi Tugas<br>Kapan Saja!</h3>
         <p class="konsultasi-desc">Bingung dengan tugas sekolah di luar jam bimbel? Siswa LIVO bisa berkonsultasi kapanpun — kami selalu siap membantu proses belajar tanpa batas waktu.</p>
       </div>
-      <a href="{{ route('registration') }}" class="btn-konsultasi">Bergabung Sekarang &rarr;</a>
+      <a href="https://wa.me/628118179511" target="_blank" class="btn-konsultasi">Hubungi Kami Sekarang &rarr;</a>
     </div>
   </div>
 </section>
@@ -303,7 +303,7 @@
             <div class="lokasi-item-icon"><i class="bi bi-whatsapp"></i></div>
             <div>
               <div class="lokasi-item-label">WhatsApp</div>
-              <div class="lokasi-item-value">+62 xxx-xxxx-xxxx</div>
+              <div class="lokasi-item-value">+62 811-8179-511</div>
             </div>
           </div>
           <div class="lokasi-item">

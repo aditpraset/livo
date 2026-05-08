@@ -8,6 +8,7 @@
   --livo-gray: #f4f6fb;
   --livo-text: #2d3a52;
   --livo-muted: #6b7a99;
+  --livo-whatsapp: #25d366;
   --font-display: 'Fraunces', Georgia, serif;
   --font-body: 'Plus Jakarta Sans', sans-serif;
 }
@@ -800,6 +801,59 @@ footer {
   color: rgba(255,255,255,0.35);
   margin-bottom: 16px;
 }
+
+/* ── FLOATING WHATSAPP ── */
+.btn-whatsapp-floating {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  background: var(--livo-whatsapp);
+  color: #fff !important;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  box-shadow: 0 10px 25px rgba(37, 211, 102, 0.3);
+  z-index: 9999;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  text-decoration: none;
+}
+
+.btn-whatsapp-floating:hover {
+  transform: scale(1.1) translateY(-5px);
+  box-shadow: 0 15px 35px rgba(37, 211, 102, 0.4);
+  color: #fff !important;
+}
+
+.btn-whatsapp-floating .pulse {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--livo-whatsapp);
+  opacity: 0.6;
+  z-index: -1;
+  animation: wa-pulse 2s infinite;
+}
+
+@keyframes wa-pulse {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+@media (max-width: 768px) {
+  .btn-whatsapp-floating {
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    font-size: 26px;
+  }
+}
+
 
 .footer-link {
   display: block;
