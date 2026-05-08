@@ -153,7 +153,19 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label-livo">Kelas</label>
-                            <input type="text" name="grade" class="form-control-livo" placeholder="Contoh: 4 SD / 7 SMP">
+                            <select class="form-control-livo" name="grade">
+                                <option value="">-- Pilih Kelas --</option>
+                                <option value="TK">TK</option>
+                                <option value="SD Kelas 1">SD Kelas 1</option>
+                                <option value="SD Kelas 2">SD Kelas 2</option>
+                                <option value="SD Kelas 3">SD Kelas 3</option>
+                                <option value="SD Kelas 4">SD Kelas 4</option>
+                                <option value="SD Kelas 5">SD Kelas 5</option>
+                                <option value="SD Kelas 6">SD Kelas 6</option>
+                                <option value="SMP Kelas 7">SMP Kelas 7</option>
+                                <option value="SMP Kelas 8">SMP Kelas 8</option>
+                                <option value="SMP Kelas 9">SMP Kelas 9</option>
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label-livo">Asal Sekolah</label>

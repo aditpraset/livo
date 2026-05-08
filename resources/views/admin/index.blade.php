@@ -100,7 +100,7 @@
                     </a>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-vcenter table-mobile-md card-table">
+                    <table class="table table-vcenter table-mobile-md card-table" id="dashboard-table">
                         <thead>
                             <tr>
                                 <th class="ps-4">Nama Siswa</th>
@@ -111,48 +111,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($recentRegistrations ?? [] as $reg)
-                            <tr>
-                                <td class="ps-4">
-                                    <div class="d-flex align-items-center">
-                                        <span class="avatar avatar-sm me-3 rounded-circle bg-primary-subtle text-primary fw-bold">{{ substr($reg->full_name, 0, 1) }}</span>
-                                        <div class="flex-fill">
-                                            <div class="fw-bold text-dark">{{ $reg->full_name }}</div>
-                                            <div class="text-muted small">{{ $reg->nickname ?? '-' }}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="text-secondary fw-medium">{{ $reg->class_type ?? '-' }}</span>
-                                </td>
-                                <td>
-                                    @php
-                                        $badgeClass = match($reg->program) {
-                                            'Matematika' => 'bg-success-subtle text-success',
-                                            'B. Inggris' => 'bg-info-subtle text-info',
-                                            default => 'bg-primary-subtle text-primary'
-                                        };
-                                    @endphp
-                                    <span class="badge {{ $badgeClass }} border-0 px-2 py-1">{{ $reg->program ?? '-' }}</span>
-                                </td>
-                                <td>
-                                    <div class="text-dark">{{ $reg->whatsapp ?? $reg->phone ?? '-' }}</div>
-                                </td>
-                                <td class="pe-4">
-                                    <div class="text-muted small">{{ $reg->created_at->format('d M Y') }}</div>
-                                    <div class="text-muted extra-small" style="font-size: 0.7rem;">{{ $reg->created_at->format('H:i') }}</div>
-                                </td>
-                            </tr>
-                            @empty
-                            <tr>
-                                <td colspan="5" class="text-center py-5">
-                                    <div class="text-muted">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-database-off mb-2 text-muted-light" width="40" height="40" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12.973 8.952c.009 .016 .018 .032 .027 .048c.01 -.016 .018 -.032 .027 -.048" /><path d="M9.44 9.441c.796 .354 1.636 .559 2.56 .559c4.418 0 8 -1.79 8 -4s-3.582 -4 -8 -4c-2.31 0 -4.376 .489 -5.673 1.259m-1.327 2.684c.005 .019 .012 .037 .021 .056c-.008 -.018 -.016 -.037 -.021 -.056" /><path d="M4 6v6c0 2.21 3.582 4 8 4c.901 0 1.748 -.075 2.52 -.213m3.35 -1.13c1.332 -.8 2.13 -1.74 2.13 -2.657v-6" /><path d="M4 12v6c0 2.21 3.582 4 8 4c3.41 0 6.273 -1.066 7.426 -2.574m.574 -3.426v-6" /><path d="M3 3l18 18" /></svg>
-                                        <p class="mb-0">Belum ada pendaftaran yang masuk.</p>
-                                    </div>
-                                </td>
-                            </tr>
-                            @endforelse
+                            {{-- Populated via DataTables --}}
                         </tbody>
                     </table>
                 </div>
@@ -161,3 +120,31 @@
     </div>
 </div>
 @endsection
+
+@push('js')
+<script>
+$(document).ready(function() {
+    $('#dashboard-table').DataTable({
+        processing: true,
+        serverSide: true,
+        ajax: "{{ route('admin.data.dashboard') }}",
+        columns: [
+            { data: 'full_name', name: 'full_name', className: 'ps-4' },
+            { data: 'class_type', name: 'class_type', defaultContent: '-' },
+            { data: 'program', name: 'program' },
+            { data: 'whatsapp', name: 'whatsapp', defaultContent: '-' },
+            { data: 'created_at', name: 'created_at', className: 'pe-4' }
+        ],
+        pageLength: 10,
+        lengthChange: false,
+        searching: false,
+        ordering: false,
+        info: false,
+        paging: false,
+        language: {
+            emptyTable: "Belum ada pendaftaran yang masuk."
+        }
+    });
+});
+</script>
+@endpush

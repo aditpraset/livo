@@ -7,9 +7,9 @@
     <title>Login - LIVO Admin</title>
     
     <!-- CSS files -->
-    <link href="{{ asset('admin/assets/css/tabler.min.css') }}" rel="stylesheet" />
-    <link href="{{ asset('admin/assets/css/tabler-vendors.min.css') }}" rel="stylesheet" />
-    <link href="{{ asset('admin/assets/css/admin-style.css') }}" rel="stylesheet" />
+    <link href="{{ asset('assets/css/tabler.min.css') }}" rel="stylesheet" />
+    <link href="{{ asset('assets/css/tabler-vendors.min.css') }}" rel="stylesheet" />
+    <link href="{{ asset('assets/css/admin-style.css') }}" rel="stylesheet" />
     
     <style>
       @import url("https://rsms.me/inter/inter.css");
@@ -79,6 +79,6 @@
     </div>
     
     <!-- Scripts -->
-    <script src="{{ asset('admin/assets/js/tabler.min.js') }}" defer></script>
+    <script src="{{ asset('assets/js/tabler.min.js') }}" defer></script>
   </body>
 </html>
