@@ -87,8 +87,10 @@
       <div class="row g-4">
         <div class="col-lg-4">
           <div class="d-flex align-items-center gap-2 mb-3">
-            <div class="livo-logo-mark" aria-hidden="true">LV</div>
-            <h2 class="footer-logo-text mb-0">LIVO</h2>
+          <div>
+            <div class="livo-logo-text text-white">LIVO</div>
+            <div class="livo-logo-sub text-white">Learning Innovation</div>
+          </div>
           </div>
           <p class="footer-desc">Lembaga pendidikan yang mengembangkan kemampuan berpikir kritis dan kreatif siswa TK–SMP melalui program Matematika dan Bahasa Inggris.</p>
           <div class="mt-4">
@@ -121,7 +123,7 @@
           <address class="mb-0">
             <p class="footer-link mb-2" style="cursor:default;"><i class="bi bi-geo-alt me-2" aria-hidden="true"></i>Srengseng Sawah, Jakarta Selatan</p>
             <a href="https://wa.me/62xxxxxxxxxx" class="footer-link mb-2 d-block"><i class="bi bi-whatsapp me-2" aria-hidden="true"></i>+62 xxx-xxxx-xxxx</a>
-            <a href="mailto:info@livo-learning.id" class="footer-link d-block"><i class="bi bi-envelope me-2" aria-hidden="true"></i>info@livo-learning.id</a>
+            <a href="mailto:info@livo-learning.id" class="footer-link d-block"><i class="bi bi-envelope me-2" aria-hidden="true"></i>info.center@livo.co.id</a>
           </address>
         </div>
       </div>

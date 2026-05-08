@@ -310,7 +310,7 @@
             <div class="lokasi-item-icon"><i class="bi bi-envelope-fill"></i></div>
             <div>
               <div class="lokasi-item-label">Email</div>
-              <div class="lokasi-item-value">info@livo-learning.id</div>
+              <div class="lokasi-item-value">info.center@livo.co.id</div>
             </div>
           </div>
         </div>
