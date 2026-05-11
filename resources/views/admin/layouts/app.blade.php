@@ -17,6 +17,7 @@
     
     <!-- Custom Admin Style -->
     <link rel="stylesheet" href="{{ asset('assets/css/admin-style.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
     <style>
       @import url("https://rsms.me/inter/inter.css");
@@ -67,6 +68,25 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    {{-- Global SweetAlert2 Flash Messages --}}
+    @if(session('success'))
+    <script>
+        Swal.fire({ title: 'Berhasil!', text: '{{ session('success') }}', icon: 'success', timer: 3000, showConfirmButton: false });
+    </script>
+    @endif
+    @if(session('error'))
+    <script>
+        Swal.fire({ title: 'Gagal!', text: '{{ session('error') }}', icon: 'error' });
+    </script>
+    @endif
+    @if($errors->any())
+    <script>
+        Swal.fire({ title: 'Validasi Gagal!', html: '{!! implode("<br>", $errors->all()) !!}', icon: 'warning' });
+    </script>
+    @endif
+
     @stack('js')
   </body>
 </html>

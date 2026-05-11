@@ -11,17 +11,6 @@
                 <h1 class="page-title">Dashboard</h1>
             </div>
             <!-- Page title actions -->
-            <div class="col-auto ms-auto d-print-none">
-                <div class="btn-list">
-                    <span class="d-none d-sm-inline">
-                        <a href="#" class="btn btn-white"> New view </a>
-                    </span>
-                    <a href="#" class="btn btn-primary d-none d-sm-inline-block" data-bs-toggle="modal" data-bs-target="#modal-report">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                        Create new report
-                    </a>
-                </div>
-            </div>
         </div>
     </div>
 </div>
@@ -40,7 +29,7 @@
                     <div>
                         <div class="subheader text-primary mb-1">Total Pendaftaran</div>
                         <div class="h3 fw-bold mb-0">{{ $totalRegistrations ?? 0 }}</div>
-                        <div class="small text-muted">Siswa terdaftar</div>
+                        <div class="small text-muted">Entries</div>
                     </div>
                 </div>
             </div>
@@ -49,12 +38,12 @@
             <div class="card p-3 bg-success-subtle border-0 rounded-3">
                 <div class="d-flex align-items-center gap-3">
                     <div class="avatar avatar-md bg-success text-white rounded-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calculator" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 3m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M8 7m0 1a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1v1a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1z" /><path d="M8 14l0 .01" /><path d="M12 14l0 .01" /><path d="M16 14l0 .01" /><path d="M8 17l0 .01" /><path d="M12 17l0 .01" /><path d="M16 17l0 .01" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-school" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M22 9l-10 -4l-10 4l10 4l10 -4v6" /><path d="M6 10.6v5.4a6 3 0 0 0 12 0v-5.4" /></svg>
                     </div>
                     <div>
-                        <div class="subheader text-success mb-1">Program Matematika</div>
-                        <div class="h3 fw-bold mb-0">{{ $mathCount ?? 0 }}</div>
-                        <div class="small text-muted">Siswa aktif</div>
+                        <div class="subheader text-success mb-1">Total Siswa</div>
+                        <div class="h3 fw-bold mb-0">{{ $totalStudents ?? 0 }}</div>
+                        <div class="small text-muted">Siswa Aktif</div>
                     </div>
                 </div>
             </div>
@@ -63,12 +52,12 @@
             <div class="card p-3 bg-info-subtle border-0 rounded-3">
                 <div class="d-flex align-items-center gap-3">
                     <div class="avatar avatar-md bg-info text-white rounded-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5h7" /><path d="M9 3v2c0 4.418 -2.239 8 -5 8" /><path d="M5 9c0 2.144 2.952 3.908 6.7 4" /><path d="M12 20l4 -9l4 9" /><path d="M19.1 18h-6.2" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-cash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 9m0 2a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2z" /><path d="M14 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M17 9v-2a2 2 0 0 0 -2 -2h-10a2 2 0 0 0 -2 2v6a2 2 0 0 0 2 2h2" /></svg>
                     </div>
                     <div>
-                        <div class="subheader text-info mb-1">Program B. Inggris</div>
-                        <div class="h3 fw-bold mb-0">{{ $englishCount ?? 0 }}</div>
-                        <div class="small text-muted">Siswa aktif</div>
+                        <div class="subheader text-info mb-1">Total Pendapatan</div>
+                        <div class="h3 fw-bold mb-0">Rp {{ number_format($totalRevenue ?? 0, 0, ',', '.') }}</div>
+                        <div class="small text-muted">Semua Transaksi</div>
                     </div>
                 </div>
             </div>
@@ -77,12 +66,12 @@
             <div class="card p-3 bg-warning-subtle border-0 rounded-3">
                 <div class="d-flex align-items-center gap-3">
                     <div class="avatar avatar-md bg-warning text-white rounded-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /><path d="M11 15h1" /><path d="M12 15v3" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-trending-up" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 17l6 -6l4 4l8 -8" /><path d="M14 7l7 0l0 7" /></svg>
                     </div>
                     <div>
-                        <div class="subheader text-warning mb-1">Pendaftaran Bulan Ini</div>
-                        <div class="h3 fw-bold mb-0">{{ $monthlyRegistrations ?? 0 }}</div>
-                        <div class="small text-muted">Bulan {{ date('F Y') }}</div>
+                        <div class="subheader text-warning mb-1">Pendapatan Bulan Ini</div>
+                        <div class="h3 fw-bold mb-0">Rp {{ number_format($monthlyRevenue ?? 0, 0, ',', '.') }}</div>
+                        <div class="small text-muted">{{ date('F Y') }}</div>
                     </div>
                 </div>
             </div>

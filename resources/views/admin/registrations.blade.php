@@ -23,12 +23,12 @@
                     <thead class="table-light">
                         <tr>
                             <th class="px-4">#</th>
+                            <th>Kode</th>
+                            <th>NIS</th>
                             <th>Nama Siswa</th>
                             <th>Kelas</th>
                             <th>Program</th>
-                            <th>Proses KBM</th>
-                            <th>No. WhatsApp</th>
-                            <th>Asal Sekolah</th>
+                            <th>Status</th>
                             <th>Tanggal Daftar</th>
                             <th class="text-center">Aksi</th>
                         </tr>
@@ -54,6 +54,9 @@
                 <div class="row g-3">
                     {{-- Informasi Siswa --}}
                     <div class="col-12"><h6 class="fw-bold border-bottom pb-2">Informasi Siswa</h6></div>
+                    <div class="col-md-4"><small class="text-muted d-block">Kode Registrasi</small><strong id="detail-registration_code"></strong></div>
+                    <div class="col-md-4"><small class="text-muted d-block">NIS</small><strong id="detail-nis"></strong></div>
+                    <div class="col-md-4"><small class="text-muted d-block">Status</small><strong id="detail-status"></strong></div>
                     <div class="col-md-4"><small class="text-muted d-block">Nama Lengkap</small><strong id="detail-full_name"></strong></div>
                     <div class="col-md-4"><small class="text-muted d-block">Nama Panggilan</small><strong id="detail-nickname"></strong></div>
                     <div class="col-md-4"><small class="text-muted d-block">Tanggal Lahir</small><strong id="detail-birth_date"></strong></div>
@@ -107,12 +110,12 @@ $(document).ready(function() {
         ajax: "{{ route('admin.data.registrations') }}",
         columns: [
             { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false, className: 'px-4' },
+            { data: 'registration_code', name: 'registration_code' },
+            { data: 'nis', name: 'nis', defaultContent: '-' },
             { data: 'full_name', name: 'full_name' },
             { data: 'grade', name: 'grade', defaultContent: '-' },
             { data: 'program', name: 'program' },
-            { data: 'kbm_process', name: 'kbm_process', defaultContent: '-' },
-            { data: 'whatsapp', name: 'whatsapp', defaultContent: '-' },
-            { data: 'school_origin', name: 'school_origin', defaultContent: '-' },
+            { data: 'status', name: 'status' },
             { data: 'created_at', name: 'created_at' },
             { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center' }
         ],
@@ -144,6 +147,9 @@ $(document).ready(function() {
                 if ($('#detail-' + key).length) {
                     $('#detail-' + key).text(data[key] || '-');
                 }
+            }
+            if (data.schedule_session) {
+                $('#detail-study_session').text(data.schedule_session.name);
             }
         });
     });

@@ -119,13 +119,17 @@
                         </div>
                     </div>
                     <div class="row g-4 mb-5">
-                        <div class="col-md-8">
+                        <div class="col-md-6">
                             <label class="form-label-livo">Nama Lengkap</label>
                             <input type="text" name="full_name" class="form-control-livo" placeholder="Masukkan nama lengkap siswa" required>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label-livo">Nama Panggilan</label>
                             <input type="text" name="nickname" class="form-control-livo" placeholder="Nama panggilan">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label-livo">NIS (Jika ada)</label>
+                            <input type="text" name="nis" class="form-control-livo" placeholder="Nomor Induk Siswa">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label-livo">Tanggal Lahir</label>
@@ -253,11 +257,25 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label-livo">Pilihan Hari</label>
-                            <input type="text" name="selected_days" class="form-control-livo" placeholder="Contoh: Senin & Kamis">
+                            <select name="selected_days" class="form-control-livo">
+                                <option value="">-- Pilih Hari --</option>
+                                <option value="Senin">Senin</option>
+                                <option value="Selasa">Selasa</option>
+                                <option value="Rabu">Rabu</option>
+                                <option value="Kamis">Kamis</option>
+                                <option value="Jumat">Jumat</option>
+                                <option value="Sabtu">Sabtu</option>
+                                <option value="Minggu">Minggu</option>
+                            </select>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label-livo">Sesi Belajar</label>
-                            <input type="text" name="study_session" class="form-control-livo" placeholder="Contoh: 14.00 - 15.30">
+                            <select name="schedule_session_id" class="form-control-livo">
+                                <option value="">-- Pilih Sesi --</option>
+                                @foreach($sessions as $session)
+                                    <option value="{{ $session->id }}">{{ $session->name }} ({{ date('H:i', strtotime($session->time_start)) }} - {{ date('H:i', strtotime($session->time_end)) }})</option>
+                                @endforeach
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label-livo">Kurikulum Sekolah</label>

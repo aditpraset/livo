@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class StudentRegistration extends Model
+class Student extends Model
 {
     use HasFactory;
 
@@ -41,32 +41,18 @@ class StudentRegistration extends Model
         'marketing_pic',
     ];
 
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($model) {
-            $date = date('ymd');
-            $latest = self::where('registration_code', 'like', $date . '%')
-                ->orderBy('registration_code', 'desc')
-                ->first();
-
-            if ($latest) {
-                $sequence = intval(substr($latest->registration_code, 6)) + 1;
-            } else {
-                $sequence = 1;
-            }
-
-            $model->registration_code = $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
-            
-            if (empty($model->status)) {
-                $model->status = 'Baru';
-            }
-        });
-    }
-
     public function scheduleSession()
     {
         return $this->belongsTo(ScheduleSession::class);
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function scheduleStudents()
+    {
+        return $this->hasMany(ScheduleStudent::class);
     }
 }

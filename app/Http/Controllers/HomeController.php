@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use App\Models\StudentRegistration;
+use App\Models\Student;
+use App\Models\ScheduleSession;
+use App\Models\ScheduleStudent;
 
 class HomeController extends Controller
 {
@@ -15,7 +17,8 @@ class HomeController extends Controller
 
     public function registration()
     {
-        return view('website.registration');
+        $sessions = ScheduleSession::all();
+        return view('website.registration', compact('sessions'));
     }
 
     public function storeRegistration(Request $request)
@@ -23,6 +26,7 @@ class HomeController extends Controller
         $validated = $request->validate([
             'full_name'            => 'required|string|max:255',
             'nickname'             => 'nullable|string|max:255',
+            'nis'                  => 'nullable|string|max:50',
             'registration_date'    => 'nullable|date',
             'birth_date'           => 'nullable|date',
             'religion'             => 'nullable|string|max:50',
@@ -40,36 +44,37 @@ class HomeController extends Controller
             'kbm_process'          => 'nullable|string|max:100',
             'package'              => 'nullable|string|max:100',
             'program'              => 'nullable|string|max:100',
-            'selected_days'        => 'nullable|string|max:100',
-            'study_session'        => 'nullable|string|max:100',
+            'selected_days'        => 'nullable|string|max:50',
+            'schedule_session_id'  => 'nullable|exists:schedule_sessions,id',
             'school_curriculum'    => 'nullable|string|max:100',
             'learning_material'    => 'nullable|string|max:255',
             'promo_code'           => 'nullable|string|max:50',
             'registration_info'    => 'nullable|string|max:100',
             'marketing_pic'        => 'nullable|string|max:100',
-            // 'g-recaptcha-response' => 'required',
-        ], [
-            'g-recaptcha-response.required' => 'Harap verifikasi bahwa Anda bukan robot.',
         ]);
 
-        // Verify reCAPTCHA with Google
-        // $recaptchaResponse = Http::asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
-        //     'secret'   => config('services.recaptcha.secret_key'),
-        //     'response' => $request->input('g-recaptcha-response'),
-        //     'remoteip' => $request->ip(),
-        // ]);
+        $data = $validated;
+        $data['status'] = 'Baru';
+        $data['registration_code'] = 'REG-' . strtoupper(str_replace(' ', '', substr($request->full_name, 0, 3))) . '-' . date('YmdHis');
 
-        // if (!$recaptchaResponse->json('success')) {
-        //     return redirect()->back()
-        //         ->withInput()
-        //         ->withErrors(['g-recaptcha-response' => 'Verifikasi reCAPTCHA gagal. Silakan coba lagi.']);
-        // }
+        // Save to Student Registration table
+        $registration = StudentRegistration::create($data);
 
-        // // Remove reCAPTCHA field before saving
-        // $data = $request->except(['_token', 'g-recaptcha-response']);
-        // StudentRegistration::create($data);
+        // Save to Student table (status 2 = Non Aktif)
+        $studentData = $data;
+        $studentData['status'] = 2; // Non Aktif
+        $studentData['registration_date'] = $registration->registration_date ?? date('Y-m-d');
+        $student = Student::create($studentData);
 
-        StudentRegistration::create($request->all());
+        // Save to ScheduleStudent table
+        if (isset($validated['selected_days']) && isset($validated['schedule_session_id'])) {
+            ScheduleStudent::create([
+                'student_id' => $student->id,
+                'schedule_session_id' => $validated['schedule_session_id'],
+                'date' => $validated['selected_days'],
+                'notes' => 'Jadwal Pendaftaran Awal'
+            ]);
+        }
 
         return redirect()->back()->with('success', 'Pendaftaran berhasil dikirim! Tim kami akan segera menghubungi Anda.');
     }
