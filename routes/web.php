@@ -4,13 +4,20 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\EvaluationController;
+use App\Http\Controllers\Admin\PackageController;
 use App\Http\Controllers\Admin\PaymentController;
+use App\Http\Controllers\Admin\PromoController;
+use App\Http\Controllers\Admin\ScheduleController;
 use App\Http\Controllers\Admin\StudentController;
+use App\Http\Controllers\Admin\SubjectController;
+use App\Http\Controllers\Admin\TutorController;
 use App\Http\Controllers\Auth\LoginController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/pendaftaran', [HomeController::class, 'registration'])->name('registration');
 Route::post('/pendaftaran', [HomeController::class, 'storeRegistration'])->name('registration.store');
+Route::get('/pendaftaran/cek-promo', [HomeController::class, 'checkPromo'])->name('registration.check-promo');
 
 // Auth Routes
 Auth::routes(['register' => false, 'reset' => false, 'verify' => false]);
@@ -56,7 +63,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])->name('payments.destroy');
         Route::get('/payments/{payment}/receipt', [PaymentController::class, 'printReceipt'])->name('payments.receipt');
 
-        // Schedule Sessions (Master)
+        // Schedule Sessions (Master — lama, dipertahankan)
         Route::get('/schedule-sessions', [\App\Http\Controllers\Admin\ScheduleSessionController::class, 'index'])->name('schedule-sessions.index');
         Route::get('/data/schedule-sessions', [\App\Http\Controllers\Admin\ScheduleSessionController::class, 'data'])->name('schedule-sessions.data');
         Route::post('/schedule-sessions', [\App\Http\Controllers\Admin\ScheduleSessionController::class, 'store'])->name('schedule-sessions.store');
@@ -64,10 +71,52 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('/schedule-sessions/{scheduleSession}', [\App\Http\Controllers\Admin\ScheduleSessionController::class, 'update'])->name('schedule-sessions.update');
         Route::delete('/schedule-sessions/{scheduleSession}', [\App\Http\Controllers\Admin\ScheduleSessionController::class, 'destroy'])->name('schedule-sessions.destroy');
 
-        // Student Schedule Management
+        // ── Master Data ──────────────────────────────────────────────
+        // Paket Belajar
+        Route::get('/packages', [PackageController::class, 'index'])->name('packages.index');
+        Route::get('/data/packages', [PackageController::class, 'data'])->name('packages.data');
+        Route::post('/packages', [PackageController::class, 'store'])->name('packages.store');
+        Route::put('/packages/{package}', [PackageController::class, 'update'])->name('packages.update');
+        Route::delete('/packages/{package}', [PackageController::class, 'destroy'])->name('packages.destroy');
+
+        // Promo & Diskon
+        Route::get('/promos', [PromoController::class, 'index'])->name('promos.index');
+        Route::get('/data/promos', [PromoController::class, 'data'])->name('promos.data');
+        Route::post('/promos', [PromoController::class, 'store'])->name('promos.store');
+        Route::put('/promos/{promo}', [PromoController::class, 'update'])->name('promos.update');
+        Route::delete('/promos/{promo}', [PromoController::class, 'destroy'])->name('promos.destroy');
+
+        // Mata Pelajaran
+        Route::get('/subjects', [SubjectController::class, 'index'])->name('subjects.index');
+        Route::get('/data/subjects', [SubjectController::class, 'data'])->name('subjects.data');
+        Route::post('/subjects', [SubjectController::class, 'store'])->name('subjects.store');
+        Route::put('/subjects/{subject}', [SubjectController::class, 'update'])->name('subjects.update');
+        Route::delete('/subjects/{subject}', [SubjectController::class, 'destroy'])->name('subjects.destroy');
+
+        // Tutor
+        Route::get('/tutors', [TutorController::class, 'index'])->name('tutors.index');
+        Route::get('/data/tutors', [TutorController::class, 'data'])->name('tutors.data');
+        Route::post('/tutors', [TutorController::class, 'store'])->name('tutors.store');
+        Route::put('/tutors/{tutor}', [TutorController::class, 'update'])->name('tutors.update');
+        Route::delete('/tutors/{tutor}', [TutorController::class, 'destroy'])->name('tutors.destroy');
+
+        // ── Penjadwalan ───────────────────────────────────────────────
+        Route::get('/schedules', [ScheduleController::class, 'index'])->name('schedules.index');
+        Route::get('/data/schedules', [ScheduleController::class, 'data'])->name('schedules.data');
+        Route::get('/schedules/events', [ScheduleController::class, 'events'])->name('schedules.events');
+        Route::post('/schedules', [ScheduleController::class, 'store'])->name('schedules.store');
+        Route::get('/schedules/{schedule}', [ScheduleController::class, 'show'])->name('schedules.show');
+        Route::put('/schedules/{schedule}', [ScheduleController::class, 'update'])->name('schedules.update');
+        Route::put('/schedules/{schedule}/status', [ScheduleController::class, 'updateStatus'])->name('schedules.updateStatus');
+        Route::delete('/schedules/{schedule}', [ScheduleController::class, 'destroy'])->name('schedules.destroy');
+
+        // ── Evaluasi ──────────────────────────────────────────────────
+        Route::get('/evaluations/student/{student}', [EvaluationController::class, 'studentReport'])->name('evaluations.student');
+        Route::post('/evaluations', [EvaluationController::class, 'store'])->name('evaluations.store');
+        Route::put('/evaluations/{evaluation}', [EvaluationController::class, 'update'])->name('evaluations.update');
+        Route::put('/evaluations/{evaluation}/publish', [EvaluationController::class, 'publish'])->name('evaluations.publish');
+
+        // Student Schedule Management (lama — dipertahankan untuk backward compat)
         Route::post('/students/{student}/schedules', [\App\Http\Controllers\Admin\ScheduleStudentController::class, 'store'])->name('students.schedules.store');
-        Route::get('/schedules/{scheduleStudent}', [\App\Http\Controllers\Admin\ScheduleStudentController::class, 'show'])->name('schedules.show');
-        Route::put('/schedules/{scheduleStudent}', [\App\Http\Controllers\Admin\ScheduleStudentController::class, 'update'])->name('schedules.update');
-        Route::delete('/schedules/{scheduleStudent}', [\App\Http\Controllers\Admin\ScheduleStudentController::class, 'destroy'])->name('schedules.destroy');
     });
 });

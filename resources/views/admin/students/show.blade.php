@@ -97,7 +97,12 @@
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link py-3 fw-bold border-0" id="schedule-tab" data-bs-toggle="tab" data-bs-target="#schedule-content" type="button" role="tab">
-                            <i class="bi bi-calendar-event me-1"></i> Jadwal Siswa
+                            <i class="bi bi-calendar-event me-1"></i> Jadwal Belajar
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link py-3 fw-bold border-0" id="eval-tab" data-bs-toggle="tab" data-bs-target="#eval-content" type="button" role="tab">
+                            <i class="bi bi-clipboard2-check me-1"></i> Evaluasi
                         </button>
                     </li>
                 </ul>
@@ -165,66 +170,160 @@
                     </div>
                 </div>
 
-                <!-- Tab 2: Jadwal Siswa -->
+                <!-- Tab 2: Jadwal Belajar (schedules baru) -->
                 <div class="tab-pane fade" id="schedule-content" role="tabpanel">
                     <div class="card-body p-0">
                         <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light-subtle">
-                            <h6 class="mb-0 fw-bold">Daftar Jadwal Belajar</h6>
-                            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modal-schedule" onclick="addSchedule()">
+                            <div>
+                                <h6 class="mb-0 fw-bold">Daftar Jadwal Belajar</h6>
+                                <small class="text-muted">Kuota sisa: <span class="fw-bold text-primary">{{ $student->quota_sessions ?? 0 }}</span> sesi</small>
+                            </div>
+                            <button type="button" class="btn btn-primary btn-sm" id="btn-add-sched">
                                 <i class="bi bi-plus-lg me-1"></i> Tambah Jadwal
                             </button>
                         </div>
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
+                            <table class="table table-hover align-middle mb-0" id="student-schedules-table">
                                 <thead class="table-light">
                                     <tr>
-                                        <th class="px-4 py-3">Hari</th>
-                                        <th class="py-3">Sesi</th>
+                                        <th class="px-4 py-3">Tanggal</th>
+                                        <th class="py-3">Mata Pelajaran</th>
+                                        <th class="py-3">Tutor</th>
                                         <th class="py-3">Jam</th>
-                                        <th class="py-3">Catatan</th>
+                                        <th class="py-3 text-center">Status</th>
+                                        <th class="py-3 text-center">Evaluasi</th>
                                         <th class="px-4 py-3 text-end">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse($student->scheduleStudents as $schedule)
+                                    @forelse($schedules as $sched)
                                     <tr>
-                                        <td class="px-4 fw-bold text-primary">{{ $schedule->date }}</td>
-                                        <td>{{ $schedule->scheduleSession->name ?? '-' }}</td>
+                                        <td class="px-4">
+                                            <div class="fw-semibold">{{ \Carbon\Carbon::parse($sched->class_date)->translatedFormat('d M Y') }}</div>
+                                            <small class="text-muted">{{ \Carbon\Carbon::parse($sched->class_date)->translatedFormat('l') }}</small>
+                                        </td>
                                         <td>
-                                            @if($schedule->scheduleSession)
-                                                <span class="badge bg-light text-dark border">
-                                                    {{ date('H:i', strtotime($schedule->scheduleSession->time_start)) }} - {{ date('H:i', strtotime($schedule->scheduleSession->time_end)) }}
-                                                </span>
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                                {{ $sched->subject->subject_name ?? '-' }}
+                                            </span>
+                                        </td>
+                                        <td>{{ $sched->tutor->name ?? '-' }}</td>
+                                        <td>
+                                            <span class="badge bg-light text-dark border">
+                                                {{ substr($sched->start_time, 0, 5) }} – {{ substr($sched->end_time, 0, 5) }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            @php
+                                                $statusBadge = match($sched->status_schedule) {
+                                                    'scheduled' => 'bg-primary',
+                                                    'done'      => 'bg-success',
+                                                    'canceled'  => 'bg-secondary',
+                                                };
+                                                $statusLabel = match($sched->status_schedule) {
+                                                    'scheduled' => 'Dijadwalkan',
+                                                    'done'      => 'Selesai',
+                                                    'canceled'  => 'Dibatalkan',
+                                                };
+                                            @endphp
+                                            <span class="badge {{ $statusBadge }}">{{ $statusLabel }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            @if($sched->status_schedule === 'done')
+                                                @if($sched->evaluation)
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                        <i class="bi bi-check-circle me-1"></i>Sudah
+                                                    </span>
+                                                @else
+                                                    <button class="btn btn-sm btn-outline-info btn-eval-student"
+                                                        data-id="{{ $sched->id }}"
+                                                        data-date="{{ \Carbon\Carbon::parse($sched->class_date)->translatedFormat('d M Y') }}"
+                                                        data-subject="{{ $sched->subject->subject_name ?? '-' }}"
+                                                        data-tutor="{{ $sched->tutor->name ?? '-' }}">
+                                                        <i class="bi bi-clipboard2-check me-1"></i>Isi
+                                                    </button>
+                                                @endif
                                             @else
-                                                -
+                                                <span class="text-muted small">—</span>
                                             @endif
                                         </td>
-                                        <td class="text-muted small">{{ $schedule->notes ?? '-' }}</td>
                                         <td class="px-4 text-end">
                                             <div class="btn-group btn-group-sm">
-                                                <button type="button" class="btn btn-outline-warning" onclick="editSchedule({{ $schedule->id }})">
-                                                    <i class="bi bi-pencil"></i>
-                                                </button>
-                                                <form action="{{ route('admin.schedules.destroy', $schedule->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus jadwal ini?')">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="btn btn-outline-danger">
-                                                        <i class="bi bi-trash"></i>
+                                                @if($sched->status_schedule === 'scheduled')
+                                                    <button class="btn btn-outline-success btn-done-student" data-id="{{ $sched->id }}" title="Tandai Selesai">
+                                                        <i class="bi bi-check-lg"></i>
                                                     </button>
-                                                </form>
+                                                    <button class="btn btn-outline-secondary btn-cancel-student" data-id="{{ $sched->id }}" title="Batalkan">
+                                                        <i class="bi bi-x-circle"></i>
+                                                    </button>
+                                                @endif
+                                                @if($sched->status_schedule === 'done' && $sched->evaluation)
+                                                    <button class="btn btn-outline-info btn-eval-student"
+                                                        data-id="{{ $sched->id }}"
+                                                        data-date="{{ \Carbon\Carbon::parse($sched->class_date)->translatedFormat('d M Y') }}"
+                                                        data-subject="{{ $sched->subject->subject_name ?? '-' }}"
+                                                        data-tutor="{{ $sched->tutor->name ?? '-' }}"
+                                                        data-attendance="{{ $sched->evaluation->student_attendance }}"
+                                                        data-score="{{ $sched->evaluation->score ?? '' }}"
+                                                        data-notes="{{ $sched->evaluation->tutor_notes ?? '' }}"
+                                                        title="Edit Evaluasi">
+                                                        <i class="bi bi-clipboard2-check"></i>
+                                                    </button>
+                                                @endif
+                                                <button class="btn btn-outline-danger btn-delete-student" data-id="{{ $sched->id }}" title="Hapus">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="5" class="text-center py-5 text-muted">
+                                        <td colspan="7" class="text-center py-5 text-muted">
                                             <i class="bi bi-calendar-x fs-2 d-block mb-2"></i>
-                                            Belum ada jadwal yang diatur untuk siswa ini.
+                                            Belum ada jadwal untuk siswa ini.
                                         </td>
                                     </tr>
                                     @endforelse
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Evaluasi -->
+                <div class="tab-pane fade" id="eval-content" role="tabpanel">
+                    @php
+                        $doneSchedules = $student->schedules->where('status_schedule', 'done');
+                        $evalDone      = $doneSchedules->filter(fn($s) => $s->evaluation);
+                        $scores        = $evalDone->filter(fn($s) => $s->evaluation->score !== null)->map(fn($s) => $s->evaluation->score);
+                        $avgScore      = $scores->count() ? round($scores->avg(), 1) : null;
+                    @endphp
+                    <div class="card-body">
+                        {{-- Mini stats --}}
+                        <div class="row g-3 mb-4">
+                            <div class="col-4">
+                                <div class="text-center p-3 rounded bg-primary bg-opacity-10">
+                                    <div class="fs-3 fw-bold text-primary">{{ $doneSchedules->count() }}</div>
+                                    <div class="small text-muted">Sesi Selesai</div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-center p-3 rounded bg-success bg-opacity-10">
+                                    <div class="fs-3 fw-bold text-success">{{ $evalDone->count() }}</div>
+                                    <div class="small text-muted">Sudah Dievaluasi</div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-center p-3 rounded bg-info bg-opacity-10">
+                                    <div class="fs-3 fw-bold text-info">{{ $avgScore ?? '—' }}</div>
+                                    <div class="small text-muted">Rata-rata Nilai</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <a href="{{ route('admin.evaluations.student', $student->id) }}" class="btn btn-outline-primary">
+                                <i class="bi bi-clipboard2-data me-1"></i> Lihat Laporan Evaluasi Lengkap
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -285,73 +384,285 @@
 </div>
 @endsection
 
-{{-- Modal Schedule --}}
-<div class="modal fade" id="modal-schedule" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <form action="" method="POST" id="form-schedule" class="modal-content">
-            @csrf
-            <div id="method-field"></div>
+{{-- Modal: Tambah / Edit Jadwal (siswa sudah terpilih) --}}
+<div class="modal fade" id="modal-sched-student" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modal-schedule-title">Tambah Jadwal</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title" id="modal-sched-title">Tambah Jadwal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <input type="hidden" id="sched-id">
                 <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label">Hari <span class="text-danger">*</span></label>
-                        <select name="date" class="form-select" id="field-date" required>
-                            <option value="">-- Pilih Hari --</option>
-                            @foreach(['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'] as $day)
-                                <option value="{{ $day }}">{{ $day }}</option>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Tutor <span class="text-danger">*</span></label>
+                        <select id="sched-tutor" class="form-select">
+                            <option value="">-- Pilih Tutor --</option>
+                            @foreach($tutors as $t)
+                                <option value="{{ $t->id }}">{{ $t->name }}</option>
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-12">
-                        <label class="form-label">Sesi Belajar <span class="text-danger">*</span></label>
-                        <select name="schedule_session_id" class="form-select" id="field-session" required>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Mata Pelajaran <span class="text-danger">*</span></label>
+                        <select id="sched-subject" class="form-select">
+                            <option value="">-- Pilih Mapel --</option>
+                            @foreach($subjects as $sub)
+                                <option value="{{ $sub->id }}">{{ $sub->subject_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Tanggal <span class="text-danger">*</span></label>
+                        <input type="date" id="sched-date" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Sesi Pembelajaran <span class="text-danger">*</span></label>
+                        <select id="sched-session" class="form-select">
                             <option value="">-- Pilih Sesi --</option>
-                            @foreach($scheduleSessions as $session)
-                                <option value="{{ $session->id }}">{{ $session->name }} ({{ date('H:i', strtotime($session->time_start)) }} - {{ date('H:i', strtotime($session->time_end)) }})</option>
+                            @foreach($scheduleSessions as $sess)
+                                <option value="{{ $sess->id }}"
+                                    data-start="{{ substr($sess->time_start, 0, 5) }}"
+                                    data-end="{{ substr($sess->time_end, 0, 5) }}">
+                                    {{ $sess->name }} ({{ substr($sess->time_start, 0, 5) }} – {{ substr($sess->time_end, 0, 5) }})
+                                </option>
                             @endforeach
                         </select>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Catatan</label>
-                        <textarea name="notes" class="form-control" id="field-notes" rows="2" placeholder="Contoh: Pertemuan ke-1"></textarea>
+                        <div class="form-text" id="sched-time-display"></div>
+                        <input type="hidden" id="sched-start">
+                        <input type="hidden" id="sched-end">
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                <button type="submit" class="btn btn-primary">Simpan Jadwal</button>
+                <button type="button" class="btn btn-primary" id="btn-save-sched">Simpan Jadwal</button>
             </div>
-        </form>
+        </div>
+    </div>
+</div>
+
+{{-- Modal: Evaluasi --}}
+<div class="modal fade" id="modal-eval-student" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info bg-opacity-10">
+                <h5 class="modal-title"><i class="bi bi-clipboard2-check me-2"></i>Evaluasi Sesi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="eval-sched-id">
+                <div class="alert alert-light border mb-3 small" id="eval-info-box"></div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Kehadiran Siswa <span class="text-danger">*</span></label>
+                    <div class="d-flex gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="eval_att" id="ev-hadir" value="hadir">
+                            <label class="form-check-label" for="ev-hadir"><span class="badge bg-success">Hadir</span></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="eval_att" id="ev-izin" value="izin">
+                            <label class="form-check-label" for="ev-izin"><span class="badge bg-warning text-dark">Izin</span></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="eval_att" id="ev-alfa" value="alfa">
+                            <label class="form-check-label" for="ev-alfa"><span class="badge bg-danger">Alfa</span></label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Nilai (0–100)</label>
+                    <input type="number" id="eval-score" class="form-control" min="0" max="100" placeholder="Kosongkan jika tidak ada kuis">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Catatan Tutor</label>
+                    <textarea id="eval-notes" class="form-control" rows="3" placeholder="Perkembangan belajar siswa, materi yang dipelajari, dll."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-info text-white" id="btn-save-eval">Simpan Evaluasi</button>
+            </div>
+        </div>
     </div>
 </div>
 
 @push('js')
 <script>
-    function addSchedule() {
-        $('#modal-schedule-title').text('Tambah Jadwal');
-        $('#form-schedule').attr('action', "{{ route('admin.students.schedules.store', $student->id) }}");
-        $('#method-field').html('');
-        $('#field-date').val('');
-        $('#field-session').val('');
-        $('#field-notes').val('');
-    }
+$(function () {
+    var STUDENT_ID = {{ $student->id }};
 
-    function editSchedule(id) {
-        $('#modal-schedule-title').text('Edit Jadwal');
-        $('#form-schedule').attr('action', "/admin/schedules/" + id);
-        $('#method-field').html('@method("PUT")');
-        
-        // Fetch data
-        $.get("/admin/schedules/" + id, function(data) {
-            $('#field-date').val(data.date);
-            $('#field-session').val(data.schedule_session_id);
-            $('#field-notes').val(data.notes);
-            $('#modal-schedule').modal('show');
+    /* ---- Auto-fill jam dari sesi ---- */
+    $('#sched-session').on('change', function () {
+        var opt   = $(this).find('option:selected');
+        var start = opt.data('start') || '';
+        var end   = opt.data('end')   || '';
+        $('#sched-start').val(start);
+        $('#sched-end').val(end);
+        if (start && end) {
+            $('#sched-time-display').html('<i class="bi bi-clock me-1"></i>Jam: <strong>' + start + ' – ' + end + '</strong>');
+        } else {
+            $('#sched-time-display').text('');
+        }
+    });
+
+    /* ---- Tambah Jadwal ---- */
+    $('#btn-add-sched').on('click', function () {
+        $('#sched-id').val('');
+        $('#sched-tutor, #sched-subject').val('');
+        $('#sched-date, #sched-start, #sched-end').val('');
+        $('#sched-time-display').text('');
+        $('#modal-sched-title').text('Tambah Jadwal – {{ $student->full_name }}');
+
+        // Default ke sesi yang dipilih siswa saat pendaftaran
+        var defaultSession = {{ $student->schedule_session_id ?? 'null' }};
+        if (defaultSession) {
+            $('#sched-session').val(defaultSession).trigger('change');
+        } else {
+            $('#sched-session').val('');
+        }
+
+        $('#modal-sched-student').modal('show');
+    });
+
+    /* ---- Simpan Jadwal ---- */
+    $('#btn-save-sched').on('click', function () {
+        var id   = $('#sched-id').val();
+        var url  = id ? '/admin/schedules/' + id : '{{ route("admin.schedules.store") }}';
+        var type = id ? 'PUT' : 'POST';
+
+        $.ajax({
+            url: url, type: type,
+            data: {
+                student_id: STUDENT_ID,
+                tutor_id:   $('#sched-tutor').val(),
+                subject_id: $('#sched-subject').val(),
+                class_date: $('#sched-date').val(),
+                start_time: $('#sched-start').val(),
+                end_time:   $('#sched-end').val(),
+                _token:     '{{ csrf_token() }}'
+            },
+            success: function (res) {
+                $('#modal-sched-student').modal('hide');
+                Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2000, showConfirmButton: false })
+                    .then(function () { location.reload(); });
+            },
+            error: function (xhr) {
+                var msg = xhr.responseJSON?.message ?? 'Terjadi kesalahan.';
+                Swal.fire('Gagal', msg, 'error');
+            }
         });
-    }
+    });
+
+    /* ---- Tandai Selesai ---- */
+    $(document).on('click', '.btn-done-student', function () {
+        var id = $(this).data('id');
+        Swal.fire({
+            title: 'Tandai Sesi Selesai?',
+            text: 'Kuota siswa akan berkurang 1 sesi.',
+            icon: 'question', showCancelButton: true,
+            confirmButtonText: 'Ya, Selesai', cancelButtonText: 'Batal'
+        }).then(function (r) {
+            if (r.isConfirmed) {
+                $.ajax({
+                    url: '/admin/schedules/' + id + '/status', type: 'PUT',
+                    data: { status: 'done', _token: '{{ csrf_token() }}' },
+                    success: function (res) {
+                        Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2000, showConfirmButton: false })
+                            .then(function () { location.reload(); });
+                    }
+                });
+            }
+        });
+    });
+
+    /* ---- Batalkan ---- */
+    $(document).on('click', '.btn-cancel-student', function () {
+        var id = $(this).data('id');
+        Swal.fire({
+            title: 'Batalkan Jadwal?', icon: 'warning', showCancelButton: true,
+            confirmButtonColor: '#6c757d', confirmButtonText: 'Ya, Batalkan', cancelButtonText: 'Tidak'
+        }).then(function (r) {
+            if (r.isConfirmed) {
+                $.ajax({
+                    url: '/admin/schedules/' + id + '/status', type: 'PUT',
+                    data: { status: 'canceled', _token: '{{ csrf_token() }}' },
+                    success: function () { location.reload(); }
+                });
+            }
+        });
+    });
+
+    /* ---- Hapus ---- */
+    $(document).on('click', '.btn-delete-student', function () {
+        var id = $(this).data('id');
+        Swal.fire({
+            title: 'Hapus Jadwal?', text: 'Data jadwal akan dihapus permanen.',
+            icon: 'warning', showCancelButton: true,
+            confirmButtonColor: '#d33', confirmButtonText: 'Ya, Hapus', cancelButtonText: 'Batal'
+        }).then(function (r) {
+            if (r.isConfirmed) {
+                $.ajax({
+                    url: '/admin/schedules/' + id, type: 'DELETE',
+                    data: { _token: '{{ csrf_token() }}' },
+                    success: function () { location.reload(); }
+                });
+            }
+        });
+    });
+
+    /* ---- Buka Modal Evaluasi ---- */
+    $(document).on('click', '.btn-eval-student', function () {
+        var btn  = $(this);
+        var id   = btn.data('id');
+        var date = btn.data('date') || '';
+        var subj = btn.data('subject') || '';
+        var tutr = btn.data('tutor') || '';
+
+        $('#eval-sched-id').val(id);
+        $('#eval-info-box').html('<b>Mapel:</b> ' + subj + ' &nbsp;|&nbsp; <b>Tutor:</b> ' + tutr + ' &nbsp;|&nbsp; <b>Tgl:</b> ' + date);
+
+        // Reset
+        $('input[name="eval_att"]').prop('checked', false);
+        $('#eval-score').val('');
+        $('#eval-notes').val('');
+
+        // Pre-fill jika sudah ada evaluasi
+        var att   = btn.data('attendance');
+        var score = btn.data('score');
+        var notes = btn.data('notes');
+        if (att)   $('input[name="eval_att"][value="' + att + '"]').prop('checked', true);
+        if (score) $('#eval-score').val(score);
+        if (notes) $('#eval-notes').val(notes);
+
+        $('#modal-eval-student').modal('show');
+    });
+
+    /* ---- Simpan Evaluasi ---- */
+    $('#btn-save-eval').on('click', function () {
+        var att = $('input[name="eval_att"]:checked').val();
+        if (!att) { Swal.fire('Perhatian', 'Kehadiran siswa harus dipilih.', 'warning'); return; }
+
+        $.ajax({
+            url: '{{ route("admin.evaluations.store") }}', type: 'POST',
+            data: {
+                schedule_id:        $('#eval-sched-id').val(),
+                student_attendance: att,
+                score:              $('#eval-score').val() || null,
+                tutor_notes:        $('#eval-notes').val(),
+                _token:             '{{ csrf_token() }}'
+            },
+            success: function (res) {
+                $('#modal-eval-student').modal('hide');
+                Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2000, showConfirmButton: false })
+                    .then(function () { location.reload(); });
+            },
+            error: function (xhr) {
+                Swal.fire('Gagal', xhr.responseJSON?.message ?? 'Terjadi kesalahan.', 'error');
+            }
+        });
+    });
+});
 </script>
 @endpush

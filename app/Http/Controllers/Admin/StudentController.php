@@ -51,7 +51,13 @@ class StudentController extends Controller
     public function show(Student $student)
     {
         $scheduleSessions = \App\Models\ScheduleSession::all();
-        return view('admin.students.show', compact('student', 'scheduleSessions'));
+        $tutors   = \App\Models\Tutor::orderBy('name')->get(['id', 'name']);
+        $subjects = \App\Models\Subject::orderBy('subject_name')->get(['id', 'subject_name']);
+        $schedules = $student->schedules()
+            ->with(['tutor', 'subject', 'evaluation'])
+            ->orderBy('class_date', 'desc')
+            ->get();
+        return view('admin.students.show', compact('student', 'scheduleSessions', 'tutors', 'subjects', 'schedules'));
     }
 
     public function edit(Student $student)

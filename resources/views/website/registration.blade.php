@@ -242,18 +242,43 @@
                                 <option value="Online">Online</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label-livo">Paket</label>
-                            <input type="text" name="package" class="form-control-livo" placeholder="Masukkan nama paket">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label-livo">Program</label>
-                            <select name="program" class="form-control-livo">
-                                <option value="">-- Pilih Program --</option>
-                                <option>Matematika</option>
-                                <option>Bahasa Inggris</option>
-                                <option>Keduanya (Math & English)</option>
+                        <div class="col-md-8">
+                            <label class="form-label-livo">Paket Belajar</label>
+                            <select name="package_id" id="reg-package" class="form-control-livo">
+                                <option value="">-- Pilih Paket --</option>
+                                @foreach($packages as $pkg)
+                                    <option value="{{ $pkg->id }}"
+                                        data-price="{{ $pkg->price }}"
+                                        data-sessions="{{ $pkg->total_sessions }}">
+                                        {{ $pkg->package_name }} &mdash; {{ $pkg->total_sessions }} sesi
+                                    </option>
+                                @endforeach
                             </select>
+                            <div id="pkg-info" class="mt-2" style="display:none;">
+                                <div class="d-flex align-items-center gap-2 small">
+                                    <span class="text-muted">Harga:</span>
+                                    <span class="fw-bold text-primary" id="pkg-price-display"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-livo">Program / Mata Pelajaran yang Dipilih</label>
+                            <div class="d-flex flex-wrap gap-3 mt-1">
+                                @foreach($subjects as $subject)
+                                    <div class="form-check" style="min-width: 160px;">
+                                        <input class="form-check-input" type="checkbox"
+                                            name="program[]"
+                                            value="{{ $subject->id }}"
+                                            id="subj-{{ $subject->id }}">
+                                        <label class="form-check-label fw-semibold" for="subj-{{ $subject->id }}" style="font-size:14px; color: var(--livo-dark);">
+                                            {{ $subject->subject_name }}
+                                        </label>
+                                    </div>
+                                @endforeach
+                                @if($subjects->isEmpty())
+                                    <p class="text-muted small mb-0">Belum ada mata pelajaran tersedia.</p>
+                                @endif
+                            </div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label-livo">Pilihan Hari</label>
@@ -294,7 +319,29 @@
                     <div class="row g-4 mb-5">
                         <div class="col-md-4">
                             <label class="form-label-livo">Kode Promo (Jika ada)</label>
-                            <input type="text" name="promo_code" class="form-control-livo" placeholder="Masukkan kode promo">
+                            <div class="d-flex gap-2">
+                                <input type="text" name="promo_code" id="reg-promo-code" class="form-control-livo text-uppercase flex-grow-1" placeholder="cth: HEMAT50" style="text-transform:uppercase">
+                                <button type="button" id="btn-cek-promo" style="background:var(--livo-blue);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-weight:700;white-space:nowrap;cursor:pointer;">
+                                    Cek
+                                </button>
+                            </div>
+                            <div id="promo-result" class="mt-2" style="font-size:13px;display:none;"></div>
+                            {{-- Ringkasan harga --}}
+                            <div id="price-summary" class="mt-3 p-3 rounded" style="background:#f0f7ff;display:none;">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted">Harga Paket</span>
+                                    <span id="sum-base">—</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1 text-success">
+                                    <span id="sum-discount-label">Diskon</span>
+                                    <span id="sum-discount-val">—</span>
+                                </div>
+                                <hr class="my-1" style="border-color:#c9e2ff">
+                                <div class="d-flex justify-content-between fw-bold" style="color:var(--livo-blue)">
+                                    <span>Total yang Dibayar</span>
+                                    <span id="sum-final">—</span>
+                                </div>
+                            </div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label-livo">Informasi Pendaftaran</label>
@@ -337,5 +384,86 @@
 
 @push('js')
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+<script>
+(function () {
+    function formatRp(num) {
+        return 'Rp ' + Number(num).toLocaleString('id-ID');
+    }
+
+    var selectedPackagePrice = 0;
+    var appliedDiscount      = 0;
+
+    /* ---- Tampilkan info harga saat paket dipilih ---- */
+    document.getElementById('reg-package').addEventListener('change', function () {
+        var opt      = this.options[this.selectedIndex];
+        var price    = parseFloat(opt.getAttribute('data-price')) || 0;
+        var sessions = opt.getAttribute('data-sessions');
+
+        selectedPackagePrice = price;
+        appliedDiscount      = 0;
+
+        var pkgInfo = document.getElementById('pkg-info');
+        var pkgPriceDisplay = document.getElementById('pkg-price-display');
+
+        if (price > 0) {
+            pkgPriceDisplay.textContent = formatRp(price) + ' (' + sessions + ' sesi)';
+            pkgInfo.style.display = 'block';
+        } else {
+            pkgInfo.style.display = 'none';
+        }
+
+        // Reset promo
+        document.getElementById('promo-result').style.display = 'none';
+        document.getElementById('price-summary').style.display = 'none';
+    });
+
+    /* ---- Cek Promo ---- */
+    document.getElementById('btn-cek-promo').addEventListener('click', function () {
+        var code      = document.getElementById('reg-promo-code').value.trim();
+        var packageId = document.getElementById('reg-package').value;
+        var resultEl  = document.getElementById('promo-result');
+
+        if (!code) {
+            resultEl.innerHTML = '<span style="color:#dc3545;">Masukkan kode promo terlebih dahulu.</span>';
+            resultEl.style.display = 'block';
+            return;
+        }
+
+        this.textContent = '...';
+        this.disabled = true;
+
+        fetch('{{ route("registration.check-promo") }}?code=' + encodeURIComponent(code) + '&package_id=' + (packageId || ''))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                document.getElementById('btn-cek-promo').textContent = 'Cek';
+                document.getElementById('btn-cek-promo').disabled = false;
+
+                if (data.valid) {
+                    appliedDiscount = data.discount_amount || 0;
+                    resultEl.innerHTML = '<span style="color:#198754;font-weight:700;">✓ ' + data.message + '</span>';
+
+                    if (selectedPackagePrice > 0) {
+                        document.getElementById('sum-base').textContent          = formatRp(selectedPackagePrice);
+                        document.getElementById('sum-discount-label').textContent = data.discount_label;
+                        document.getElementById('sum-discount-val').textContent   = '– ' + formatRp(appliedDiscount);
+                        document.getElementById('sum-final').textContent          = formatRp(data.final_price);
+                        document.getElementById('price-summary').style.display   = 'block';
+                    }
+                } else {
+                    appliedDiscount = 0;
+                    resultEl.innerHTML = '<span style="color:#dc3545;">✗ ' + data.message + '</span>';
+                    document.getElementById('price-summary').style.display = 'none';
+                }
+                resultEl.style.display = 'block';
+            })
+            .catch(function () {
+                document.getElementById('btn-cek-promo').textContent = 'Cek';
+                document.getElementById('btn-cek-promo').disabled = false;
+                resultEl.innerHTML = '<span style="color:#dc3545;">Gagal memeriksa promo. Coba lagi.</span>';
+                resultEl.style.display = 'block';
+            });
+    });
+})();
+</script>
 @endpush
 @endsection

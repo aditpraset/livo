@@ -39,6 +39,7 @@ class Student extends Model
         'promo_code',
         'registration_info',
         'marketing_pic',
+        'quota_sessions',
     ];
 
     public function scheduleSession()
@@ -54,5 +55,10 @@ class Student extends Model
     public function scheduleStudents()
     {
         return $this->hasMany(ScheduleStudent::class);
+    }
+
+    public function schedules()
+    {
+        return $this->hasMany(Schedule::class);
     }
 }
