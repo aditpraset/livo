@@ -3,7 +3,7 @@
 @section('title', 'Master Mata Pelajaran - LIVO Admin')
 
 @section('page-header')
-<div class="d-flex justify-content-between align-items-center">
+<div class="d-flex justify-content-between align-items-center p-4">
     <div>
         <h2 class="page-title">Master Mata Pelajaran</h2>
         <p class="text-muted mb-0 small">Kelola daftar mata pelajaran yang tersedia</p>
@@ -22,7 +22,7 @@
                 <tr>
                     <th width="60">#</th>
                     <th>Nama Mata Pelajaran</th>
-                    <th width="130" class="text-center">Aksi</th>
+                    <th width="170" class="text-center">Aksi</th>
                 </tr>
             </thead>
             <tbody></tbody>

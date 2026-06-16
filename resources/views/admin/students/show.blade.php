@@ -1,7 +1,7 @@
 @extends('admin.layouts.app')
 
 @section('title', 'Detail Siswa - LIVO Admin')
-@push('styles')
+@push('css')
 <style>
     .nav-tabs .nav-link {
         color: #6c757d;
@@ -19,7 +19,7 @@
         border-bottom: 2px solid #dee2e6;
     }
 </style>
-@endpush
+@endpush('css')
 
 @section('content')
 <div class="row">
@@ -58,7 +58,11 @@
                         $statusText = $student->status == 1 ? 'Aktif' : 'Non-Aktif';
                     @endphp
                     <span class="badge {{ $badgeClass }}">{{ $statusText }}</span>
-                    <span class="badge bg-primary-subtle text-primary">{{ $student->program ?? '-' }}</span>
+                    @forelse($student->program_list as $prog)
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">{{ $prog }}</span>
+                    @empty
+                        <span class="badge bg-secondary-subtle text-secondary">Tanpa Program</span>
+                    @endforelse
                 </div>
             </div>
         </div>
@@ -138,7 +142,7 @@
                             </div>
                             <div class="col-sm-6">
                                 <label class="small text-muted d-block">Pilihan Program</label>
-                                <span class="fw-semibold text-dark">{{ $student->program ?? '-' }}</span>
+                                <span class="fw-semibold text-dark">{{ $student->program_label }}</span>
                             </div>
                             <div class="col-sm-6">
                                 <label class="small text-muted d-block">Sesi Belajar</label>
@@ -236,10 +240,7 @@
                                                     </span>
                                                 @else
                                                     <button class="btn btn-sm btn-outline-info btn-eval-student"
-                                                        data-id="{{ $sched->id }}"
-                                                        data-date="{{ \Carbon\Carbon::parse($sched->class_date)->translatedFormat('d M Y') }}"
-                                                        data-subject="{{ $sched->subject->subject_name ?? '-' }}"
-                                                        data-tutor="{{ $sched->tutor->name ?? '-' }}">
+                                                        data-id="{{ $sched->id }}">
                                                         <i class="bi bi-clipboard2-check me-1"></i>Isi
                                                     </button>
                                                 @endif
@@ -260,12 +261,6 @@
                                                 @if($sched->status_schedule === 'done' && $sched->evaluation)
                                                     <button class="btn btn-outline-info btn-eval-student"
                                                         data-id="{{ $sched->id }}"
-                                                        data-date="{{ \Carbon\Carbon::parse($sched->class_date)->translatedFormat('d M Y') }}"
-                                                        data-subject="{{ $sched->subject->subject_name ?? '-' }}"
-                                                        data-tutor="{{ $sched->tutor->name ?? '-' }}"
-                                                        data-attendance="{{ $sched->evaluation->student_attendance }}"
-                                                        data-score="{{ $sched->evaluation->score ?? '' }}"
-                                                        data-notes="{{ $sched->evaluation->tutor_notes ?? '' }}"
                                                         title="Edit Evaluasi">
                                                         <i class="bi bi-clipboard2-check"></i>
                                                     </button>
@@ -295,8 +290,23 @@
                     @php
                         $doneSchedules = $student->schedules->where('status_schedule', 'done');
                         $evalDone      = $doneSchedules->filter(fn($s) => $s->evaluation);
-                        $scores        = $evalDone->filter(fn($s) => $s->evaluation->score !== null)->map(fn($s) => $s->evaluation->score);
+                        $scores        = $evalDone->filter(fn($s) => $s->evaluation->post_test !== null)->map(fn($s) => $s->evaluation->post_test);
                         $avgScore      = $scores->count() ? round($scores->avg(), 1) : null;
+
+                        // Data sesi terevaluasi untuk ringkasan bulanan per program
+                        $evalSessions = $evalDone->map(function ($s) {
+                            $date = \Carbon\Carbon::parse($s->class_date);
+                            return [
+                                'program'   => $s->subject->subject_name ?? 'Tanpa Program',
+                                'ym'        => $date->format('Y-m'),
+                                'month'     => $date->translatedFormat('M Y'),
+                                'pre'       => $s->evaluation->pre_test,
+                                'post'      => $s->evaluation->post_test,
+                                'pemahaman' => $s->evaluation->pemahaman,
+                                'poin'      => $s->evaluation->poin,
+                            ];
+                        })->values();
+                        $evalMonths = $evalSessions->pluck('ym')->unique()->sort()->values();
                     @endphp
                     <div class="card-body">
                         {{-- Mini stats --}}
@@ -316,10 +326,49 @@
                             <div class="col-4">
                                 <div class="text-center p-3 rounded bg-info bg-opacity-10">
                                     <div class="fs-3 fw-bold text-info">{{ $avgScore ?? '—' }}</div>
-                                    <div class="small text-muted">Rata-rata Nilai</div>
+                                    <div class="small text-muted">Rata-rata Post Test</div>
                                 </div>
                             </div>
                         </div>
+                        {{-- Ringkasan rata-rata bulanan per program --}}
+                        <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+                            <div>
+                                <h5 class="mb-0">Ringkasan Rata-rata per Bulan</h5>
+                                <small class="text-muted">Dikelompokkan per program berdasarkan periode bulan.</small>
+                            </div>
+                            <div class="d-flex align-items-end gap-2">
+                                <div>
+                                    <label class="form-label small mb-1">Dari Bulan</label>
+                                    <input type="month" id="eval-month-from" class="form-control form-control-sm no-select2" style="width:160px;" value="{{ now()->subYear()->format('Y-m') }}">
+                                </div>
+                                <div>
+                                    <label class="form-label small mb-1">Sampai Bulan</label>
+                                    <input type="month" id="eval-month-to" class="form-control form-control-sm no-select2" style="width:160px;" value="{{ now()->format('Y-m') }}">
+                                </div>
+                                <button class="btn btn-sm btn-outline-secondary" id="eval-month-reset" title="Reset periode">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger" id="btn-download-summary" title="Download rangkuman PDF">
+                                    <i class="bi bi-file-earmark-pdf me-1"></i> Download
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive mb-4">
+                            <table class="table table-sm table-bordered align-middle mb-0" id="eval-summary-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Bulan</th>
+                                        <th class="text-center">Total Sesi</th>
+                                        <th class="text-center">Rata Post Test</th>
+                                        <th class="text-center">Rata Pre Test</th>
+                                        <th class="text-center">Rata Pemahaman</th>
+                                        <th class="text-center">Rata Poin</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="eval-summary-body"></tbody>
+                            </table>
+                        </div>
+
                         <div class="text-center">
                             <a href="{{ route('admin.evaluations.student', $student->id) }}" class="btn btn-outline-primary">
                                 <i class="bi bi-clipboard2-data me-1"></i> Lihat Laporan Evaluasi Lengkap
@@ -472,8 +521,66 @@
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Nilai (0–100)</label>
-                    <input type="number" id="eval-score" class="form-control" min="0" max="100" placeholder="Kosongkan jika tidak ada kuis">
+                    <label class="form-label fw-semibold">Sub Pokok Bahasan</label>
+                    <select id="eval-syllabus" class="form-select">
+                        <option value="">— Pilih materi sesuai silabus mapel —</option>
+                    </select>
+                    <small class="text-muted" id="eval-syllabus-empty" style="display:none;">
+                        Belum ada silabus untuk mata pelajaran ini di kelas siswa.
+                    </small>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-6">
+                        <label class="form-label fw-semibold">Pre Test (0–100)</label>
+                        <input type="number" id="eval-pretest" class="form-control" min="0" max="100" placeholder="0–100">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-semibold">Post Test (0–100)</label>
+                        <input type="number" id="eval-posttest" class="form-control" min="0" max="100" placeholder="0–100">
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-6">
+                        <label class="form-label fw-semibold">Pemahaman</label>
+                        <select id="eval-pemahaman" class="form-select">
+                            <option value="">—</option>
+                            @foreach(\App\Models\Evaluation::GRADES as $grade)
+                                <option value="{{ $grade }}">{{ $grade }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-semibold">Poin</label>
+                        <select id="eval-poin" class="form-select">
+                            <option value="">—</option>
+                            @foreach(\App\Models\Evaluation::GRADES as $grade)
+                                <option value="{{ $grade }}">{{ $grade }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-4">
+                        <label class="form-label fw-semibold">Kemampuan Analisa</label>
+                        <select id="eval-analisa" class="form-select">
+                            <option value="">—</option>
+                            @foreach(\App\Models\Evaluation::GRADES as $grade)<option value="{{ $grade }}">{{ $grade }}</option>@endforeach
+                        </select>
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label fw-semibold">Kemampuan Hafalan</label>
+                        <select id="eval-hafalan" class="form-select">
+                            <option value="">—</option>
+                            @foreach(\App\Models\Evaluation::GRADES as $grade)<option value="{{ $grade }}">{{ $grade }}</option>@endforeach
+                        </select>
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label fw-semibold">Kepercayaan Diri</label>
+                        <select id="eval-kepercayaan" class="form-select">
+                            <option value="">—</option>
+                            @foreach(\App\Models\Evaluation::GRADES as $grade)<option value="{{ $grade }}">{{ $grade }}</option>@endforeach
+                        </select>
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Catatan Tutor</label>
@@ -492,6 +599,104 @@
 <script>
 $(function () {
     var STUDENT_ID = {{ $student->id }};
+
+    /* ================================================================
+       Ringkasan rata-rata evaluasi per bulan, dikelompokkan per program
+    ================================================================ */
+    (function () {
+        var sessions = @json($evalSessions);
+        if (!sessions.length) {
+            $('#eval-summary-body').html('<tr><td colspan="6" class="text-center text-muted py-3">Belum ada data evaluasi.</td></tr>');
+            return;
+        }
+
+        var gradePoints = { 'A+': 10, 'A': 9, 'A-': 8, 'B+': 7, 'B': 6, 'B-': 5, 'C+': 4, 'C': 3, 'C-': 2, 'D': 1 };
+        var pointGrades = { 10: 'A+', 9: 'A', 8: 'A-', 7: 'B+', 6: 'B', 5: 'B-', 4: 'C+', 3: 'C', 2: 'C-', 1: 'D' };
+
+        function avgNum(arr) {
+            var v = arr.filter(function (x) { return x !== null && x !== '' && x !== undefined; }).map(Number);
+            if (!v.length) return null;
+            return Math.round((v.reduce(function (a, b) { return a + b; }, 0) / v.length) * 10) / 10;
+        }
+        function avgGrade(arr) {
+            var pts = arr.map(function (g) { return gradePoints[g]; }).filter(function (p) { return p != null; });
+            if (!pts.length) return null;
+            var r = Math.round(pts.reduce(function (a, b) { return a + b; }, 0) / pts.length);
+            r = Math.max(1, Math.min(10, r));
+            return pointGrades[r];
+        }
+        function gradeBadge(g) {
+            if (!g) return '<span class="text-muted">—</span>';
+            var cls = g.charAt(0) === 'A' ? 'bg-success' : g.charAt(0) === 'B' ? 'bg-primary' : g.charAt(0) === 'C' ? 'bg-warning text-dark' : 'bg-danger';
+            return '<span class="badge ' + cls + '">' + g + '</span>';
+        }
+        function numBadge(n) {
+            return n === null ? '<span class="text-muted">—</span>' : '<span class="badge bg-light text-dark border">' + n + '</span>';
+        }
+
+        function render() {
+            var from = $('#eval-month-from').val();
+            var to   = $('#eval-month-to').val();
+
+            var rows = sessions.filter(function (s) {
+                if (from && s.ym < from) return false;
+                if (to && s.ym > to) return false;
+                return true;
+            });
+
+            var $body = $('#eval-summary-body').empty();
+            if (!rows.length) {
+                $body.html('<tr><td colspan="6" class="text-center text-muted py-3">Tidak ada data pada periode ini.</td></tr>');
+                return;
+            }
+
+            // Kelompokkan per program → per bulan
+            var byProgram = {};
+            rows.forEach(function (s) {
+                (byProgram[s.program] = byProgram[s.program] || []).push(s);
+            });
+
+            Object.keys(byProgram).sort().forEach(function (program) {
+                $body.append('<tr class="table-primary"><td colspan="6" class="fw-bold"><i class="bi bi-journal-bookmark me-1"></i>' + program + '</td></tr>');
+
+                var byMonth = {};
+                byProgram[program].forEach(function (s) {
+                    (byMonth[s.ym] = byMonth[s.ym] || { label: s.month, items: [] }).items.push(s);
+                });
+
+                Object.keys(byMonth).sort().forEach(function (ym) {
+                    var g = byMonth[ym];
+                    $body.append(
+                        '<tr>' +
+                        '<td>' + g.label + '</td>' +
+                        '<td class="text-center">' + g.items.length + '</td>' +
+                        '<td class="text-center">' + numBadge(avgNum(g.items.map(function (x) { return x.post; }))) + '</td>' +
+                        '<td class="text-center">' + numBadge(avgNum(g.items.map(function (x) { return x.pre; }))) + '</td>' +
+                        '<td class="text-center">' + gradeBadge(avgGrade(g.items.map(function (x) { return x.pemahaman; }))) + '</td>' +
+                        '<td class="text-center">' + gradeBadge(avgGrade(g.items.map(function (x) { return x.poin; }))) + '</td>' +
+                        '</tr>'
+                    );
+                });
+            });
+        }
+
+        $('#eval-month-from, #eval-month-to').on('change', render);
+        $('#eval-month-reset').on('click', function () {
+            $('#eval-month-from').val('{{ now()->subYear()->format('Y-m') }}');
+            $('#eval-month-to').val('{{ now()->format('Y-m') }}');
+            render();
+        });
+
+        $('#btn-download-summary').on('click', function () {
+            var base = "{{ route('admin.evaluations.student.summary', $student->id) }}";
+            var params = [];
+            if ($('#eval-month-from').val()) params.push('start=' + $('#eval-month-from').val());
+            if ($('#eval-month-to').val())   params.push('end=' + $('#eval-month-to').val());
+            window.location = base + (params.length ? '?' + params.join('&') : '');
+        });
+
+        render();
+    })();
 
     /* ---- Auto-fill jam dari sesi ---- */
     $('#sched-session').on('change', function () {
@@ -614,29 +819,47 @@ $(function () {
 
     /* ---- Buka Modal Evaluasi ---- */
     $(document).on('click', '.btn-eval-student', function () {
-        var btn  = $(this);
-        var id   = btn.data('id');
-        var date = btn.data('date') || '';
-        var subj = btn.data('subject') || '';
-        var tutr = btn.data('tutor') || '';
+        var id = $(this).data('id');
 
-        $('#eval-sched-id').val(id);
-        $('#eval-info-box').html('<b>Mapel:</b> ' + subj + ' &nbsp;|&nbsp; <b>Tutor:</b> ' + tutr + ' &nbsp;|&nbsp; <b>Tgl:</b> ' + date);
+        $.get('/admin/schedules/' + id, function (data) {
+            var dateStr = new Date(data.class_date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            $('#eval-sched-id').val(data.id);
+            $('#eval-info-box').html(
+                '<b>Mapel:</b> ' + (data.subject?.subject_name ?? '-') +
+                ' &nbsp;|&nbsp; <b>Tutor:</b> ' + (data.tutor?.name ?? '-') +
+                ' &nbsp;|&nbsp; <b>Tgl:</b> ' + dateStr
+            );
 
-        // Reset
-        $('input[name="eval_att"]').prop('checked', false);
-        $('#eval-score').val('');
-        $('#eval-notes').val('');
+            // Isi dropdown Sub Pokok Bahasan sesuai silabus mata pelajaran
+            var $syl = $('#eval-syllabus');
+            $syl.find('option:not(:first)').remove();
+            var syllabi = (data.subject && data.subject.syllabi) ? data.subject.syllabi : [];
+            syllabi.forEach(function (s) {
+                var label = s.pokok_bahasan + (s.sub_pokok_bahasan ? ' — ' + s.sub_pokok_bahasan : '');
+                $syl.append('<option value="' + s.id + '">' + label + '</option>');
+            });
+            $('#eval-syllabus-empty').toggle(syllabi.length === 0);
 
-        // Pre-fill jika sudah ada evaluasi
-        var att   = btn.data('attendance');
-        var score = btn.data('score');
-        var notes = btn.data('notes');
-        if (att)   $('input[name="eval_att"][value="' + att + '"]').prop('checked', true);
-        if (score) $('#eval-score').val(score);
-        if (notes) $('#eval-notes').val(notes);
+            // Reset
+            $('input[name="eval_att"]').prop('checked', false);
+            $('#eval-syllabus, #eval-pretest, #eval-posttest, #eval-pemahaman, #eval-poin, #eval-analisa, #eval-hafalan, #eval-kepercayaan, #eval-notes').val('');
 
-        $('#modal-eval-student').modal('show');
+            // Pre-fill jika sudah ada evaluasi
+            if (data.evaluation) {
+                $('input[name="eval_att"][value="' + data.evaluation.student_attendance + '"]').prop('checked', true);
+                $('#eval-syllabus').val(data.evaluation.syllabus_id ?? '');
+                $('#eval-pretest').val(data.evaluation.pre_test ?? '');
+                $('#eval-posttest').val(data.evaluation.post_test ?? '');
+                $('#eval-pemahaman').val(data.evaluation.pemahaman ?? '');
+                $('#eval-poin').val(data.evaluation.poin ?? '');
+                $('#eval-analisa').val(data.evaluation.kemampuan_analisa ?? '');
+                $('#eval-hafalan').val(data.evaluation.kemampuan_hafalan ?? '');
+                $('#eval-kepercayaan').val(data.evaluation.kepercayaan_diri ?? '');
+                $('#eval-notes').val(data.evaluation.tutor_notes ?? '');
+            }
+
+            $('#modal-eval-student').modal('show');
+        });
     });
 
     /* ---- Simpan Evaluasi ---- */
@@ -648,8 +871,15 @@ $(function () {
             url: '{{ route("admin.evaluations.store") }}', type: 'POST',
             data: {
                 schedule_id:        $('#eval-sched-id').val(),
+                syllabus_id:        $('#eval-syllabus').val() || null,
                 student_attendance: att,
-                score:              $('#eval-score').val() || null,
+                pre_test:           $('#eval-pretest').val() || null,
+                post_test:          $('#eval-posttest').val() || null,
+                pemahaman:          $('#eval-pemahaman').val() || null,
+                poin:               $('#eval-poin').val() || null,
+                kemampuan_analisa:  $('#eval-analisa').val() || null,
+                kemampuan_hafalan:  $('#eval-hafalan').val() || null,
+                kepercayaan_diri:   $('#eval-kepercayaan').val() || null,
                 tutor_notes:        $('#eval-notes').val(),
                 _token:             '{{ csrf_token() }}'
             },

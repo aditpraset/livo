@@ -122,7 +122,7 @@
                 </div>
                 <div class="mb-3">
                     <label class="small text-muted d-block">Program</label>
-                    <span class="badge bg-primary-subtle text-primary">{{ $payment->student->program ?? '-' }}</span>
+                    <span class="badge bg-primary-subtle text-primary">{{ $payment->student?->program_label ?? '-' }}</span>
                 </div>
                 <div>
                     <label class="small text-muted d-block">No. WhatsApp</label>

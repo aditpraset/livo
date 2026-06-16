@@ -3,8 +3,8 @@
 @section('title', 'Master Promo - LIVO Admin')
 
 @section('page-header')
-<div class="d-flex justify-content-between align-items-center">
-    <div>
+<div class="d-flex justify-content-between align-items-center p-2">
+    <div class='p-2'>
         <h2 class="page-title">Master Promo & Diskon</h2>
         <p class="text-muted mb-0 small">Kelola kode promo dan potongan harga pendaftaran</p>
     </div>

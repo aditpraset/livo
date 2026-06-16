@@ -130,7 +130,11 @@
                     </div>
                     <div class="col-md-4">
                         <label class="small text-muted d-block">Program</label>
-                        <span class="badge bg-primary-subtle text-primary">{{ $registration->program ?? '-' }}</span>
+                        @forelse($registration->program_list as $prog)
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">{{ $prog }}</span>
+                        @empty
+                            <span class="text-muted">-</span>
+                        @endforelse
                     </div>
                     <div class="col-md-4">
                         <label class="small text-muted d-block">Paket</label>

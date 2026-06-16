@@ -26,7 +26,7 @@
     <div class="col-6 col-md-3">
         <div class="card border-0 shadow-sm text-center py-3">
             <div class="fs-2 fw-bold text-info">{{ $stats['avg_score'] ?? '—' }}</div>
-            <div class="small text-muted">Rata-rata Nilai</div>
+            <div class="small text-muted">Rata-rata Post Test</div>
         </div>
     </div>
     <div class="col-6 col-md-2">
@@ -49,6 +49,26 @@
     </div>
 </div>
 
+{{-- Filter --}}
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold small">Tanggal Mulai</label>
+                <input type="date" id="filter-start" class="form-control" value="{{ now()->subYear()->format('Y-m-d') }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold small">Tanggal Akhir</label>
+                <input type="date" id="filter-end" class="form-control" value="{{ now()->format('Y-m-d') }}">
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary" id="btn-filter"><i class="bi bi-funnel me-1"></i> Filter</button>
+                <button class="btn btn-outline-secondary" id="btn-reset" title="Reset ke default"><i class="bi bi-arrow-counterclockwise"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- Tabel Evaluasi --}}
 <div class="card border-0 shadow-sm">
     <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
@@ -59,97 +79,27 @@
             </span>
         @endif
     </div>
-    <div class="card-body p-0">
+    <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle w-100" id="report-table">
                 <thead class="table-light">
                     <tr>
-                        <th class="px-4 py-3">#</th>
-                        <th class="py-3">Tanggal</th>
-                        <th class="py-3">Mata Pelajaran</th>
-                        <th class="py-3">Tutor</th>
-                        <th class="py-3 text-center">Kehadiran</th>
-                        <th class="py-3 text-center">Nilai</th>
-                        <th class="py-3">Catatan Tutor</th>
-                        <th class="py-3 text-center">Laporan</th>
-                        <th class="py-3 text-center px-4">Aksi</th>
+                        <th>#</th>
+                        <th>Tanggal</th>
+                        <th>Mata Pelajaran</th>
+                        <th>Tutor</th>
+                        <th>Sub Pokok Bahasan</th>
+                        <th class="text-center">Kehadiran</th>
+                        <th class="text-center">Pre Test</th>
+                        <th class="text-center">Post Test</th>
+                        <th class="text-center">Pemahaman</th>
+                        <th class="text-center">Poin</th>
+                        <th>Catatan Tutor</th>
+                        <th class="text-center">Laporan</th>
+                        <th class="text-center">Aksi</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @forelse($schedules as $i => $schedule)
-                    <tr>
-                        <td class="px-4">{{ $i + 1 }}</td>
-                        <td class="text-nowrap">
-                            <div class="fw-semibold">{{ \Carbon\Carbon::parse($schedule->class_date)->translatedFormat('d M Y') }}</div>
-                            <small class="text-muted">{{ substr($schedule->start_time, 0, 5) }} – {{ substr($schedule->end_time, 0, 5) }}</small>
-                        </td>
-                        <td>
-                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                                {{ $schedule->subject->subject_name ?? '-' }}
-                            </span>
-                        </td>
-                        <td>{{ $schedule->tutor->name ?? '-' }}</td>
-
-                        @if($schedule->evaluation)
-                        <td class="text-center">
-                            @php
-                                $attBadge = match($schedule->evaluation->student_attendance) {
-                                    'hadir' => 'bg-success',
-                                    'izin'  => 'bg-warning text-dark',
-                                    'alfa'  => 'bg-danger',
-                                    default => 'bg-secondary'
-                                };
-                                $attLabel = ucfirst($schedule->evaluation->student_attendance);
-                            @endphp
-                            <span class="badge {{ $attBadge }}">{{ $attLabel }}</span>
-                        </td>
-                        <td class="text-center fw-bold">
-                            @if($schedule->evaluation->score !== null)
-                                <span class="badge bg-light text-dark border fs-6">{{ $schedule->evaluation->score }}</span>
-                            @else
-                                <span class="text-muted small">—</span>
-                            @endif
-                        </td>
-                        <td class="text-muted small" style="max-width:250px;">
-                            {{ $schedule->evaluation->tutor_notes ?? '—' }}
-                        </td>
-                        <td class="text-center">
-                            @if($schedule->evaluation->is_published)
-                                <span class="badge bg-success-subtle text-success border border-success-subtle">
-                                    <i class="bi bi-send-check me-1"></i>Diterbitkan
-                                </span>
-                            @else
-                                <span class="badge bg-secondary-subtle text-secondary border">
-                                    <i class="bi bi-eye-slash me-1"></i>Privat
-                                </span>
-                            @endif
-                        </td>
-                        <td class="text-center px-4">
-                            <button class="btn btn-sm btn-outline-primary btn-toggle-publish"
-                                data-id="{{ $schedule->evaluation->id }}"
-                                data-published="{{ $schedule->evaluation->is_published ? 1 : 0 }}">
-                                @if($schedule->evaluation->is_published)
-                                    <i class="bi bi-eye-slash me-1"></i>Sembunyikan
-                                @else
-                                    <i class="bi bi-send me-1"></i>Terbitkan
-                                @endif
-                            </button>
-                        </td>
-                        @else
-                        <td colspan="5" class="text-center text-muted small py-3">
-                            <i class="bi bi-hourglass me-1"></i>Belum ada evaluasi untuk sesi ini.
-                        </td>
-                        @endif
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="9" class="text-center py-5 text-muted">
-                            <i class="bi bi-clipboard2-x fs-2 d-block mb-2"></i>
-                            Belum ada sesi belajar yang selesai untuk siswa ini.
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
     </div>
@@ -159,6 +109,42 @@
 @push('js')
 <script>
 $(function () {
+    var table = $('#report-table').DataTable({
+        processing: true,
+        serverSide: true,
+        ajax: {
+            url: "{{ route('admin.data.evaluations.student', $student->id) }}",
+            data: function (d) {
+                d.start = $('#filter-start').val();
+                d.end   = $('#filter-end').val();
+            }
+        },
+        order: [[1, 'desc']],
+        columns: [
+            { data: 'DT_RowIndex', orderable: false, searchable: false },
+            { data: 'class_date', name: 'schedules.class_date', searchable: false },
+            { data: 'subject_name', name: 'subjects.subject_name' },
+            { data: 'tutor_name', name: 'tutors.name' },
+            { data: 'materi', orderable: false, searchable: false },
+            { data: 'attendance', name: 'evaluations.student_attendance', className: 'text-center', searchable: false },
+            { data: 'pre_test', name: 'evaluations.pre_test', className: 'text-center', searchable: false },
+            { data: 'post_test', name: 'evaluations.post_test', className: 'text-center', searchable: false },
+            { data: 'pemahaman', name: 'evaluations.pemahaman', className: 'text-center', searchable: false },
+            { data: 'poin', name: 'evaluations.poin', className: 'text-center', searchable: false },
+            { data: 'notes', orderable: false, searchable: false },
+            { data: 'published', orderable: false, searchable: false, className: 'text-center' },
+            { data: 'action', orderable: false, searchable: false, className: 'text-center' },
+        ],
+        language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json' }
+    });
+
+    $('#btn-filter').on('click', function () { table.ajax.reload(); });
+    $('#btn-reset').on('click', function () {
+        $('#filter-start').val('{{ now()->subYear()->format('Y-m-d') }}');
+        $('#filter-end').val('{{ now()->format('Y-m-d') }}');
+        table.ajax.reload();
+    });
+
     $(document).on('click', '.btn-toggle-publish', function () {
         var btn         = $(this);
         var id          = btn.data('id');
@@ -179,8 +165,8 @@ $(function () {
                     url: '/admin/evaluations/' + id + '/publish', type: 'PUT',
                     data: { _token: '{{ csrf_token() }}' },
                     success: function (res) {
-                        Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2000, showConfirmButton: false })
-                            .then(function () { location.reload(); });
+                        table.ajax.reload(null, false);
+                        Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2000, showConfirmButton: false });
                     },
                     error: function () {
                         Swal.fire('Gagal', 'Terjadi kesalahan server.', 'error');

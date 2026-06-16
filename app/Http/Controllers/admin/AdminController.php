@@ -62,12 +62,12 @@ class AdminController extends Controller
                         <div class="text-muted extra-small" style="font-size: 0.7rem;">' . $reg->created_at->format('H:i') . '</div>';
             })
             ->editColumn('program', function ($reg) {
-                $badgeClass = match ($reg->program) {
-                    'Matematika' => 'bg-success-subtle text-success',
-                    'B. Inggris' => 'bg-info-subtle text-info',
-                    default => 'bg-primary-subtle text-primary'
-                };
-                return '<span class="badge ' . $badgeClass . ' border-0 px-2 py-1">' . ($reg->program ?? '-') . '</span>';
+                $names = json_decode($reg->program ?? '', true) ?? [];
+                if (empty($names)) return '<span class="text-muted">-</span>';
+                return implode('', array_map(
+                    fn($n) => '<span class="badge bg-primary-subtle text-primary border border-primary-subtle me-1">' . e($n) . '</span>',
+                    $names
+                ));
             })
             ->rawColumns(['full_name', 'created_at', 'program'])
             ->make(true);
@@ -83,7 +83,12 @@ class AdminController extends Controller
                         <small class="text-muted">' . ($reg->nickname ?? '') . '</small>';
             })
             ->editColumn('program', function ($reg) {
-                return '<span class="badge bg-primary-subtle text-primary">' . ($reg->program ?? '-') . '</span>';
+                $names = json_decode($reg->program ?? '', true) ?? [];
+                if (empty($names)) return '<span class="text-muted">-</span>';
+                return implode('', array_map(
+                    fn($n) => '<span class="badge bg-primary-subtle text-primary border border-primary-subtle me-1">' . e($n) . '</span>',
+                    $names
+                ));
             })
             ->editColumn('status', function ($reg) {
                 $badgeClass = match ($reg->status) {
@@ -109,6 +114,7 @@ class AdminController extends Controller
     {
         if (request()->ajax()) {
             $registration->load('scheduleSession');
+            $registration->append('program_label');
             return response()->json($registration);
         }
         return view('admin.registrations.show', compact('registration'));

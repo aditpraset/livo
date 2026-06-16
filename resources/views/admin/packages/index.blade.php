@@ -3,7 +3,7 @@
 @section('title', 'Master Paket - LIVO Admin')
 
 @section('page-header')
-<div class="d-flex justify-content-between align-items-center">
+<div class="d-flex justify-content-between align-items-center p-4">
     <div>
         <h2 class="page-title">Master Paket Belajar</h2>
         <p class="text-muted mb-0 small">Kelola daftar paket yang dapat dipilih saat pendaftaran</p>

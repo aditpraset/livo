@@ -5,9 +5,14 @@
 @section('content')
 <div class="row">
     <div class="col-12">
-        <div class="mb-6">
-            <h1 class="fs-3 mb-1">Data Pendaftaran Siswa</h1>
-            <p>Kelola semua data pendaftaran siswa LIVO.</p>
+        <div class="mb-6 d-flex justify-content-between align-items-start">
+            <div>
+                <h1 class="fs-3 mb-1">Data Pendaftaran Siswa</h1>
+                <p class="mb-0">Kelola semua data pendaftaran siswa LIVO.</p>
+            </div>
+            <a href="{{ route('registration') }}" target="_blank" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i> Tambah Pendaftar Baru
+            </a>
         </div>
     </div>
 </div>
@@ -148,6 +153,7 @@ $(document).ready(function() {
                     $('#detail-' + key).text(data[key] || '-');
                 }
             }
+            $('#detail-program').text(data.program_label || '-');
             if (data.schedule_session) {
                 $('#detail-study_session').text(data.schedule_session.name);
             }

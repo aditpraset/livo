@@ -21,6 +21,11 @@ class SubjectController extends Controller
             ->addColumn('action', function ($subject) {
                 return '
                     <div class="btn-group btn-group-sm">
+                        <a class="btn btn-outline-primary"
+                            href="' . route('admin.subjects.syllabi.index', $subject->id) . '"
+                            title="Kelola Silabus">
+                            <i class="bi bi-journal-text"></i>
+                        </a>
                         <button class="btn btn-outline-warning btn-edit"
                             data-id="' . $subject->id . '"
                             data-name="' . e($subject->subject_name) . '">

@@ -21,5 +21,10 @@ class DatabaseSeeder extends Seeder
             'name' => 'admin',
             'email' => 'admin@livo.co.id',
         ]);
+
+        $this->call([
+            SubjectSeeder::class,
+            ScheduleSessionSeeder::class,
+        ]);
     }
 }

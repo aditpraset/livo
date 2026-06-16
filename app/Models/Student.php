@@ -42,6 +42,22 @@ class Student extends Model
         'quota_sessions',
     ];
 
+    /** Program (mata pelajaran) sebagai array, menangani format JSON maupun teks biasa. */
+    public function getProgramListAttribute(): array
+    {
+        if (empty($this->program)) return [];
+        $decoded = json_decode($this->program, true);
+        if (is_array($decoded)) return array_values(array_filter($decoded));
+        return array_values(array_filter(array_map('trim', explode(',', $this->program))));
+    }
+
+    /** Program (mata pelajaran) sebagai teks dipisah koma. */
+    public function getProgramLabelAttribute(): string
+    {
+        $list = $this->program_list;
+        return count($list) ? implode(', ', $list) : '-';
+    }
+
     public function scheduleSession()
     {
         return $this->belongsTo(ScheduleSession::class);

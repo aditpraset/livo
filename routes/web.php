@@ -47,6 +47,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Student CRUD
         Route::get('/students', [StudentController::class, 'index'])->name('students.index');
         Route::get('/data/students', [StudentController::class, 'dataStudents'])->name('data.students');
+        Route::get('/students/create', [StudentController::class, 'create'])->name('students.create');
+        Route::get('/students/template', [StudentController::class, 'template'])->name('students.template');
+        Route::post('/students/import', [StudentController::class, 'import'])->name('students.import');
+        Route::post('/students', [StudentController::class, 'store'])->name('students.store');
         Route::get('/students/{student}', [StudentController::class, 'show'])->name('students.show');
         Route::get('/students/{student}/edit', [StudentController::class, 'edit'])->name('students.edit');
         Route::put('/students/{student}', [StudentController::class, 'update'])->name('students.update');
@@ -93,6 +97,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('/subjects/{subject}', [SubjectController::class, 'update'])->name('subjects.update');
         Route::delete('/subjects/{subject}', [SubjectController::class, 'destroy'])->name('subjects.destroy');
 
+        // Silabus (per Mata Pelajaran)
+        Route::get('/subjects/{subject}/syllabi', [\App\Http\Controllers\Admin\SyllabusController::class, 'index'])->name('subjects.syllabi.index');
+        Route::get('/subjects/{subject}/syllabi/data', [\App\Http\Controllers\Admin\SyllabusController::class, 'data'])->name('subjects.syllabi.data');
+        Route::get('/subjects/{subject}/syllabi/template', [\App\Http\Controllers\Admin\SyllabusController::class, 'template'])->name('subjects.syllabi.template');
+        Route::post('/subjects/{subject}/syllabi/import', [\App\Http\Controllers\Admin\SyllabusController::class, 'import'])->name('subjects.syllabi.import');
+        Route::post('/subjects/{subject}/syllabi', [\App\Http\Controllers\Admin\SyllabusController::class, 'store'])->name('subjects.syllabi.store');
+        Route::put('/subjects/{subject}/syllabi/{syllabus}', [\App\Http\Controllers\Admin\SyllabusController::class, 'update'])->name('subjects.syllabi.update');
+        Route::delete('/subjects/{subject}/syllabi/{syllabus}', [\App\Http\Controllers\Admin\SyllabusController::class, 'destroy'])->name('subjects.syllabi.destroy');
+
         // Tutor
         Route::get('/tutors', [TutorController::class, 'index'])->name('tutors.index');
         Route::get('/data/tutors', [TutorController::class, 'data'])->name('tutors.data');
@@ -103,7 +116,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // ── Penjadwalan ───────────────────────────────────────────────
         Route::get('/schedules', [ScheduleController::class, 'index'])->name('schedules.index');
         Route::get('/data/schedules', [ScheduleController::class, 'data'])->name('schedules.data');
+        Route::get('/schedules/evaluation-template', [ScheduleController::class, 'evaluationTemplate'])->name('schedules.evaluation-template');
+        Route::post('/schedules/import-evaluation', [ScheduleController::class, 'importEvaluation'])->name('schedules.import-evaluation');
         Route::get('/schedules/events', [ScheduleController::class, 'events'])->name('schedules.events');
+        Route::get('/schedules/student-schedule-info/{student}', [ScheduleController::class, 'studentScheduleInfo'])->name('schedules.student-info');
+        Route::post('/schedules/generate', [ScheduleController::class, 'generate'])->name('schedules.generate');
         Route::post('/schedules', [ScheduleController::class, 'store'])->name('schedules.store');
         Route::get('/schedules/{schedule}', [ScheduleController::class, 'show'])->name('schedules.show');
         Route::put('/schedules/{schedule}', [ScheduleController::class, 'update'])->name('schedules.update');
@@ -111,7 +128,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('/schedules/{schedule}', [ScheduleController::class, 'destroy'])->name('schedules.destroy');
 
         // ── Evaluasi ──────────────────────────────────────────────────
+        Route::get('/evaluations', [EvaluationController::class, 'index'])->name('evaluations.index');
+        Route::get('/data/evaluations', [EvaluationController::class, 'data'])->name('data.evaluations');
         Route::get('/evaluations/student/{student}', [EvaluationController::class, 'studentReport'])->name('evaluations.student');
+        Route::get('/data/evaluations/student/{student}', [EvaluationController::class, 'dataStudentReport'])->name('data.evaluations.student');
+        Route::get('/evaluations/student/{student}/summary-pdf', [EvaluationController::class, 'downloadSummary'])->name('evaluations.student.summary');
         Route::post('/evaluations', [EvaluationController::class, 'store'])->name('evaluations.store');
         Route::put('/evaluations/{evaluation}', [EvaluationController::class, 'update'])->name('evaluations.update');
         Route::put('/evaluations/{evaluation}/publish', [EvaluationController::class, 'publish'])->name('evaluations.publish');
