@@ -31,14 +31,24 @@ class StudentRegistration extends Model
         'class_type',
         'kbm_process',
         'package',
+        'package_id',
+        'pricing_id',
+        'program_id',
+        'grade_id',
+        'duration',
         'program',
         'selected_days',
         'schedule_session_id',
+        'class_schedule_ids',
         'school_curriculum',
         'learning_material',
         'promo_code',
         'registration_info',
         'marketing_pic',
+    ];
+
+    protected $casts = [
+        'class_schedule_ids' => 'array',
     ];
 
     protected static function boot()
@@ -84,5 +94,31 @@ class StudentRegistration extends Model
     public function scheduleSession()
     {
         return $this->belongsTo(ScheduleSession::class);
+    }
+
+    /** Relasi ke master (nama berbeda karena kolom program/grade/package adalah string). */
+    public function programMaster()
+    {
+        return $this->belongsTo(Program::class, 'program_id');
+    }
+
+    public function gradeMaster()
+    {
+        return $this->belongsTo(Grade::class, 'grade_id');
+    }
+
+    public function packageMaster()
+    {
+        return $this->belongsTo(Package::class, 'package_id');
+    }
+
+    /** Jadwal yang dipilih (master jadwal) berdasarkan class_schedule_ids. */
+    public function getSelectedSchedulesAttribute()
+    {
+        $ids = $this->class_schedule_ids ?? [];
+        if (empty($ids)) {
+            return collect();
+        }
+        return ClassSchedule::with('session')->whereIn('id', $ids)->get();
     }
 }

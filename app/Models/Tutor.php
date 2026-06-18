@@ -8,7 +8,10 @@ class Tutor extends Model
 {
     protected $fillable = [
         'name',
+        'photo',
         'phone',
+        'email',
+        'no_rekening',
         'specialization',
     ];
 

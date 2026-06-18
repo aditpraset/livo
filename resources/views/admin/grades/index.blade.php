@@ -1,15 +1,15 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Master Paket - LIVO Admin')
+@section('title', 'Master Jenjang - LIVO Admin')
 
 @section('page-header')
 <div class="d-flex justify-content-between align-items-center p-4">
     <div>
-        <h2 class="page-title">Master Paket Belajar</h2>
-        <p class="text-muted mb-0 small">Kelola daftar paket yang dapat dipilih saat pendaftaran</p>
+        <h2 class="page-title">Master Jenjang</h2>
+        <p class="text-muted mb-0 small">Kelola daftar jenjang pendidikan</p>
     </div>
     <button class="btn btn-primary" id="btn-add">
-        <i class="bi bi-plus-lg me-1"></i> Tambah Paket
+        <i class="bi bi-plus-lg me-1"></i> Tambah Jenjang
     </button>
 </div>
 @endsection
@@ -17,13 +17,12 @@
 @section('content')
 <div class="card border-0 shadow-sm">
     <div class="card-body">
-        <table id="packages-table" class="table table-hover align-middle w-100">
+        <table id="grades-table" class="table table-hover align-middle w-100">
             <thead class="table-light">
                 <tr>
-                    <th width="50">#</th>
-                    <th>Nama Paket</th>
-                    <th>Deskripsi</th>
-                    <th width="100" class="text-center">Aksi</th>
+                    <th width="60">#</th>
+                    <th>Nama Jenjang</th>
+                    <th width="170" class="text-center">Aksi</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -32,23 +31,19 @@
 </div>
 
 {{-- Modal --}}
-<div class="modal fade" id="modal-package" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+<div class="modal fade" id="modal-grade" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modal-title">Tambah Paket</h5>
+                <h5 class="modal-title" id="modal-title">Tambah Jenjang</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <input type="hidden" id="pkg-id">
+                <input type="hidden" id="grade-id">
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Nama Paket <span class="text-danger">*</span></label>
-                    <input type="text" id="pkg-name" class="form-control" placeholder="cth: Paket Intensif UTBK">
+                    <label class="form-label fw-semibold">Nama Jenjang <span class="text-danger">*</span></label>
+                    <input type="text" id="field-name" class="form-control" placeholder="cth: SD">
                     <div class="invalid-feedback" id="err-name"></div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Deskripsi</label>
-                    <textarea id="pkg-desc" class="form-control" rows="3" placeholder="Keterangan singkat tentang paket ini"></textarea>
                 </div>
             </div>
             <div class="modal-footer">
@@ -63,62 +58,55 @@
 @push('js')
 <script>
 $(function () {
-    var table = $('#packages-table').DataTable({
+    var table = $('#grades-table').DataTable({
         processing: true,
         serverSide: true,
-        ajax: "{{ route('admin.packages.data') }}",
+        ajax: "{{ route('admin.grades.data') }}",
         columns: [
             { data: 'DT_RowIndex', orderable: false, searchable: false },
-            { data: 'package_name' },
-            { data: 'description', orderable: false, defaultContent: '<span class="text-muted">—</span>' },
+            { data: 'grade_name' },
             { data: 'action', orderable: false, searchable: false, className: 'text-center' },
         ],
         language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json' }
     });
 
     function resetModal() {
-        $('#pkg-id, #pkg-name, #pkg-desc').val('');
-        $('#pkg-name').removeClass('is-invalid');
+        $('#grade-id').val('');
+        $('#field-name').val('').removeClass('is-invalid');
         $('#err-name').text('');
     }
 
     $('#btn-add').on('click', function () {
         resetModal();
-        $('#modal-title').text('Tambah Paket');
-        $('#modal-package').modal('show');
+        $('#modal-title').text('Tambah Jenjang');
+        $('#modal-grade').modal('show');
     });
 
     $(document).on('click', '.btn-edit', function () {
         resetModal();
-        var btn = $(this);
-        $('#modal-title').text('Edit Paket');
-        $('#pkg-id').val(btn.data('id'));
-        $('#pkg-name').val(btn.data('name'));
-        $('#pkg-desc').val(btn.data('desc'));
-        $('#modal-package').modal('show');
+        $('#modal-title').text('Edit Jenjang');
+        $('#grade-id').val($(this).data('id'));
+        $('#field-name').val($(this).data('name'));
+        $('#modal-grade').modal('show');
     });
 
     $('#btn-save').on('click', function () {
-        var id   = $('#pkg-id').val();
-        var url  = id ? '/admin/packages/' + id : '{{ route("admin.packages.store") }}';
+        var id   = $('#grade-id').val();
+        var url  = id ? '/admin/grades/' + id : '{{ route("admin.grades.store") }}';
         var type = id ? 'PUT' : 'POST';
 
         $.ajax({
             url: url, type: type,
-            data: {
-                package_name: $('#pkg-name').val(),
-                description:  $('#pkg-desc').val(),
-                _token:       '{{ csrf_token() }}'
-            },
+            data: { grade_name: $('#field-name').val(), _token: '{{ csrf_token() }}' },
             success: function (res) {
-                $('#modal-package').modal('hide');
+                $('#modal-grade').modal('hide');
                 table.ajax.reload();
                 Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2000, showConfirmButton: false });
             },
             error: function (xhr) {
                 if (xhr.status === 422) {
-                    var err = xhr.responseJSON.errors ?? {};
-                    if (err.package_name) { $('#pkg-name').addClass('is-invalid'); $('#err-name').text(err.package_name[0]); }
+                    var err = xhr.responseJSON.errors;
+                    if (err.grade_name) { $('#field-name').addClass('is-invalid'); $('#err-name').text(err.grade_name[0]); }
                 } else {
                     Swal.fire('Gagal', xhr.responseJSON?.message ?? 'Terjadi kesalahan.', 'error');
                 }
@@ -129,13 +117,15 @@ $(function () {
     $(document).on('click', '.btn-delete', function () {
         var id = $(this).data('id'), name = $(this).data('name');
         Swal.fire({
-            title: 'Hapus Paket?', text: '"' + name + '" akan dihapus permanen.',
+            title: 'Hapus Jenjang?',
+            text: '"' + name + '" akan dihapus permanen.',
             icon: 'warning', showCancelButton: true,
-            confirmButtonColor: '#d33', confirmButtonText: 'Ya, Hapus', cancelButtonText: 'Batal'
-        }).then(function (r) {
-            if (r.isConfirmed) {
+            confirmButtonColor: '#d33', confirmButtonText: 'Ya, Hapus',
+            cancelButtonText: 'Batal'
+        }).then(function (result) {
+            if (result.isConfirmed) {
                 $.ajax({
-                    url: '/admin/packages/' + id, type: 'DELETE',
+                    url: '/admin/grades/' + id, type: 'DELETE',
                     data: { _token: '{{ csrf_token() }}' },
                     success: function (res) {
                         table.ajax.reload();

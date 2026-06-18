@@ -44,19 +44,31 @@
             </a>
           </div>
         </li>
-        <li class="nav-item dropdown {{ request()->routeIs('admin.subjects*', 'admin.tutors*', 'admin.schedule-sessions*', 'admin.packages*', 'admin.promos*') ? 'active' : '' }}">
-          <a class="nav-link dropdown-toggle" href="#navbar-master" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('admin.subjects*', 'admin.tutors*', 'admin.schedule-sessions*', 'admin.packages*', 'admin.promos*') ? 'true' : 'false' }}">
+        <li class="nav-item dropdown {{ request()->routeIs('admin.subjects*', 'admin.tutors*', 'admin.schedule-sessions*', 'admin.packages*', 'admin.promos*', 'admin.programs*', 'admin.grades*', 'admin.pricings*', 'admin.class-schedules*') ? 'active' : '' }}">
+          <a class="nav-link dropdown-toggle" href="#navbar-master" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('admin.subjects*', 'admin.tutors*', 'admin.schedule-sessions*', 'admin.packages*', 'admin.promos*', 'admin.programs*', 'admin.grades*', 'admin.pricings*', 'admin.class-schedules*') ? 'true' : 'false' }}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-settings" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c.1 .06 .2 .115 .305 .165a1.724 1.724 0 0 0 2.268 -2.268a1.724 1.724 0 0 0 -.165 -.305" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /></svg>
             </span>
             <span class="nav-link-title"> Master </span>
           </a>
-          <div class="dropdown-menu {{ request()->routeIs('admin.subjects*', 'admin.tutors*', 'admin.schedule-sessions*', 'admin.packages*', 'admin.promos*') ? 'show' : '' }}">
+          <div class="dropdown-menu {{ request()->routeIs('admin.subjects*', 'admin.tutors*', 'admin.schedule-sessions*', 'admin.packages*', 'admin.promos*', 'admin.programs*', 'admin.grades*', 'admin.pricings*', 'admin.class-schedules*') ? 'show' : '' }}">
             <a class="dropdown-item {{ request()->routeIs('admin.tutors*') ? 'active' : '' }}" href="{{ route('admin.tutors.index') }}">
               <i class="bi bi-person-badge me-1"></i> Data Tutor
             </a>
             <a class="dropdown-item {{ request()->routeIs('admin.subjects*') ? 'active' : '' }}" href="{{ route('admin.subjects.index') }}">
               <i class="bi bi-book me-1"></i> Mata Pelajaran
+            </a>
+            <a class="dropdown-item {{ request()->routeIs('admin.programs*') ? 'active' : '' }}" href="{{ route('admin.programs.index') }}">
+              <i class="bi bi-collection me-1"></i> Program
+            </a>
+            <a class="dropdown-item {{ request()->routeIs('admin.grades*') ? 'active' : '' }}" href="{{ route('admin.grades.index') }}">
+              <i class="bi bi-mortarboard me-1"></i> Jenjang
+            </a>
+            <a class="dropdown-item {{ request()->routeIs('admin.pricings*') ? 'active' : '' }}" href="{{ route('admin.pricings.index') }}">
+              <i class="bi bi-cash-coin me-1"></i> Harga
+            </a>
+            <a class="dropdown-item {{ request()->routeIs('admin.class-schedules*') ? 'active' : '' }}" href="{{ route('admin.class-schedules.index') }}">
+              <i class="bi bi-calendar-week me-1"></i> Jadwal
             </a>
             <a class="dropdown-item {{ request()->routeIs('admin.packages*') ? 'active' : '' }}" href="{{ route('admin.packages.index') }}">
               <i class="bi bi-box-seam me-1"></i> Paket Belajar

@@ -253,11 +253,16 @@
                         <div class="invalid-feedback" id="err-subject"></div>
                     </div>
                     <div class="col-md-6">
+                        <label class="form-label fw-semibold">Ruang Kelas</label>
+                        <input type="text" id="field-room" class="form-control" placeholder="cth: Ruang A">
+                        <div class="invalid-feedback" id="err-room"></div>
+                    </div>
+                    <div class="col-md-6">
                         <label class="form-label fw-semibold">Tanggal <span class="text-danger">*</span></label>
                         <input type="date" id="field-date" class="form-control">
                         <div class="invalid-feedback" id="err-date"></div>
                     </div>
-                    <div class="col-12">
+                    <div class="col-md-6">
                         <label class="form-label fw-semibold">Sesi Pembelajaran <span class="text-danger">*</span></label>
                         <select id="field-session" class="form-select">
                             <option value="">-- Pilih Sesi --</option>
@@ -634,8 +639,8 @@ $(function () {
     function resetScheduleModal() {
         $('#schedule-id').val('');
         $('#field-student, #field-tutor, #field-subject, #field-session').val('').removeClass('is-invalid');
-        $('#field-date, #field-start, #field-end').val('');
-        $('#err-student, #err-tutor, #err-subject, #err-session, #err-date').text('');
+        $('#field-room, #field-date, #field-start, #field-end').val('');
+        $('#err-student, #err-tutor, #err-subject, #err-session, #err-date, #err-room').text('');
         $('#session-time-display').text('');
     }
 
@@ -658,6 +663,7 @@ $(function () {
             $('#field-student').val(data.student_id);
             $('#field-tutor').val(data.tutor_id);
             $('#field-subject').val(data.subject_id);
+            $('#field-room').val(data.room);
             $('#field-date').val(data.class_date.substring(0, 10));
 
             var matchedOpt = $('#field-session option').filter(function () {
@@ -785,6 +791,7 @@ $(function () {
                 student_id: $('#field-student').val(),
                 tutor_id:   $('#field-tutor').val(),
                 subject_id: $('#field-subject').val(),
+                room:       $('#field-room').val(),
                 class_date: $('#field-date').val(),
                 start_time: $('#field-start').val(),
                 end_time:   $('#field-end').val(),

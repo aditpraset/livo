@@ -1,9 +1,16 @@
+@php
+    // Receipt bisa dibuka walau belum ada record pembayaran → siapkan fallback aman
+    $paymentDate = \Carbon\Carbon::parse($payment->payment_date ?? now());
+    $expiredDate = $payment && $payment->expired_date ? \Carbon\Carbon::parse($payment->expired_date) : null;
+    $studentRec  = $payment?->student;
+    $noPayment   = $payment->no_payment ?? $registration->registration_code;
+@endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Receipt LIVO - {{ $payment->no_payment }}</title>
+  <title>Receipt LIVO - {{ $noPayment }}</title>
   <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Cinzel:wght@700;900&family=Lato:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet"/>
   <style>
     :root {
@@ -291,12 +298,12 @@
           <tr>
             <td>Date</td>
             <td>:</td>
-            <td>{{ \Carbon\Carbon::parse($payment->payment_date)->format('d/m/Y') }}</td>
+            <td>{{ $paymentDate->format('d/m/Y') }}</td>
           </tr>
           <tr>
             <td>Number</td>
             <td>:</td>
-            <td><span class="rec-num">{{ $payment->no_payment }}</span></td>
+            <td><span class="rec-num">{{ $noPayment }}</span></td>
           </tr>
         </table>
       </div>
@@ -309,11 +316,11 @@
       <div class="row col2">
         <div class="cell">
           <div class="lbl">Amount Received From <small>(Telah Diterima Dari)</small></div>
-          <div class="val-wrap"><span class="val">{{ $payment->from }}</span></div>
+          <div class="val-wrap"><span class="val">{{ $payment->from ?? $registration->full_name }}</span></div>
         </div>
         <div class="cell">
           <div class="lbl">ID Number <small>(Nomor Induk Siswa)</small></div>
-          <div class="val-wrap"><span class="val">{{ $payment->student->nis ?? $payment->student->registration_code ?? '-' }}</span></div>
+          <div class="val-wrap"><span class="val">{{ $studentRec?->nis ?? $studentRec?->registration_code ?? $registration->nis ?? $registration->registration_code ?? '-' }}</span></div>
         </div>
       </div>
 
@@ -321,14 +328,14 @@
       <div class="row col2">
         <div class="cell">
           <div class="lbl">Student Name <small>(Nama Siswa)</small></div>
-          <div class="val-wrap"><span class="val">{{ $payment->student->full_name ?? '-' }}</span></div>
+          <div class="val-wrap"><span class="val">{{ $studentRec?->full_name ?? $registration->full_name ?? '-' }}</span></div>
         </div>
         <div class="cell">
           <div class="lbl">Kuota &amp; Masa Aktif</div>
-          <div class="val-wrap"><span class="val">{{ $payment->quota ?? '-' }} Sesi | {{ $payment->expired_date ? \Carbon\Carbon::parse($payment->payment_date)->diffInDays(\Carbon\Carbon::parse($payment->expired_date)) : '-' }} Hari</span></div>
+          <div class="val-wrap"><span class="val">{{ $payment->quota ?? '-' }} Sesi | {{ $expiredDate ? $paymentDate->diffInDays($expiredDate) : '-' }} Hari</span></div>
           <div style="margin-top:4px;">
             <div class="lbl">Tanggal Expired</div>
-            <div class="val-wrap"><span class="val">{{ $payment->expired_date ? \Carbon\Carbon::parse($payment->expired_date)->format('d/m/Y') : '-' }}</span></div>
+            <div class="val-wrap"><span class="val">{{ $expiredDate ? $expiredDate->format('d/m/Y') : '-' }}</span></div>
           </div>
         </div>
       </div>
@@ -351,10 +358,8 @@
           <div class="val-wrap" style="margin-top:2px;">
             
             <span class="val" style="line-height:1.6;">
-              {{ $payment->description }}<br>
-              @if($payment->student)
-              Untuk Tingkat {{ $payment->student->grade ?? '-' }}
-              @endif
+              {{ $payment->description ?? ('Pembayaran Pendaftaran - ' . ($registration->package ?: $registration->program_label)) }}<br>
+              Untuk Tingkat {{ $studentRec?->grade ?? $registration->grade ?? '-' }}
             </span>
           </div>
         </div>
@@ -364,11 +369,11 @@
       <div class="row col2">
         <div class="cell">
           <div class="lbl">Amount Received By <small>(Di Terima Oleh)</small></div>
-          <div class="val-wrap"><span class="val">{{ $payment->received_by ?? '-' }}</span></div>
+          <div class="val-wrap"><span class="val">{{ $payment?->receiver ?? auth()->user()->name ?? '-' }}</span></div>
         </div>
         <div class="cell">
           <div class="lbl">Metode Pembayaran <small>(Payment Method)</small></div>
-          <div class="val-wrap"><span class="val">{{ $payment->payment_method ?? '-' }}</span></div>
+          <div class="val-wrap"><span class="val">{{ $payment?->payment_method ?? '-' }}</span></div>
         </div>
       </div>
 
@@ -399,7 +404,7 @@
         </div>
 
         <div class="sig-side">
-          <div class="date-city">Jakarta, {{ \Carbon\Carbon::parse($payment->payment_date)->translatedFormat('d F Y') }}</div>
+          <div class="date-city">Jakarta, {{ $paymentDate->translatedFormat('d F Y') }}</div>
           <!-- QR Code SVG -->
           <svg width="52" height="52" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" style="display:block;margin-left:auto;margin-bottom:3px;">
             <rect x="4" y="4" width="22" height="22" rx="2" fill="#222"/>

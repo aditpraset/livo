@@ -9,6 +9,7 @@ use App\Models\ScheduleStudent;
 use App\Models\Student;
 use App\Models\Subject;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -404,9 +405,19 @@ class StudentController extends Controller
             'email' => 'nullable|email',
             'phone' => 'nullable|string',
             'whatsapp' => 'nullable|string',
+            'photo' => 'nullable|image|max:5120', // semua tipe foto, maks 5 MB
         ]);
 
-        $student->update($request->all());
+        $data = $request->except('photo');
+
+        if ($request->hasFile('photo')) {
+            if ($student->photo) {
+                Storage::disk('public')->delete($student->photo);
+            }
+            $data['photo'] = $request->file('photo')->store('students', 'public');
+        }
+
+        $student->update($data);
 
         return redirect()->route('admin.students.index')->with('success', 'Data siswa berhasil diperbarui.');
     }

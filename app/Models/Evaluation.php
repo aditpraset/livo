@@ -31,6 +31,7 @@ class Evaluation extends Model
         'kepercayaan_diri',
         'tutor_notes',
         'is_published',
+        'quota_consumed',
     ];
 
     /** Konversi satu nilai huruf ke angka (null bila kosong/tidak dikenal). */
@@ -40,7 +41,8 @@ class Evaluation extends Model
     }
 
     protected $casts = [
-        'is_published' => 'boolean',
+        'is_published'   => 'boolean',
+        'quota_consumed' => 'boolean',
     ];
 
     public function schedule()

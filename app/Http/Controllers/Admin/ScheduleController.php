@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ClassSchedule;
 use App\Models\Evaluation;
 use App\Models\Schedule;
 use App\Models\ScheduleSession;
@@ -145,34 +146,39 @@ class ScheduleController extends Controller
 
         $students = Student::with('scheduleSession')
             ->where('status', 1)
-            ->whereNotNull('selected_days')
-            ->whereNotNull('schedule_session_id')
             ->get();
 
         $created = 0;
         $skipped = 0;
 
         foreach ($students as $student) {
-            if (!array_key_exists($student->selected_days, $dayOffset)) {
+            // Tentukan slot jadwal (hari + sesi) dari master jadwal yang dipilih saat pendaftaran.
+            // Fallback ke field lama (selected_days + schedule_session_id) untuk data lama.
+            $slots = collect();
+            $scheduleIds = $student->class_schedule_ids ?? [];
+
+            if (!empty($scheduleIds)) {
+                $slots = ClassSchedule::with('session')
+                    ->whereIn('id', $scheduleIds)
+                    ->get()
+                    ->map(fn($cs) => ['hari' => $cs->hari, 'session' => $cs->session]);
+            } elseif ($student->selected_days && $student->schedule_session_id) {
+                $slots = collect([['hari' => $student->selected_days, 'session' => $student->scheduleSession]]);
+            }
+
+            if ($slots->isEmpty()) {
                 $skipped++;
                 continue;
             }
 
-            $session = $student->scheduleSession;
-            if (!$session) {
-                $skipped++;
-                continue;
-            }
+            // Sisa kuota yang bisa dijadwalkan = kuota siswa - jadwal yang masih terjadwal (belum selesai/batal).
+            // Kuota 0 → tidak digenerate; kuota 1 dengan 2 jadwal → hanya 1 yang digenerate.
+            $pendingCount = Schedule::where('student_id', $student->id)
+                ->where('status_schedule', 'scheduled')
+                ->count();
+            $remaining = (int) ($student->quota_sessions ?? 0) - $pendingCount;
 
-            $classDate = $weekStart->copy()->addDays($dayOffset[$student->selected_days]);
-
-            // Lewati jika sudah ada jadwal aktif di tanggal tersebut
-            $exists = Schedule::where('student_id', $student->id)
-                ->where('class_date', $classDate->toDateString())
-                ->where('status_schedule', '!=', 'canceled')
-                ->exists();
-
-            if ($exists) {
+            if ($remaining <= 0) {
                 $skipped++;
                 continue;
             }
@@ -187,17 +193,45 @@ class ScheduleController extends Controller
                 }
             }
 
-            Schedule::create([
-                'student_id'      => $student->id,
-                'tutor_id'        => null,
-                'subject_id'      => $subjectId,
-                'class_date'      => $classDate->toDateString(),
-                'start_time'      => substr($session->time_start, 0, 5),
-                'end_time'        => substr($session->time_end, 0, 5),
-                'status_schedule' => 'scheduled',
-            ]);
+            foreach ($slots as $slot) {
+                if ($remaining <= 0) {
+                    break; // kuota habis untuk siswa ini
+                }
 
-            $created++;
+                if (!array_key_exists($slot['hari'], $dayOffset) || !$slot['session']) {
+                    $skipped++;
+                    continue;
+                }
+
+                $session   = $slot['session'];
+                $classDate = $weekStart->copy()->addDays($dayOffset[$slot['hari']]);
+                $startTime = substr($session->time_start, 0, 5);
+
+                // Lewati jika sudah ada jadwal aktif di tanggal & jam mulai yang sama
+                $exists = Schedule::where('student_id', $student->id)
+                    ->where('class_date', $classDate->toDateString())
+                    ->where('start_time', $startTime)
+                    ->where('status_schedule', '!=', 'canceled')
+                    ->exists();
+
+                if ($exists) {
+                    $skipped++;
+                    continue;
+                }
+
+                Schedule::create([
+                    'student_id'      => $student->id,
+                    'tutor_id'        => null,
+                    'subject_id'      => $subjectId,
+                    'class_date'      => $classDate->toDateString(),
+                    'start_time'      => $startTime,
+                    'end_time'        => substr($session->time_end, 0, 5),
+                    'status_schedule' => 'scheduled',
+                ]);
+
+                $created++;
+                $remaining--;
+            }
         }
 
         if ($created === 0 && $skipped === 0) {
@@ -219,6 +253,7 @@ class ScheduleController extends Controller
             'student_id' => 'required|exists:students,id',
             'tutor_id'   => 'required|exists:tutors,id',
             'subject_id' => 'required|exists:subjects,id',
+            'room'       => 'nullable|string|max:50',
             'class_date' => 'required|date',
             'start_time' => 'required|date_format:H:i',
             'end_time'   => 'required|date_format:H:i|after:start_time',
@@ -253,6 +288,7 @@ class ScheduleController extends Controller
             'student_id' => 'required|exists:students,id',
             'tutor_id'   => 'required|exists:tutors,id',
             'subject_id' => 'required|exists:subjects,id',
+            'room'       => 'nullable|string|max:50',
             'class_date' => 'required|date',
             'start_time' => 'required|date_format:H:i',
             'end_time'   => 'required|date_format:H:i|after:start_time',
@@ -272,10 +308,8 @@ class ScheduleController extends Controller
 
         $schedule->update(['status_schedule' => $request->status]);
 
-        // Kurangi kuota sesi siswa ketika sesi ditandai selesai
-        if ($request->status === 'done') {
-            $schedule->student()->decrement('quota_sessions');
-        }
+        // Catatan: kuota sesi dipotong saat tutor mengevaluasi siswa dengan kehadiran "hadir"
+        // (lihat EvaluationController@syncQuota), bukan saat status jadwal diubah.
 
         return response()->json(['success' => true, 'message' => 'Status jadwal berhasil diperbarui.']);
     }

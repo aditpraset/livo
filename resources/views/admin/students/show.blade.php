@@ -47,9 +47,14 @@
     <div class="col-md-4">
         <div class="card mb-4 border-0 shadow-sm">
             <div class="card-body text-center py-4">
-                <div class="avatar-circle mx-auto mb-3 bg-primary text-white d-flex align-items-center justify-content-center" style="width: 100px; height: 100px; border-radius: 50%; font-size: 2.5rem; font-weight: 800;">
-                    {{ substr($student->full_name, 0, 1) }}
-                </div>
+                @if($student->photo)
+                    <img src="{{ asset('storage/' . $student->photo) }}" alt="{{ $student->full_name }}"
+                        class="mx-auto mb-3 d-block" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover;">
+                @else
+                    <div class="avatar-circle mx-auto mb-3 bg-primary text-white d-flex align-items-center justify-content-center" style="width: 100px; height: 100px; border-radius: 50%; font-size: 2.5rem; font-weight: 800;">
+                        {{ substr($student->full_name, 0, 1) }}
+                    </div>
+                @endif
                 <h4 class="fw-bold mb-1">{{ $student->full_name }}</h4>
                 <p class="text-muted small mb-3">ID: {{ $student->registration_code }}</p>
                 <div class="d-flex justify-content-center gap-2">
@@ -63,6 +68,11 @@
                     @empty
                         <span class="badge bg-secondary-subtle text-secondary">Tanpa Program</span>
                     @endforelse
+                </div>
+                <div class="mt-3 p-3 rounded bg-primary-subtle">
+                    <div class="small text-muted">Sisa Kuota Sesi</div>
+                    <div class="fs-2 fw-bold text-primary lh-1">{{ $student->quota_sessions ?? 0 }}</div>
+                    <div class="small text-muted">sesi</div>
                 </div>
             </div>
         </div>
@@ -85,6 +95,31 @@
                         <div class="small text-muted mb-1">No. HP (Alternative)</div>
                         <div class="fw-semibold">{{ $student->phone ?? '-' }}</div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0 py-1">Jadwal Belajar (Pendaftaran)</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    @forelse($student->selected_schedules as $cs)
+                        <div class="list-group-item px-4 py-3">
+                            <div class="fw-semibold">{{ $cs->hari }}</div>
+                            <div class="small text-muted">
+                                {{ $cs->session->name ?? '-' }}
+                                @if($cs->session)
+                                    ({{ \Illuminate\Support\Str::substr($cs->session->time_start, 0, 5) }} - {{ \Illuminate\Support\Str::substr($cs->session->time_end, 0, 5) }})
+                                @endif
+                            </div>
+                        </div>
+                    @empty
+                        <div class="list-group-item px-4 py-3 text-muted">
+                            {{ $student->selected_days ?? 'Belum ada jadwal yang dipilih saat pendaftaran.' }}
+                        </div>
+                    @endforelse
                 </div>
             </div>
         </div>
@@ -193,6 +228,7 @@
                                         <th class="px-4 py-3">Tanggal</th>
                                         <th class="py-3">Mata Pelajaran</th>
                                         <th class="py-3">Tutor</th>
+                                        <th class="py-3">Ruang</th>
                                         <th class="py-3">Jam</th>
                                         <th class="py-3 text-center">Status</th>
                                         <th class="py-3 text-center">Evaluasi</th>
@@ -212,6 +248,7 @@
                                             </span>
                                         </td>
                                         <td>{{ $sched->tutor->name ?? '-' }}</td>
+                                        <td>{{ $sched->room ?? '-' }}</td>
                                         <td>
                                             <span class="badge bg-light text-dark border">
                                                 {{ substr($sched->start_time, 0, 5) }} – {{ substr($sched->end_time, 0, 5) }}
@@ -273,7 +310,7 @@
                                     </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="7" class="text-center py-5 text-muted">
+                                        <td colspan="8" class="text-center py-5 text-muted">
                                             <i class="bi bi-calendar-x fs-2 d-block mb-2"></i>
                                             Belum ada jadwal untuk siswa ini.
                                         </td>
@@ -461,6 +498,10 @@
                                 <option value="{{ $sub->id }}">{{ $sub->subject_name }}</option>
                             @endforeach
                         </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Ruang Kelas</label>
+                        <input type="text" id="sched-room" class="form-control" placeholder="cth: Ruang A">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Tanggal <span class="text-danger">*</span></label>
@@ -716,7 +757,7 @@ $(function () {
     $('#btn-add-sched').on('click', function () {
         $('#sched-id').val('');
         $('#sched-tutor, #sched-subject').val('');
-        $('#sched-date, #sched-start, #sched-end').val('');
+        $('#sched-room, #sched-date, #sched-start, #sched-end').val('');
         $('#sched-time-display').text('');
         $('#modal-sched-title').text('Tambah Jadwal – {{ $student->full_name }}');
 
@@ -743,6 +784,7 @@ $(function () {
                 student_id: STUDENT_ID,
                 tutor_id:   $('#sched-tutor').val(),
                 subject_id: $('#sched-subject').val(),
+                room:       $('#sched-room').val(),
                 class_date: $('#sched-date').val(),
                 start_time: $('#sched-start').val(),
                 end_time:   $('#sched-end').val(),

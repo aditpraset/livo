@@ -10,6 +10,7 @@ class Schedule extends Model
         'student_id',
         'tutor_id',
         'subject_id',
+        'room',
         'class_date',
         'start_time',
         'end_time',

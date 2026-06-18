@@ -4,9 +4,13 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\ClassScheduleController;
 use App\Http\Controllers\Admin\EvaluationController;
+use App\Http\Controllers\Admin\GradeController;
 use App\Http\Controllers\Admin\PackageController;
 use App\Http\Controllers\Admin\PaymentController;
+use App\Http\Controllers\Admin\PricingController;
+use App\Http\Controllers\Admin\ProgramController;
 use App\Http\Controllers\Admin\PromoController;
 use App\Http\Controllers\Admin\ScheduleController;
 use App\Http\Controllers\Admin\StudentController;
@@ -105,6 +109,34 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/subjects/{subject}/syllabi', [\App\Http\Controllers\Admin\SyllabusController::class, 'store'])->name('subjects.syllabi.store');
         Route::put('/subjects/{subject}/syllabi/{syllabus}', [\App\Http\Controllers\Admin\SyllabusController::class, 'update'])->name('subjects.syllabi.update');
         Route::delete('/subjects/{subject}/syllabi/{syllabus}', [\App\Http\Controllers\Admin\SyllabusController::class, 'destroy'])->name('subjects.syllabi.destroy');
+
+        // Program
+        Route::get('/programs', [ProgramController::class, 'index'])->name('programs.index');
+        Route::get('/data/programs', [ProgramController::class, 'data'])->name('programs.data');
+        Route::post('/programs', [ProgramController::class, 'store'])->name('programs.store');
+        Route::put('/programs/{program}', [ProgramController::class, 'update'])->name('programs.update');
+        Route::delete('/programs/{program}', [ProgramController::class, 'destroy'])->name('programs.destroy');
+
+        // Jenjang (Grade)
+        Route::get('/grades', [GradeController::class, 'index'])->name('grades.index');
+        Route::get('/data/grades', [GradeController::class, 'data'])->name('grades.data');
+        Route::post('/grades', [GradeController::class, 'store'])->name('grades.store');
+        Route::put('/grades/{grade}', [GradeController::class, 'update'])->name('grades.update');
+        Route::delete('/grades/{grade}', [GradeController::class, 'destroy'])->name('grades.destroy');
+
+        // Harga (Pricing) — per paket, program, jenjang & durasi
+        Route::get('/pricings', [PricingController::class, 'index'])->name('pricings.index');
+        Route::get('/data/pricings', [PricingController::class, 'data'])->name('pricings.data');
+        Route::post('/pricings', [PricingController::class, 'store'])->name('pricings.store');
+        Route::put('/pricings/{pricing}', [PricingController::class, 'update'])->name('pricings.update');
+        Route::delete('/pricings/{pricing}', [PricingController::class, 'destroy'])->name('pricings.destroy');
+
+        // Master Jadwal Kelas
+        Route::get('/class-schedules', [ClassScheduleController::class, 'index'])->name('class-schedules.index');
+        Route::get('/data/class-schedules', [ClassScheduleController::class, 'data'])->name('class-schedules.data');
+        Route::post('/class-schedules', [ClassScheduleController::class, 'store'])->name('class-schedules.store');
+        Route::put('/class-schedules/{classSchedule}', [ClassScheduleController::class, 'update'])->name('class-schedules.update');
+        Route::delete('/class-schedules/{classSchedule}', [ClassScheduleController::class, 'destroy'])->name('class-schedules.destroy');
 
         // Tutor
         Route::get('/tutors', [TutorController::class, 'index'])->name('tutors.index');

@@ -199,6 +199,11 @@ class AdminController extends Controller
             'quota' => $request->quota,
         ]);
 
+        // Tambahkan kuota sesi siswa sesuai nilai kuota pada pembayaran registrasi
+        if ((int) $request->quota > 0) {
+            $student->increment('quota_sessions', (int) $request->quota);
+        }
+
         // Update registration status to Lunas if not already
         if ($registration->status !== 'Lunas') {
             $registration->update(['status' => 'Lunas']);

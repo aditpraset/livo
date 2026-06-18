@@ -219,7 +219,7 @@
                     <div class="row g-4 mb-5">
                         <div class="col-md-4">
                             <label class="form-label-livo">Kelas / Jenjang</label>
-                            <select class="form-control-livo" name="class_type">
+                            <select class="form-control-livo" name="class_type" id="reg-class-type">
                                 <option value="">-- Pilih Kelas --</option>
                                 <option value="TK">TK</option>
                                 <option value="SD Kelas 1">SD Kelas 1</option>
@@ -242,24 +242,42 @@
                                 <option value="Online">Online</option>
                             </select>
                         </div>
-                        <div class="col-md-8">
-                            <label class="form-label-livo">Paket Belajar</label>
-                            <select name="package_id" id="reg-package" class="form-control-livo">
-                                <option value="">-- Pilih Paket --</option>
-                                @foreach($packages as $pkg)
-                                    <option value="{{ $pkg->id }}"
-                                        data-price="{{ $pkg->price }}"
-                                        data-sessions="{{ $pkg->total_sessions }}">
-                                        {{ $pkg->package_name }} &mdash; {{ $pkg->total_sessions }} sesi
-                                    </option>
+                        <div class="col-md-3">
+                            <label class="form-label-livo">Program Belajar</label>
+                            <select name="program_id" id="reg-program" class="form-control-livo">
+                                <option value="">-- Pilih Program --</option>
+                                @foreach($programs as $program)
+                                    <option value="{{ $program->id }}" data-duration="{{ $program->duration }}">{{ $program->program_name }}</option>
                                 @endforeach
                             </select>
-                            <div id="pkg-info" class="mt-2" style="display:none;">
-                                <div class="d-flex align-items-center gap-2 small">
-                                    <span class="text-muted">Harga:</span>
-                                    <span class="fw-bold text-primary" id="pkg-price-display"></span>
-                                </div>
-                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label-livo">Jenjang</label>
+                            <select name="grade_id" id="reg-grade" class="form-control-livo">
+                                <option value="">-- Pilih Jenjang --</option>
+                                @foreach($grades as $grade)
+                                    <option value="{{ $grade->id }}">{{ $grade->grade_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label-livo">Durasi</label>
+                            <select name="duration" id="reg-duration" class="form-control-livo">
+                                <option value="">-- Pilih Durasi --</option>
+                                <option value="1">1 Bulan</option>
+                                <option value="3">3 Bulan</option>
+                                <option value="6">6 Bulan</option>
+                                <option value="12">12 Bulan</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label-livo">Paket</label>
+                            <select name="package_id" id="reg-package" class="form-control-livo">
+                                <option value="">-- Pilih Paket --</option>
+                                @foreach($packages as $package)
+                                    <option value="{{ $package->id }}">{{ $package->package_name }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         <div class="col-12">
                             <label class="form-label-livo">Program / Mata Pelajaran yang Dipilih</label>
@@ -280,34 +298,27 @@
                                 @endif
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label-livo">Pilihan Hari</label>
-                            <select name="selected_days" class="form-control-livo">
-                                <option value="">-- Pilih Hari --</option>
-                                <option value="Senin">Senin</option>
-                                <option value="Selasa">Selasa</option>
-                                <option value="Rabu">Rabu</option>
-                                <option value="Kamis">Kamis</option>
-                                <option value="Jumat">Jumat</option>
-                                <option value="Sabtu">Sabtu</option>
-                                <option value="Minggu">Minggu</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label-livo">Sesi Belajar</label>
-                            <select name="schedule_session_id" class="form-control-livo">
-                                <option value="">-- Pilih Sesi --</option>
-                                @foreach($sessions as $session)
-                                    <option value="{{ $session->id }}">{{ $session->name }} ({{ date('H:i', strtotime($session->time_start)) }} - {{ date('H:i', strtotime($session->time_end)) }})</option>
-                                @endforeach
-                            </select>
+                        <div class="col-12">
+                            <label class="form-label-livo">Pilihan Jadwal</label>
+                            <div id="schedule-hint" class="small text-muted mb-2" style="display:none;"></div>
+                            <div id="schedule-container" class="row g-3">
+                                <div class="col-12">
+                                    <p class="text-muted small mb-0">Pilih Kelas & Paket/Program terlebih dahulu.</p>
+                                </div>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label-livo">Kurikulum Sekolah</label>
-                            <input type="text" name="school_curriculum" class="form-control-livo" placeholder="Contoh: Kurikulum Merdeka / Cambridge">
+                            <select name="school_curriculum" class="form-control-livo">
+                                <option value="">-- Pilih Kurikulum --</option>
+                                <option value="Kurikulum Merdeka">Kurikulum Merdeka</option>
+                                <option value="Kurikulum 2013">Kurikulum 2013</option>
+                                <option value="Kurikulum Nasional Plus">Kurikulum Nasional Plus</option>
+                                <option value="Internasional">Internasional</option>
+                            </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label-livo">Materi Pembelajaran</label>
+                            <label class="form-label-livo">Catatan Khusus</label>
                             <input type="text" name="learning_material" class="form-control-livo" placeholder="Materi spesifik yang ingin dipelajari">
                         </div>
                     </div>
@@ -326,22 +337,6 @@
                                 </button>
                             </div>
                             <div id="promo-result" class="mt-2" style="font-size:13px;display:none;"></div>
-                            {{-- Ringkasan harga --}}
-                            <div id="price-summary" class="mt-3 p-3 rounded" style="background:#f0f7ff;display:none;">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span class="text-muted">Harga Paket</span>
-                                    <span id="sum-base">—</span>
-                                </div>
-                                <div class="d-flex justify-content-between mb-1 text-success">
-                                    <span id="sum-discount-label">Diskon</span>
-                                    <span id="sum-discount-val">—</span>
-                                </div>
-                                <hr class="my-1" style="border-color:#c9e2ff">
-                                <div class="d-flex justify-content-between fw-bold" style="color:var(--livo-blue)">
-                                    <span>Total yang Dibayar</span>
-                                    <span id="sum-final">—</span>
-                                </div>
-                            </div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label-livo">Informasi Pendaftaran</label>
@@ -390,38 +385,69 @@
         return 'Rp ' + Number(num).toLocaleString('id-ID');
     }
 
-    var selectedPackagePrice = 0;
-    var appliedDiscount      = 0;
+    var classSchedules = @json($classSchedules);
 
-    /* ---- Tampilkan info harga saat paket dipilih ---- */
-    document.getElementById('reg-package').addEventListener('change', function () {
-        var opt      = this.options[this.selectedIndex];
-        var price    = parseFloat(opt.getAttribute('data-price')) || 0;
-        var sessions = opt.getAttribute('data-sessions');
+    var programSelect  = document.getElementById('reg-program');
+    var scheduleBox    = document.getElementById('schedule-container');
+    var scheduleHint   = document.getElementById('schedule-hint');
+    var classSelect    = document.getElementById('reg-class-type');
 
-        selectedPackagePrice = price;
-        appliedDiscount      = 0;
+    programSelect.addEventListener('change', renderSchedules);
 
-        var pkgInfo = document.getElementById('pkg-info');
-        var pkgPriceDisplay = document.getElementById('pkg-price-display');
+    /* ---- Jadwal: jumlah pilihan mengikuti durasi (x per minggu) program ---- */
+    function scheduleOptionsHtml(selectedKelas) {
+        var list = classSchedules.filter(function (s) { return s.kelas === selectedKelas; });
+        var html = '<option value="">-- Pilih Jadwal --</option>';
+        list.forEach(function (s) {
+            html += '<option value="' + s.id + '">' + s.hari_label + ' — ' + s.session_name +
+                    (s.session_time ? ' (' + s.session_time + ')' : '') + '</option>';
+        });
+        return html;
+    }
 
-        if (price > 0) {
-            pkgPriceDisplay.textContent = formatRp(price) + ' (' + sessions + ' sesi)';
-            pkgInfo.style.display = 'block';
-        } else {
-            pkgInfo.style.display = 'none';
+    function renderSchedules() {
+        scheduleBox.innerHTML = '';
+        scheduleHint.style.display = 'none';
+
+        var kelas = classSelect.value;
+        if (!kelas) {
+            scheduleBox.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">Pilih Kelas terlebih dahulu.</p></div>';
+            return;
         }
 
-        // Reset promo
-        document.getElementById('promo-result').style.display = 'none';
-        document.getElementById('price-summary').style.display = 'none';
-    });
+        var opt      = programSelect.options[programSelect.selectedIndex];
+        var duration = programSelect.value ? (parseInt(opt.getAttribute('data-duration')) || 0) : 0;
+        if (!programSelect.value || duration < 1) {
+            scheduleBox.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">Pilih Program Belajar terlebih dahulu.</p></div>';
+            return;
+        }
 
-    /* ---- Cek Promo ---- */
+        var available = classSchedules.filter(function (s) { return s.kelas === kelas; });
+        if (available.length === 0) {
+            scheduleBox.innerHTML = '<div class="col-12"><p class="text-danger small mb-0">Belum ada jadwal untuk kelas ini.</p></div>';
+            return;
+        }
+
+        scheduleHint.textContent = 'Program ini ' + duration + 'x per minggu. Silakan pilih ' + duration + ' jadwal pertemuan.';
+        scheduleHint.style.display = 'block';
+
+        var optionsHtml = scheduleOptionsHtml(kelas);
+        for (var i = 1; i <= duration; i++) {
+            var col = document.createElement('div');
+            col.className = 'col-md-6';
+            col.innerHTML =
+                '<label class="form-label-livo">Pertemuan ' + i + '</label>' +
+                '<select name="class_schedule_ids[]" class="form-control-livo sch-select">' + optionsHtml + '</select>';
+            scheduleBox.appendChild(col);
+        }
+    }
+
+    classSelect.addEventListener('change', renderSchedules);
+
+    /* ---- Cek Promo (hanya validasi kode, tanpa cek harga) ---- */
     document.getElementById('btn-cek-promo').addEventListener('click', function () {
-        var code      = document.getElementById('reg-promo-code').value.trim();
-        var packageId = document.getElementById('reg-package').value;
-        var resultEl  = document.getElementById('promo-result');
+        var code     = document.getElementById('reg-promo-code').value.trim();
+        var resultEl = document.getElementById('promo-result');
 
         if (!code) {
             resultEl.innerHTML = '<span style="color:#dc3545;">Masukkan kode promo terlebih dahulu.</span>';
@@ -432,27 +458,16 @@
         this.textContent = '...';
         this.disabled = true;
 
-        fetch('{{ route("registration.check-promo") }}?code=' + encodeURIComponent(code) + '&package_id=' + (packageId || ''))
+        fetch('{{ route("registration.check-promo") }}?code=' + encodeURIComponent(code))
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 document.getElementById('btn-cek-promo').textContent = 'Cek';
                 document.getElementById('btn-cek-promo').disabled = false;
 
                 if (data.valid) {
-                    appliedDiscount = data.discount_amount || 0;
                     resultEl.innerHTML = '<span style="color:#198754;font-weight:700;">✓ ' + data.message + '</span>';
-
-                    if (selectedPackagePrice > 0) {
-                        document.getElementById('sum-base').textContent          = formatRp(selectedPackagePrice);
-                        document.getElementById('sum-discount-label').textContent = data.discount_label;
-                        document.getElementById('sum-discount-val').textContent   = '– ' + formatRp(appliedDiscount);
-                        document.getElementById('sum-final').textContent          = formatRp(data.final_price);
-                        document.getElementById('price-summary').style.display   = 'block';
-                    }
                 } else {
-                    appliedDiscount = 0;
                     resultEl.innerHTML = '<span style="color:#dc3545;">✗ ' + data.message + '</span>';
-                    document.getElementById('price-summary').style.display = 'none';
                 }
                 resultEl.style.display = 'block';
             })

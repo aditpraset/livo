@@ -15,7 +15,7 @@
     </div>
 </div>
 
-<form action="{{ route('admin.students.update', $student->id) }}" method="POST">
+<form action="{{ route('admin.students.update', $student->id) }}" method="POST" enctype="multipart/form-data">
     @csrf
     @method('PUT')
     <div class="row g-4">
@@ -86,6 +86,28 @@
         </div>
 
         <div class="col-md-4">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Foto Siswa</h5>
+                </div>
+                <div class="card-body text-center">
+                    <img id="photo-preview"
+                        src="{{ $student->photo ? asset('storage/' . $student->photo) : '' }}"
+                        alt="Foto Siswa"
+                        class="rounded mb-3 {{ $student->photo ? '' : 'd-none' }}"
+                        style="width: 140px; height: 140px; object-fit: cover;">
+                    @unless($student->photo)
+                        <div id="photo-placeholder" class="rounded bg-light d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 140px; height: 140px;">
+                            <i class="bi bi-image text-muted" style="font-size: 2.5rem;"></i>
+                        </div>
+                    @endunless
+                    <input type="file" name="photo" id="photo-input"
+                        class="form-control @error('photo') is-invalid @enderror" accept="image/*">
+                    <small class="text-muted d-block mt-1">Semua tipe foto, maksimal 5 MB.</small>
+                    @error('photo') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                </div>
+            </div>
+
             <div class="card border-0 shadow-sm sticky-top" style="top: 2rem;">
                 <div class="card-body py-4 text-center">
                     <i class="bi bi-person-check text-success" style="font-size: 3rem;"></i>
@@ -100,4 +122,18 @@
         </div>
     </div>
 </form>
+
+@push('js')
+<script>
+document.getElementById('photo-input')?.addEventListener('change', function (e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var img = document.getElementById('photo-preview');
+    var ph  = document.getElementById('photo-placeholder');
+    img.src = URL.createObjectURL(file);
+    img.classList.remove('d-none');
+    if (ph) ph.classList.add('d-none');
+});
+</script>
+@endpush
 @endsection

@@ -18,16 +18,12 @@ class PackageController extends Controller
     {
         return DataTables::of(Package::latest())
             ->addIndexColumn()
-            ->editColumn('price', fn($p) => 'Rp ' . number_format($p->price, 0, ',', '.'))
-            ->editColumn('total_sessions', fn($p) => $p->total_sessions . ' sesi')
             ->addColumn('action', function ($p) {
                 return '
                     <div class="btn-group btn-group-sm">
                         <button class="btn btn-outline-warning btn-edit"
                             data-id="' . $p->id . '"
                             data-name="' . e($p->package_name) . '"
-                            data-price="' . $p->price . '"
-                            data-sessions="' . $p->total_sessions . '"
                             data-desc="' . e($p->description ?? '') . '">
                             <i class="bi bi-pencil"></i>
                         </button>
@@ -45,11 +41,13 @@ class PackageController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'package_name'   => 'required|string|max:100',
-            'price'          => 'required|numeric|min:0',
-            'total_sessions' => 'required|integer|min:1',
-            'description'    => 'nullable|string|max:500',
+            'package_name' => 'required|string|max:100',
+            'description'  => 'nullable|string|max:500',
         ]);
+
+        // Harga & jumlah sesi disembunyikan dari form; isi nilai default.
+        $validated['price'] = 0;
+        $validated['total_sessions'] = 0;
 
         Package::create($validated);
         return response()->json(['success' => true, 'message' => 'Paket berhasil ditambahkan.']);
@@ -58,12 +56,11 @@ class PackageController extends Controller
     public function update(Request $request, Package $package)
     {
         $validated = $request->validate([
-            'package_name'   => 'required|string|max:100',
-            'price'          => 'required|numeric|min:0',
-            'total_sessions' => 'required|integer|min:1',
-            'description'    => 'nullable|string|max:500',
+            'package_name' => 'required|string|max:100',
+            'description'  => 'nullable|string|max:500',
         ]);
 
+        // Harga & jumlah sesi tidak diubah dari form (disembunyikan).
         $package->update($validated);
         return response()->json(['success' => true, 'message' => 'Paket berhasil diperbarui.']);
     }

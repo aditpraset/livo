@@ -417,6 +417,8 @@ class EvaluationController extends Controller
             $validated
         );
 
+        $this->syncQuota($evaluation);
+
         return response()->json(['success' => true, 'message' => 'Evaluasi berhasil disimpan.', 'data' => $evaluation]);
     }
 
@@ -436,7 +438,32 @@ class EvaluationController extends Controller
         ]);
 
         $evaluation->update($validated);
+        $this->syncQuota($evaluation);
         return response()->json(['success' => true, 'message' => 'Evaluasi berhasil diperbarui.']);
+    }
+
+    /**
+     * Sinkronkan kuota sesi siswa terhadap evaluasi:
+     * kuota berkurang 1 saat siswa "hadir" dan dievaluasi, dan dikembalikan
+     * jika status kehadiran diubah menjadi bukan hadir. Penanda quota_consumed
+     * mencegah pemotongan dobel saat evaluasi disimpan berulang.
+     */
+    private function syncQuota(Evaluation $evaluation): void
+    {
+        $student = Schedule::find($evaluation->schedule_id)?->student;
+        if (!$student) {
+            return;
+        }
+
+        $attended = $evaluation->student_attendance === 'hadir';
+
+        if ($attended && !$evaluation->quota_consumed && $student->quota_sessions > 0) {
+            $student->decrement('quota_sessions');
+            $evaluation->update(['quota_consumed' => true]);
+        } elseif (!$attended && $evaluation->quota_consumed) {
+            $student->increment('quota_sessions');
+            $evaluation->update(['quota_consumed' => false]);
+        }
     }
 
     public function publish(Evaluation $evaluation)

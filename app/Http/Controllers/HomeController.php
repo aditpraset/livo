@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\ClassSchedule;
+use App\Models\Grade;
 use App\Models\Package;
+use App\Models\Program;
 use App\Models\Promo;
 use App\Models\ScheduleSession;
 use App\Models\ScheduleStudent;
@@ -20,16 +23,31 @@ class HomeController extends Controller
 
     public function registration()
     {
-        $sessions = ScheduleSession::orderBy('time_start')->get();
         $subjects = Subject::orderBy('subject_name')->get();
-        $packages = Package::orderBy('price')->get();
-        return view('website.registration', compact('sessions', 'subjects', 'packages'));
+        $programs = Program::orderBy('program_name')->get(['id', 'program_name', 'duration']);
+        $grades   = Grade::orderBy('grade_name')->get(['id', 'grade_name']);
+        $packages = Package::orderBy('package_name')->get(['id', 'package_name']);
+
+        // Master jadwal kelas → dipakai untuk filter jadwal (hari + sesi jadi satu) berdasarkan kelas
+        $classSchedules = ClassSchedule::with('session')->get()->map(function ($c) {
+            return [
+                'id'           => $c->id,
+                'kelas'        => $c->kelas,
+                'hari_label'   => $c->hari,
+                'session_id'   => $c->session_id,
+                'session_name' => $c->session?->name,
+                'session_time' => $c->session
+                    ? date('H:i', strtotime($c->session->time_start)) . ' - ' . date('H:i', strtotime($c->session->time_end))
+                    : null,
+            ];
+        });
+
+        return view('website.registration', compact('subjects', 'programs', 'grades', 'packages', 'classSchedules'));
     }
 
     public function checkPromo(Request $request)
     {
-        $code      = strtoupper(trim($request->input('code', '')));
-        $packageId = $request->input('package_id');
+        $code = strtoupper(trim($request->input('code', '')));
 
         if (!$code) {
             return response()->json(['valid' => false, 'message' => 'Masukkan kode promo.']);
@@ -45,21 +63,9 @@ class HomeController extends Controller
             return response()->json(['valid' => false, 'message' => 'Promo sudah tidak aktif atau kadaluarsa.']);
         }
 
-        $packagePrice = 0;
-        if ($packageId) {
-            $pkg = Package::find($packageId);
-            $packagePrice = $pkg ? (float) $pkg->price : 0;
-        }
-
-        if ($promo->min_package_price && $packagePrice < $promo->min_package_price) {
-            return response()->json([
-                'valid'   => false,
-                'message' => 'Promo ini hanya berlaku untuk paket dengan harga minimal Rp ' . number_format($promo->min_package_price, 0, ',', '.'),
-            ]);
-        }
-
-        $discount   = $promo->calculateDiscount($packagePrice);
-        $finalPrice = max(0, $packagePrice - $discount);
+        // Pendaftaran tidak mengecek harga → cukup validasi keabsahan kode promo
+        $discount   = 0;
+        $finalPrice = 0;
 
         return response()->json([
             'valid'           => true,
@@ -92,11 +98,14 @@ class HomeController extends Controller
             'whatsapp'             => 'nullable|string|max:20',
             'class_type'           => 'nullable|string|max:50',
             'kbm_process'          => 'nullable|string|max:100',
+            'program_id'           => 'nullable|exists:programs,id',
+            'grade_id'             => 'nullable|exists:grades,id',
+            'duration'             => 'nullable|integer|in:1,3,6,12',
             'package_id'           => 'nullable|exists:packages,id',
             'program'              => 'nullable|array',
             'program.*'            => 'string|max:100',
-            'selected_days'        => 'nullable|string|max:50',
-            'schedule_session_id'  => 'nullable|exists:schedule_sessions,id',
+            'class_schedule_ids'   => 'nullable|array',
+            'class_schedule_ids.*' => 'nullable|exists:class_schedules,id',
             'school_curriculum'    => 'nullable|string|max:100',
             'learning_material'    => 'nullable|string|max:255',
             'promo_code'           => 'nullable|string|max:50',
@@ -120,19 +129,29 @@ class HomeController extends Controller
             }
         }
 
-        // Ambil nama paket untuk backward compat di kolom `package`
+        // Nama paket untuk kolom `package` (tanpa cek ke master harga)
         $packageName = null;
         if (!empty($validated['package_id'])) {
-            $pkg = Package::find($validated['package_id']);
-            $packageName = $pkg?->package_name;
+            $pkg  = Package::find($validated['package_id']);
+            $prog = !empty($validated['program_id']) ? Program::find($validated['program_id']) : null;
+            $packageName = trim(($pkg?->package_name ?? '') . ' - ' . ($prog?->program_name ?? ''), ' -');
         }
 
+        // Resolve jadwal dari master jadwal yang dipilih (bisa lebih dari satu sesuai durasi program)
+        $scheduleIds      = array_values(array_filter($validated['class_schedule_ids'] ?? []));
+        $classSchedules   = ClassSchedule::with('session')->whereIn('id', $scheduleIds)->get();
+        $selectedDays     = $classSchedules->pluck('hari')->implode(', ');
+        $firstSessionId   = $classSchedules->first()?->session_id;
+
         $data = array_merge($validated, [
-            'status'            => 'Baru',
-            'registration_code' => 'REG-' . strtoupper(str_replace(' ', '', substr($request->full_name, 0, 3))) . '-' . date('YmdHis'),
-            'program'           => !empty($programNames) ? json_encode($programNames) : null,
-            'package'           => $packageName,
-            'promo_id'          => $promoId,
+            'status'              => 'Baru',
+            'registration_code'   => 'REG-' . strtoupper(str_replace(' ', '', substr($request->full_name, 0, 3))) . '-' . date('YmdHis'),
+            'program'             => !empty($programNames) ? json_encode($programNames) : null,
+            'package'             => $packageName,
+            'promo_id'            => $promoId,
+            'class_schedule_ids'  => !empty($scheduleIds) ? $scheduleIds : null,
+            'selected_days'       => $selectedDays ?: null,
+            'schedule_session_id' => $firstSessionId,
         ]);
 
         $registration = StudentRegistration::create($data);
@@ -144,12 +163,12 @@ class HomeController extends Controller
         ]);
         $student = Student::create($studentData);
 
-        // Simpan jadwal awal ke ScheduleStudent
-        if (!empty($validated['selected_days']) && !empty($validated['schedule_session_id'])) {
+        // Simpan setiap jadwal terpilih ke ScheduleStudent (satu baris per pertemuan)
+        foreach ($classSchedules as $cs) {
             ScheduleStudent::create([
                 'student_id'          => $student->id,
-                'schedule_session_id' => $validated['schedule_session_id'],
-                'date'                => $validated['selected_days'],
+                'schedule_session_id' => $cs->session_id,
+                'date'                => $cs->hari,
                 'notes'               => 'Jadwal Pendaftaran Awal',
             ]);
         }

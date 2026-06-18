@@ -129,31 +129,48 @@
                         <span class="fw-semibold">{{ $registration->kbm_process ?? '-' }}</span>
                     </div>
                     <div class="col-md-4">
-                        <label class="small text-muted d-block">Program</label>
+                        <label class="small text-muted d-block">Program Belajar</label>
+                        <span class="fw-semibold">{{ $registration->programMaster->program_name ?? '-' }}</span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small text-muted d-block">Jenjang</label>
+                        <span class="fw-semibold">{{ $registration->gradeMaster->grade_name ?? '-' }}</span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small text-muted d-block">Durasi</label>
+                        <span class="fw-semibold">{{ $registration->duration ? $registration->duration . ' Bulan' : '-' }}</span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small text-muted d-block">Paket</label>
+                        <span class="fw-semibold">{{ $registration->packageMaster->package_name ?? ($registration->package ?? '-') }}</span>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="small text-muted d-block">Mata Pelajaran</label>
                         @forelse($registration->program_list as $prog)
                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle">{{ $prog }}</span>
                         @empty
                             <span class="text-muted">-</span>
                         @endforelse
                     </div>
-                    <div class="col-md-4">
-                        <label class="small text-muted d-block">Paket</label>
-                        <span class="fw-semibold">{{ $registration->package ?? '-' }}</span>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="small text-muted d-block">Pilihan Hari</label>
-                        <span class="fw-semibold">{{ $registration->selected_days ?? '-' }}</span>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="small text-muted d-block">Sesi Belajar</label>
-                        <span class="fw-semibold">{{ $registration->scheduleSession->name ?? '-' }}</span>
+                    <div class="col-md-12">
+                        <label class="small text-muted d-block">Jadwal</label>
+                        @forelse($registration->selected_schedules as $cs)
+                            <span class="badge bg-info-subtle text-info border border-info-subtle">
+                                {{ $cs->hari }} &mdash; {{ $cs->session->name ?? '-' }}
+                                @if($cs->session)
+                                    ({{ \Illuminate\Support\Str::substr($cs->session->time_start, 0, 5) }} - {{ \Illuminate\Support\Str::substr($cs->session->time_end, 0, 5) }})
+                                @endif
+                            </span>
+                        @empty
+                            <span class="fw-semibold">{{ $registration->selected_days ?? '-' }}</span>
+                        @endforelse
                     </div>
                     <div class="col-md-6">
                         <label class="small text-muted d-block">Kurikulum Sekolah</label>
                         <span class="fw-semibold">{{ $registration->school_curriculum ?? '-' }}</span>
                     </div>
                     <div class="col-md-6">
-                        <label class="small text-muted d-block">Materi Pembelajaran</label>
+                        <label class="small text-muted d-block">Catatan Khusus</label>
                         <span class="fw-semibold">{{ $registration->learning_material ?? '-' }}</span>
                     </div>
                 </div>
@@ -263,7 +280,7 @@
                     </div>
                     <div class="col-md-12">
                         <label class="form-label">Deskripsi</label>
-                        <input type="text" class="form-control" name="description" value="Pembayaran Pendaftaran - {{ $registration->program }}" required>
+                        <input type="text" class="form-control" name="description" value="Pembayaran Pendaftaran - {{ $registration->package ?: $registration->program_label }}" required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Jumlah (Rp)</label>
