@@ -3,13 +3,17 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ClassSchedule;
+use App\Models\Grade;
 use App\Models\Package;
+use App\Models\Program;
 use App\Models\ScheduleSession;
 use App\Models\ScheduleStudent;
 use App\Models\Student;
 use App\Models\Subject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -147,7 +151,8 @@ class StudentController extends Controller
         'Nama Ayah', 'Nama Ibu', 'Nama Wali', 'Alamat',
         'Email', 'No. Telp', 'No. WhatsApp',
         'Kelas/Jenjang', 'Proses KBM',
-        'ID Paket', 'ID Program (pisah koma)', 'Pilihan Hari', 'ID Sesi',
+        'ID Program (Master Program)', 'ID Jenjang (Master Jenjang)', 'Durasi (bulan: 1/3/6/12)',
+        'ID Paket (Master Paket)', 'ID Mapel (pisah koma, Master Mapel)', 'ID Jadwal (pisah koma, Master Jadwal)',
         'Kurikulum Sekolah', 'Materi Pembelajaran',
         'Info Pendaftaran', 'PIC Marketing', 'Status (1=Aktif, 2=Non-Aktif)',
     ];
@@ -171,7 +176,7 @@ class StudentController extends Controller
             'Bapak Budi', 'Ibu Ani', '', 'Jl. Mawar No. 1',
             'budi@email.com', '081200000001', '081200000001',
             'SD Kelas 4', 'Offline (Di Livo)',
-            1, '1,2', 'Senin', 1,
+            1, 1, 3, 1, '1,2', '1,2',
             'Kurikulum Merdeka', 'Aljabar dasar',
             'Instagram', 'Marketing A', 1,
         ]], null, 'A2');
@@ -180,8 +185,8 @@ class StudentController extends Controller
         $sheet->getStyle('A1:' . $lastCol . '1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
         $sheet->getStyle('A1:' . $lastCol . '1')->getFill()
             ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('2C3E73');
-        foreach (range('A', $lastCol) as $col) {
-            $sheet->getColumnDimension($col)->setWidth(22);
+        for ($c = 1; $c <= Coordinate::columnIndexFromString($lastCol); $c++) {
+            $sheet->getColumnDimensionByColumn($c)->setWidth(22);
         }
 
         // ── Sheet master: helper untuk render ──
@@ -197,16 +202,26 @@ class StudentController extends Controller
             $ws->getStyle('A1:' . $last . '1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
             $ws->getStyle('A1:' . $last . '1')->getFill()
                 ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('1F7A4D');
-            foreach (range('A', $last) as $col) {
-                $ws->getColumnDimension($col)->setWidth(24);
+            for ($c = 1; $c <= Coordinate::columnIndexFromString($last); $c++) {
+                $ws->getColumnDimensionByColumn($c)->setWidth(24);
             }
         };
 
-        $addMaster('Master Paket', ['ID', 'Nama Paket', 'Harga', 'Jumlah Sesi'],
-            Package::orderBy('id')->get()->map(fn($p) => [$p->id, $p->package_name, $p->price, $p->total_sessions])->toArray());
+        $addMaster('Master Program', ['ID', 'Nama Program', 'Kuota', 'Frekuensi (x/minggu)'],
+            Program::orderBy('id')->get()->map(fn($p) => [$p->id, $p->program_name, $p->kuota, $p->duration])->toArray());
+
+        $addMaster('Master Jenjang', ['ID', 'Nama Jenjang'],
+            Grade::orderBy('id')->get()->map(fn($g) => [$g->id, $g->grade_name])->toArray());
+
+        $addMaster('Master Paket', ['ID', 'Nama Paket'],
+            Package::orderBy('id')->get()->map(fn($p) => [$p->id, $p->package_name])->toArray());
 
         $addMaster('Master Mapel', ['ID', 'Nama Mata Pelajaran'],
             Subject::orderBy('id')->get()->map(fn($s) => [$s->id, $s->subject_name])->toArray());
+
+        $addMaster('Master Jadwal', ['ID', 'Kelas', 'Hari', 'Sesi', 'Program'],
+            ClassSchedule::with(['session', 'program'])->orderBy('id')->get()
+                ->map(fn($c) => [$c->id, $c->kelas, $c->hari, $c->session->name ?? '-', $c->program->program_name ?? '-'])->toArray());
 
         $addMaster('Master Sesi', ['ID', 'Nama Sesi', 'Mulai', 'Selesai'],
             ScheduleSession::orderBy('id')->get()->map(fn($s) => [$s->id, $s->name, substr($s->time_start, 0, 5), substr($s->time_end, 0, 5)])->toArray());
@@ -276,41 +291,62 @@ class StudentController extends Controller
                 continue;
             }
 
+            // Master data terkoneksi siswa bersifat opsional → kosong/tidak valid dibiarkan null (baris tetap diimport).
+
+            // Master: Program (Master Program)
+            $programId = ($get(17) !== '' && Program::whereKey($get(17))->exists()) ? (int) $get(17) : null;
+            if ($get(17) !== '' && $programId === null) {
+                $errors[] = "Baris {$line}: ID Program '{$get(17)}' tidak ditemukan (dikosongkan).";
+            }
+
+            // Master: Jenjang (Master Grade)
+            $gradeId = ($get(18) !== '' && Grade::whereKey($get(18))->exists()) ? (int) $get(18) : null;
+            if ($get(18) !== '' && $gradeId === null) {
+                $errors[] = "Baris {$line}: ID Jenjang '{$get(18)}' tidak ditemukan (dikosongkan).";
+            }
+
+            // Durasi (bulan)
+            $duration = ($get(19) !== '' && in_array((int) $get(19), [1, 3, 6, 12], true)) ? (int) $get(19) : null;
+            if ($get(19) !== '' && $duration === null) {
+                $errors[] = "Baris {$line}: Durasi '{$get(19)}' tidak valid (dikosongkan).";
+            }
+
             // Master: Paket
+            $packageId = ($get(20) !== '' && Package::whereKey($get(20))->exists()) ? (int) $get(20) : null;
+            if ($get(20) !== '' && $packageId === null) {
+                $errors[] = "Baris {$line}: ID Paket '{$get(20)}' tidak ditemukan (dikosongkan).";
+            }
+
+            // Nama paket gabungan "Paket - Program" untuk kolom `package`
             $packageName = null;
-            if ($get(17) !== '') {
-                $pkg = Package::find($get(17));
-                if (!$pkg) {
-                    $skipped++;
-                    $errors[] = "Baris {$line}: ID Paket '{$get(17)}' tidak ditemukan.";
-                    continue;
-                }
-                $packageName = $pkg->package_name;
+            if ($packageId || $programId) {
+                $pkgName  = $packageId ? (Package::find($packageId)?->package_name ?? '') : '';
+                $progName = $programId ? (Program::find($programId)?->program_name ?? '') : '';
+                $packageName = trim($pkgName . ' - ' . $progName, ' -') ?: null;
             }
 
-            // Master: Sesi
-            $sessionId = null;
-            if ($get(20) !== '') {
-                if (!ScheduleSession::whereKey($get(20))->exists()) {
-                    $skipped++;
-                    $errors[] = "Baris {$line}: ID Sesi '{$get(20)}' tidak ditemukan.";
-                    continue;
-                }
-                $sessionId = (int) $get(20);
-            }
-
-            // Master: Program (ID mapel, pisah koma) → JSON nama mapel
+            // Master: Mapel (ID mapel, pisah koma) → JSON nama mapel
             $programJson = null;
-            if ($get(18) !== '') {
-                $ids   = array_filter(array_map('trim', explode(',', $get(18))), 'is_numeric');
+            if ($get(21) !== '') {
+                $ids   = array_filter(array_map('trim', explode(',', $get(21))), 'is_numeric');
                 $names = Subject::whereIn('id', $ids)->pluck('subject_name')->toArray();
                 $programJson = !empty($names) ? json_encode($names) : null;
             }
 
+            // Master: Jadwal (ID class schedule, pisah koma)
+            $scheduleIds = [];
+            if ($get(22) !== '') {
+                $ids = array_filter(array_map('trim', explode(',', $get(22))), 'is_numeric');
+                $scheduleIds = ClassSchedule::whereIn('id', $ids)->pluck('id')->map(fn($v) => (int) $v)->toArray();
+            }
+            $classSchedules = ClassSchedule::with('session')->whereIn('id', $scheduleIds)->get();
+            $selectedDays   = $classSchedules->pluck('hari')->implode(', ');
+            $firstSessionId = $classSchedules->first()?->session_id;
+
             $birth = $get(3);
             $birthDate = $birth !== '' && strtotime($birth) ? date('Y-m-d', strtotime($birth)) : null;
 
-            $status = (int) $get(25);
+            $status = (int) $get(27);
             $status = in_array($status, [1, 2], true) ? $status : 2;
 
             $student = Student::create([
@@ -333,23 +369,28 @@ class StudentController extends Controller
                 'whatsapp'            => $get(14) ?: null,
                 'class_type'          => $get(15) ?: null,
                 'kbm_process'         => $get(16) ?: null,
+                'program_id'          => $programId,
+                'grade_id'            => $gradeId,
+                'duration'            => $duration,
+                'package_id'          => $packageId,
                 'package'             => $packageName,
                 'program'             => $programJson,
-                'selected_days'       => $get(19) ?: null,
-                'schedule_session_id' => $sessionId,
-                'school_curriculum'   => $get(21) ?: null,
-                'learning_material'   => $get(22) ?: null,
-                'registration_info'   => $get(23) ?: null,
-                'marketing_pic'       => $get(24) ?: null,
+                'class_schedule_ids'  => !empty($scheduleIds) ? $scheduleIds : null,
+                'selected_days'       => $selectedDays ?: null,
+                'schedule_session_id' => $firstSessionId,
+                'school_curriculum'   => $get(23) ?: null,
+                'learning_material'   => $get(24) ?: null,
+                'registration_info'   => $get(25) ?: null,
+                'marketing_pic'       => $get(26) ?: null,
                 'status'              => $status,
             ]);
 
-            // Jadwal awal
-            if ($get(19) !== '' && $sessionId) {
+            // Jadwal awal — satu baris ScheduleStudent per jadwal terpilih
+            foreach ($classSchedules as $cs) {
                 ScheduleStudent::create([
                     'student_id'          => $student->id,
-                    'schedule_session_id' => $sessionId,
-                    'date'                => $get(19),
+                    'schedule_session_id' => $cs->session_id,
+                    'date'                => $cs->hari,
                     'notes'               => 'Jadwal Pendaftaran Awal (Import)',
                 ]);
             }

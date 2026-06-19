@@ -13,6 +13,7 @@ use App\Models\Syllabus;
 use App\Models\Tutor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -351,8 +352,8 @@ class ScheduleController extends Controller
         $lastCol = $sheet->getHighestColumn();
         $sheet->getStyle('A1:' . $lastCol . '1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
         $sheet->getStyle('A1:' . $lastCol . '1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('2C3E73');
-        foreach (range('A', $lastCol) as $col) {
-            $sheet->getColumnDimension($col)->setWidth(22);
+        for ($c = 1; $c <= Coordinate::columnIndexFromString($lastCol); $c++) {
+            $sheet->getColumnDimensionByColumn($c)->setWidth(22);
         }
 
         $addMaster = function (string $title, array $headers, $rows) use ($spreadsheet) {
@@ -366,8 +367,8 @@ class ScheduleController extends Controller
             $last = $ws->getHighestColumn();
             $ws->getStyle('A1:' . $last . '1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
             $ws->getStyle('A1:' . $last . '1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('1F7A4D');
-            foreach (range('A', $last) as $col) {
-                $ws->getColumnDimension($col)->setWidth(24);
+            for ($c = 1; $c <= Coordinate::columnIndexFromString($last); $c++) {
+                $ws->getColumnDimensionByColumn($c)->setWidth(24);
             }
         };
 

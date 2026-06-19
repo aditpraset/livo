@@ -65,9 +65,10 @@
                     <i class="bi bi-info-circle-fill mt-1"></i>
                     <div>
                         Gunakan <a href="{{ route('admin.students.template') }}" class="fw-semibold">template Excel</a> yang disediakan.
-                        Untuk kolom <strong>ID Paket</strong>, <strong>ID Program</strong>, dan <strong>ID Sesi</strong>,
-                        isi dengan <strong>ID</strong> yang tertera pada sheet <em>Master Paket / Master Mapel / Master Sesi</em>.
-                        ID Program boleh lebih dari satu, dipisahkan koma (mis. <code>1,2</code>). Baris header tidak diimport.
+                        Untuk kolom ber-<strong>ID</strong> (Program, Jenjang, Paket, Mapel, Jadwal),
+                        isi dengan <strong>ID</strong> yang tertera pada sheet master terkait
+                        (<em>Master Program / Master Jenjang / Master Paket / Master Mapel / Master Jadwal</em>).
+                        Kolom <strong>ID Mapel</strong> dan <strong>ID Jadwal</strong> boleh lebih dari satu, dipisahkan koma (mis. <code>1,2</code>). Baris header tidak diimport.
                     </div>
                 </div>
                 <div class="mb-2">
