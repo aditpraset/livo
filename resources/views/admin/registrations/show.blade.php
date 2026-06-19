@@ -266,9 +266,11 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Kategori Pembayaran</label>
-                        <select name="category_payment" class="form-select bg-light text-muted" style="pointer-events: none;" readonly>
+                        <select name="category_payment" id="reg-pay-category" class="form-select" required>
                             <option value="1" selected>Registrasi</option>
+                            <option value="4">Registrasi dan SPP</option>
                         </select>
+                        <small class="text-muted">Kuota sesi hanya bertambah untuk <strong>Registrasi dan SPP</strong>.</small>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Tanggal Pembayaran</label>
@@ -284,7 +286,10 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Jumlah (Rp)</label>
-                        <input type="number" class="form-control" name="amount" value="200000" required>
+                        <input type="number" class="form-control" name="amount" value="{{ $autoAmount ?? 200000 }}" required>
+                        @if(!is_null($autoAmount))
+                            <small class="text-success"><i class="bi bi-magic me-1"></i>Nominal terisi otomatis dari master harga.</small>
+                        @endif
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Metode Pembayaran</label>
@@ -303,7 +308,8 @@
                     </div>
                     <div class="col-md-12">
                         <label class="form-label">Kuota Sesi</label>
-                        <input type="number" class="form-control" name="quota" value="8">
+                        <input type="number" id="reg-pay-quota" class="form-control" name="quota" value="8">
+                        <small id="reg-pay-quota-hint" class="text-muted d-none">Kategori "Registrasi" tidak menambah kuota sesi.</small>
                     </div>
                 </div>
             </div>
@@ -314,4 +320,22 @@
         </form>
     </div>
 </div>
+
+@push('js')
+<script>
+(function () {
+    var cat  = document.getElementById('reg-pay-category');
+    var qty  = document.getElementById('reg-pay-quota');
+    var hint = document.getElementById('reg-pay-quota-hint');
+    if (!cat || !qty) return;
+    function sync() {
+        var addsQuota = (cat.value === '4'); // hanya Registrasi dan SPP yang menambah kuota
+        qty.disabled = !addsQuota;
+        if (hint) hint.classList.toggle('d-none', addsQuota);
+    }
+    cat.addEventListener('change', sync);
+    sync();
+})();
+</script>
+@endpush
 @endsection

@@ -46,12 +46,14 @@
                                 1 => 'Registrasi',
                                 2 => 'SPP',
                                 3 => 'Kegiatan',
+                                4 => 'Registrasi dan SPP',
                                 default => '-'
                             };
                             $categoryClass = match ($payment->category_payment) {
                                 1 => 'bg-primary-subtle text-primary',
                                 2 => 'bg-info-subtle text-info',
                                 3 => 'bg-warning-subtle text-warning',
+                                4 => 'bg-success-subtle text-success',
                                 default => 'bg-secondary-subtle text-secondary'
                             };
                         @endphp

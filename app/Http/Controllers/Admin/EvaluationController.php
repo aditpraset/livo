@@ -9,7 +9,11 @@ use App\Models\Student;
 use App\Models\Subject;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Yajra\DataTables\Facades\DataTables;
 
 class EvaluationController extends Controller
@@ -43,12 +47,10 @@ class EvaluationController extends Controller
             ->when($start, fn($q) => $q->whereDate('schedules.class_date', '>=', $start))
             ->when($end, fn($q) => $q->whereDate('schedules.class_date', '<=', $end));
 
-        $gradeBadge = function ($g) {
-            if (!$g) return '<span class="text-muted">—</span>';
-            $cls = str_starts_with($g, 'A') ? 'bg-success'
-                 : (str_starts_with($g, 'B') ? 'bg-primary'
-                 : (str_starts_with($g, 'C') ? 'bg-warning text-dark' : 'bg-danger'));
-            return '<span class="badge ' . $cls . '">' . e($g) . '</span>';
+        $numBadge = function ($v) {
+            if ($v === null || $v === '') return '<span class="text-muted">—</span>';
+            $cls = $v >= 85 ? 'bg-success' : ($v >= 70 ? 'bg-primary' : ($v >= 60 ? 'bg-warning text-dark' : 'bg-danger'));
+            return '<span class="badge ' . $cls . '">' . (int) $v . '</span>';
         };
 
         return DataTables::of($query)
@@ -73,18 +75,14 @@ class EvaluationController extends Controller
                 };
                 return $att ? '<span class="badge ' . $badge . '">' . ucfirst($att) . '</span>' : '<span class="text-muted">—</span>';
             })
-            ->addColumn('pre_test', fn($s) => $s->evaluation && $s->evaluation->pre_test !== null
-                ? '<span class="badge bg-light text-dark border">' . $s->evaluation->pre_test . '</span>'
-                : '<span class="text-muted">—</span>')
             ->addColumn('post_test', fn($s) => $s->evaluation && $s->evaluation->post_test !== null
                 ? '<span class="badge bg-light text-dark border fs-6">' . $s->evaluation->post_test . '</span>'
                 : '<span class="text-muted">—</span>')
-            ->addColumn('pemahaman', fn($s) => $gradeBadge($s->evaluation->pemahaman ?? null))
-            ->addColumn('poin', fn($s) => $gradeBadge($s->evaluation->poin ?? null))
+            ->addColumn('pemahaman', fn($s) => $numBadge($s->evaluation->pemahaman ?? null))
             ->addColumn('action', fn($s) => '<a href="' . route('admin.evaluations.student', $s->student_id) . '" class="btn btn-sm btn-outline-primary" title="Lihat Laporan Siswa">
                             <i class="bi bi-clipboard2-data"></i>
                         </a>')
-            ->rawColumns(['class_date', 'student_name', 'grade', 'materi', 'attendance', 'pre_test', 'post_test', 'pemahaman', 'poin', 'action'])
+            ->rawColumns(['class_date', 'student_name', 'grade', 'materi', 'attendance', 'post_test', 'pemahaman', 'action'])
             ->make(true);
     }
 
@@ -130,14 +128,12 @@ class EvaluationController extends Controller
             ->when($start, fn($q) => $q->whereDate('schedules.class_date', '>=', $start))
             ->when($end, fn($q) => $q->whereDate('schedules.class_date', '<=', $end));
 
-        $gradeBadge = function ($g) {
-            if (!$g) return '<span class="text-muted small">—</span>';
-            $cls = str_starts_with($g, 'A') ? 'bg-success'
-                 : (str_starts_with($g, 'B') ? 'bg-primary'
-                 : (str_starts_with($g, 'C') ? 'bg-warning text-dark' : 'bg-danger'));
-            return '<span class="badge ' . $cls . '">' . e($g) . '</span>';
-        };
         $dash = '<span class="text-muted small">—</span>';
+        $numBadge = function ($v) use ($dash) {
+            if ($v === null || $v === '') return $dash;
+            $cls = $v >= 85 ? 'bg-success' : ($v >= 70 ? 'bg-primary' : ($v >= 60 ? 'bg-warning text-dark' : 'bg-danger'));
+            return '<span class="badge ' . $cls . '">' . (int) $v . '</span>';
+        };
 
         return DataTables::of($query)
             ->addIndexColumn()
@@ -159,12 +155,12 @@ class EvaluationController extends Controller
                 };
                 return '<span class="badge ' . $badge . '">' . ucfirst($att) . '</span>';
             })
-            ->addColumn('pre_test', fn($s) => ($s->evaluation && $s->evaluation->pre_test !== null)
-                ? '<span class="badge bg-light text-dark border">' . $s->evaluation->pre_test . '</span>' : $dash)
             ->addColumn('post_test', fn($s) => ($s->evaluation && $s->evaluation->post_test !== null)
                 ? '<span class="badge bg-light text-dark border fs-6">' . $s->evaluation->post_test . '</span>' : $dash)
-            ->addColumn('pemahaman', fn($s) => $gradeBadge($s->evaluation->pemahaman ?? null))
-            ->addColumn('poin', fn($s) => $gradeBadge($s->evaluation->poin ?? null))
+            ->addColumn('pemahaman', fn($s) => $numBadge($s->evaluation->pemahaman ?? null))
+            ->addColumn('kemampuan_analisa', fn($s) => $numBadge($s->evaluation->kemampuan_analisa ?? null))
+            ->addColumn('kemampuan_hafalan', fn($s) => $numBadge($s->evaluation->kemampuan_hafalan ?? null))
+            ->addColumn('kepercayaan_diri', fn($s) => $numBadge($s->evaluation->kepercayaan_diri ?? null))
             ->addColumn('notes', fn($s) => $s->evaluation && $s->evaluation->tutor_notes
                 ? '<span class="text-muted small">' . e($s->evaluation->tutor_notes) . '</span>' : $dash)
             ->addColumn('published', function ($s) {
@@ -180,8 +176,96 @@ class EvaluationController extends Controller
                     . ($p ? '<i class="bi bi-eye-slash me-1"></i>Sembunyikan' : '<i class="bi bi-send me-1"></i>Terbitkan')
                     . '</button>';
             })
-            ->rawColumns(['class_date', 'subject_name', 'materi', 'attendance', 'pre_test', 'post_test', 'pemahaman', 'poin', 'notes', 'published', 'action'])
+            ->rawColumns(['class_date', 'subject_name', 'materi', 'attendance', 'post_test', 'pemahaman', 'kemampuan_analisa', 'kemampuan_hafalan', 'kepercayaan_diri', 'notes', 'published', 'action'])
             ->make(true);
+    }
+
+    /**
+     * Export Excel rincian evaluasi per sesi untuk satu siswa (mengikuti filter tanggal).
+     */
+    public function exportStudentExcel(Request $request, Student $student)
+    {
+        $start = $request->input('start');
+        $end   = $request->input('end');
+
+        $schedules = Schedule::with(['subject', 'tutor', 'evaluation.syllabus'])
+            ->where('student_id', $student->id)
+            ->where('status_schedule', 'done')
+            ->when($start, fn($q) => $q->whereDate('class_date', '>=', $start))
+            ->when($end, fn($q) => $q->whereDate('class_date', '<=', $end))
+            ->orderBy('class_date')
+            ->get();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Evaluasi');
+
+        // Judul & info siswa
+        $sheet->setCellValue('A1', 'Laporan Evaluasi Siswa');
+        $sheet->setCellValue('A2', 'Nama');
+        $sheet->setCellValue('B2', $student->full_name);
+        $sheet->setCellValue('A3', 'Kelas');
+        $sheet->setCellValue('B3', $student->grade ?? '-');
+        $sheet->setCellValue('A4', 'Periode');
+        $sheet->setCellValue('B4', trim(($start ?: 'Awal') . ' s/d ' . ($end ?: 'Sekarang')));
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('A2:A4')->getFont()->setBold(true);
+
+        $headers = [
+            'No', 'Tanggal', 'Waktu', 'Mata Pelajaran', 'Tutor', 'Sub Pokok Bahasan',
+            'Kehadiran', 'Nilai', 'Pemahaman', 'Kemampuan Analisa', 'Kemampuan Hafalan',
+            'Kepercayaan Diri', 'Catatan Tutor', 'Status Laporan',
+        ];
+        $headerRow = 6;
+        $sheet->fromArray($headers, null, 'A' . $headerRow);
+
+        $r = $headerRow + 1;
+        $no = 1;
+        foreach ($schedules as $s) {
+            $ev = $s->evaluation;
+            $materi = $ev && $ev->syllabus
+                ? trim($ev->syllabus->pokok_bahasan . ($ev->syllabus->sub_pokok_bahasan ? ' — ' . $ev->syllabus->sub_pokok_bahasan : ''))
+                : '';
+            $sheet->fromArray([[
+                $no++,
+                \Carbon\Carbon::parse($s->class_date)->format('Y-m-d'),
+                substr($s->start_time, 0, 5) . ' - ' . substr($s->end_time, 0, 5),
+                $s->subject->subject_name ?? '-',
+                $s->tutor->name ?? '-',
+                $materi,
+                $ev ? ucfirst($ev->student_attendance) : 'Belum dievaluasi',
+                $ev->post_test ?? '',
+                $ev->pemahaman ?? '',
+                $ev->kemampuan_analisa ?? '',
+                $ev->kemampuan_hafalan ?? '',
+                $ev->kepercayaan_diri ?? '',
+                $ev->tutor_notes ?? '',
+                $ev ? ($ev->is_published ? 'Diterbitkan' : 'Privat') : '-',
+            ]], null, 'A' . $r++);
+        }
+
+        if ($schedules->isEmpty()) {
+            $sheet->setCellValue('A' . $r, 'Tidak ada data evaluasi pada periode ini.');
+        }
+
+        $lastCol = $sheet->getHighestColumn();
+        $sheet->getStyle('A' . $headerRow . ':' . $lastCol . $headerRow)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A' . $headerRow . ':' . $lastCol . $headerRow)->getFill()
+            ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('2C3E73');
+        $sheet->getStyle('A' . $headerRow . ':' . $lastCol . $headerRow)->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        for ($c = 1; $c <= Coordinate::columnIndexFromString($lastCol); $c++) {
+            $sheet->getColumnDimensionByColumn($c)->setWidth(20);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'evaluasi-' . str()->slug($student->full_name) . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     /**
@@ -223,16 +307,14 @@ class EvaluationController extends Controller
             }
         }
 
-        // Nilai mata pelajaran per (bulan, program) = rata-rata( avg post_test, avg poin→angka )
+        // Nilai mata pelajaran per (bulan, program) = rata-rata nilai (post_test)
         $subjectScore = function ($items) {
             $post = $this->avgNum($items->pluck('evaluation.post_test'));
-            $poin = $this->avgNum($items->map(fn($s) => Evaluation::scoreOf($s->evaluation->poin)));
-            $vals = array_values(array_filter([$post, $poin], fn($v) => $v !== null));
-            return count($vals) ? round(array_sum($vals) / count($vals)) : null;
+            return $post !== null ? round($post) : null;
         };
-        // Rata-rata skor huruf (analisa/hafalan/kepercayaan) per bulan
+        // Rata-rata angka kemampuan (analisa/hafalan/kepercayaan) per bulan
         $abilityScore = fn($items, $field) => $this->avgNum(
-            $items->map(fn($s) => Evaluation::scoreOf($s->evaluation->{$field}))
+            $items->map(fn($s) => $s->evaluation->{$field})
         );
 
         $rows = [];
@@ -402,13 +484,11 @@ class EvaluationController extends Controller
             'schedule_id'        => 'required|exists:schedules,id',
             'syllabus_id'        => 'nullable|exists:syllabi,id',
             'student_attendance' => 'required|in:hadir,izin,alfa',
-            'pre_test'           => 'nullable|integer|min:0|max:100',
-            'post_test'          => 'nullable|integer|min:0|max:100',
-            'pemahaman'          => ['nullable', Rule::in(Evaluation::GRADES)],
-            'poin'               => ['nullable', Rule::in(Evaluation::GRADES)],
-            'kemampuan_analisa'  => ['nullable', Rule::in(Evaluation::GRADES)],
-            'kemampuan_hafalan'  => ['nullable', Rule::in(Evaluation::GRADES)],
-            'kepercayaan_diri'   => ['nullable', Rule::in(Evaluation::GRADES)],
+            'post_test'          => 'nullable|integer|min:1|max:100',
+            'pemahaman'          => 'nullable|integer|min:1|max:100',
+            'kemampuan_analisa'  => 'nullable|integer|min:1|max:100',
+            'kemampuan_hafalan'  => 'nullable|integer|min:1|max:100',
+            'kepercayaan_diri'   => 'nullable|integer|min:1|max:100',
             'tutor_notes'        => 'nullable|string|max:1000',
         ]);
 
@@ -427,13 +507,11 @@ class EvaluationController extends Controller
         $validated = $request->validate([
             'syllabus_id'        => 'nullable|exists:syllabi,id',
             'student_attendance' => 'required|in:hadir,izin,alfa',
-            'pre_test'           => 'nullable|integer|min:0|max:100',
-            'post_test'          => 'nullable|integer|min:0|max:100',
-            'pemahaman'          => ['nullable', Rule::in(Evaluation::GRADES)],
-            'poin'               => ['nullable', Rule::in(Evaluation::GRADES)],
-            'kemampuan_analisa'  => ['nullable', Rule::in(Evaluation::GRADES)],
-            'kemampuan_hafalan'  => ['nullable', Rule::in(Evaluation::GRADES)],
-            'kepercayaan_diri'   => ['nullable', Rule::in(Evaluation::GRADES)],
+            'post_test'          => 'nullable|integer|min:1|max:100',
+            'pemahaman'          => 'nullable|integer|min:1|max:100',
+            'kemampuan_analisa'  => 'nullable|integer|min:1|max:100',
+            'kemampuan_hafalan'  => 'nullable|integer|min:1|max:100',
+            'kepercayaan_diri'   => 'nullable|integer|min:1|max:100',
             'tutor_notes'        => 'nullable|string|max:1000',
         ]);
 
@@ -444,9 +522,9 @@ class EvaluationController extends Controller
 
     /**
      * Sinkronkan kuota sesi siswa terhadap evaluasi:
-     * kuota berkurang 1 saat siswa "hadir" dan dievaluasi, dan dikembalikan
-     * jika status kehadiran diubah menjadi bukan hadir. Penanda quota_consumed
-     * mencegah pemotongan dobel saat evaluasi disimpan berulang.
+     * kuota berkurang 1 saat siswa "hadir" atau "alfa" dan dievaluasi, dan
+     * dikembalikan jika status kehadiran diubah menjadi "izin". Penanda
+     * quota_consumed mencegah pemotongan dobel saat evaluasi disimpan berulang.
      */
     private function syncQuota(Evaluation $evaluation): void
     {
@@ -455,12 +533,13 @@ class EvaluationController extends Controller
             return;
         }
 
-        $attended = $evaluation->student_attendance === 'hadir';
+        // Kuota terpotong untuk kehadiran "hadir" maupun "alfa"; "izin" tidak memotong.
+        $consumes = in_array($evaluation->student_attendance, ['hadir', 'alfa'], true);
 
-        if ($attended && !$evaluation->quota_consumed && $student->quota_sessions > 0) {
+        if ($consumes && !$evaluation->quota_consumed && $student->quota_sessions > 0) {
             $student->decrement('quota_sessions');
             $evaluation->update(['quota_consumed' => true]);
-        } elseif (!$attended && $evaluation->quota_consumed) {
+        } elseif (!$consumes && $evaluation->quota_consumed) {
             $student->increment('quota_sessions');
             $evaluation->update(['quota_consumed' => false]);
         }

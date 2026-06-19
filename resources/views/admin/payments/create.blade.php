@@ -48,13 +48,16 @@
                                 <option value="1" {{ old('category_payment') == '1' ? 'selected' : '' }}>Registrasi</option>
                                 <option value="2" {{ old('category_payment') == '2' ? 'selected' : '' }}>SPP</option>
                                 <option value="3" {{ old('category_payment') == '3' ? 'selected' : '' }}>Kegiatan</option>
+                                <option value="4" {{ old('category_payment') == '4' ? 'selected' : '' }}>Registrasi dan SPP</option>
                             </select>
                             @error('category_payment') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <small class="text-muted">Kuota sesi hanya bertambah untuk kategori <strong>SPP</strong> &amp; <strong>Registrasi dan SPP</strong>.</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Jumlah (Rp) <span class="text-danger">*</span></label>
-                            <input type="number" name="amount" class="form-control @error('amount') is-invalid @enderror" value="{{ old('amount', 200000) }}" required>
+                            <input type="number" id="payment-amount" name="amount" class="form-control @error('amount') is-invalid @enderror" value="{{ old('amount', 200000) }}" required>
                             @error('amount') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <small id="amount-auto-hint" class="text-success d-none"><i class="bi bi-magic me-1"></i>Nominal terisi otomatis dari master harga.</small>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label">Deskripsi <span class="text-danger">*</span></label>
@@ -123,4 +126,27 @@
         </div>
     </div>
 </form>
+
+@push('js')
+<script>
+(function () {
+    // Harga master per siswa (null jika kombinasi paket/program/jenjang/durasi tidak cocok)
+    var studentPrices = @json($studentPrices);
+    var studentSelect = document.querySelector('select[name="student_id"]');
+    var amountInput   = document.getElementById('payment-amount');
+    var hint          = document.getElementById('amount-auto-hint');
+    if (!studentSelect || !amountInput) return;
+
+    studentSelect.addEventListener('change', function () {
+        var price = studentPrices[this.value];
+        if (price !== null && price !== undefined && price !== '') {
+            amountInput.value = price;
+            if (hint) hint.classList.remove('d-none');
+        } else {
+            if (hint) hint.classList.add('d-none');
+        }
+    });
+})();
+</script>
+@endpush
 @endsection

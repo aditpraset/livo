@@ -37,8 +37,12 @@ class StudentController extends Controller
                         <small class="text-muted">' . ($student->nickname ?? '') . '</small>';
             })
             ->editColumn('status', function ($student) {
-                $badgeClass = $student->status == 1 ? 'bg-success' : 'bg-danger';
-                $statusText = $student->status == 1 ? 'Aktif' : 'Non-Aktif';
+                $map = [
+                    1 => ['bg-success', 'Aktif'],
+                    2 => ['bg-danger', 'Non-Aktif'],
+                    3 => ['bg-warning text-dark', 'Cuti'],
+                ];
+                [$badgeClass, $statusText] = $map[$student->status] ?? ['bg-secondary', '-'];
                 return '<span class="badge ' . $badgeClass . '">' . $statusText . '</span>';
             })
             ->editColumn('program', function ($student) {
@@ -105,7 +109,7 @@ class StudentController extends Controller
             'learning_material'   => 'nullable|string|max:255',
             'registration_info'   => 'nullable|string|max:100',
             'marketing_pic'       => 'nullable|string|max:100',
-            'status'              => 'required|in:1,2',
+            'status'              => 'required|in:1,2,3',
         ]);
 
         // Program (multi-pilih ID mapel) → simpan sebagai JSON nama mapel
@@ -154,7 +158,7 @@ class StudentController extends Controller
         'ID Program (Master Program)', 'ID Jenjang (Master Jenjang)', 'Durasi (bulan: 1/3/6/12)',
         'ID Paket (Master Paket)', 'ID Mapel (pisah koma, Master Mapel)', 'ID Jadwal (pisah koma, Master Jadwal)',
         'Kurikulum Sekolah', 'Materi Pembelajaran',
-        'Info Pendaftaran', 'PIC Marketing', 'Status (1=Aktif, 2=Non-Aktif)',
+        'Info Pendaftaran', 'PIC Marketing', 'Status (1=Aktif, 2=Non-Aktif, 3=Cuti)',
     ];
 
     /**
@@ -347,7 +351,7 @@ class StudentController extends Controller
             $birthDate = $birth !== '' && strtotime($birth) ? date('Y-m-d', strtotime($birth)) : null;
 
             $status = (int) $get(27);
-            $status = in_array($status, [1, 2], true) ? $status : 2;
+            $status = in_array($status, [1, 2, 3], true) ? $status : 2;
 
             $student = Student::create([
                 'registration_code'   => 'REG-' . strtoupper(str_replace(' ', '', substr($fullName, 0, 3))) . '-' . date('YmdHis') . $line,
@@ -440,11 +444,18 @@ class StudentController extends Controller
 
         // Jadwal yang tersedia disaring sesuai kelas siswa (class_type, fallback grade)
         $kelas = $student->class_type ?: $student->grade;
-        $classSchedules = ClassSchedule::with('session')
-            ->when($kelas, fn($q) => $q->where('kelas', $kelas))
-            ->get();
-
         $selectedScheduleIds = $student->class_schedule_ids ?? [];
+
+        // Sertakan juga jadwal yang sudah dipilih saat pendaftaran agar selalu tampil
+        // sebagai opsi (meski kelasnya berbeda dengan filter), supaya tidak hilang saat disimpan.
+        $classSchedules = ClassSchedule::with('session')
+            ->where(function ($q) use ($kelas, $selectedScheduleIds) {
+                $q->when($kelas, fn($qq) => $qq->where('kelas', $kelas));
+                if (!empty($selectedScheduleIds)) {
+                    $q->orWhereIn('id', $selectedScheduleIds);
+                }
+            })
+            ->get();
 
         return view('admin.students.edit', compact('student', 'program', 'maxSlots', 'classSchedules', 'selectedScheduleIds'));
     }
@@ -453,7 +464,7 @@ class StudentController extends Controller
     {
         $request->validate([
             'full_name' => 'required|string|max:255',
-            'status' => 'required|in:1,2',
+            'status' => 'required|in:1,2,3',
             'nis' => 'nullable|string|max:50',
             'email' => 'nullable|email',
             'phone' => 'nullable|string',
@@ -486,6 +497,20 @@ class StudentController extends Controller
         $data['schedule_session_id'] = $classSchedules->first()?->session_id;
 
         $student->update($data);
+
+        // Selaraskan jadwal pendaftaran (ScheduleStudent) dengan jadwal terpilih yang baru.
+        // Hanya baris jadwal pendaftaran yang disentuh; jadwal tambahan manual tetap aman.
+        ScheduleStudent::where('student_id', $student->id)
+            ->where('notes', 'like', 'Jadwal Pendaftaran%')
+            ->delete();
+        foreach ($classSchedules as $cs) {
+            ScheduleStudent::create([
+                'student_id'          => $student->id,
+                'schedule_session_id' => $cs->session_id,
+                'date'                => $cs->hari,
+                'notes'               => 'Jadwal Pendaftaran Awal',
+            ]);
+        }
 
         return redirect()->route('admin.students.index')->with('success', 'Data siswa berhasil diperbarui.');
     }

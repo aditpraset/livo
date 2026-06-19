@@ -48,6 +48,7 @@
                                 <option value="1" {{ old('category_payment', $payment->category_payment) == 1 ? 'selected' : '' }}>Registrasi</option>
                                 <option value="2" {{ old('category_payment', $payment->category_payment) == 2 ? 'selected' : '' }}>SPP</option>
                                 <option value="3" {{ old('category_payment', $payment->category_payment) == 3 ? 'selected' : '' }}>Kegiatan</option>
+                                <option value="4" {{ old('category_payment', $payment->category_payment) == 4 ? 'selected' : '' }}>Registrasi dan SPP</option>
                             </select>
                             @error('category_payment') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>

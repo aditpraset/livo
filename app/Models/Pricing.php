@@ -28,4 +28,21 @@ class Pricing extends Model
     {
         return $this->belongsTo(Grade::class);
     }
+
+    /**
+     * Cari harga master berdasarkan kombinasi paket, program, jenjang, dan durasi.
+     * Mengembalikan null jika ada field kosong atau kombinasi tidak ditemukan.
+     */
+    public static function findPrice($packageId, $programId, $gradeId, $duration)
+    {
+        if (!$packageId || !$programId || !$gradeId || !$duration) {
+            return null;
+        }
+
+        return static::where('package_id', $packageId)
+            ->where('program_id', $programId)
+            ->where('grade_id', $gradeId)
+            ->where('duration', $duration)
+            ->value('price');
+    }
 }

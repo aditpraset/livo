@@ -44,6 +44,7 @@
                             <select name="status" class="form-select @error('status') is-invalid @enderror" required>
                                 <option value="1" {{ old('status', $student->status) == 1 ? 'selected' : '' }}>Aktif</option>
                                 <option value="2" {{ old('status', $student->status) == 2 ? 'selected' : '' }}>Non-Aktif</option>
+                                <option value="3" {{ old('status', $student->status) == 3 ? 'selected' : '' }}>Cuti</option>
                             </select>
                         </div>
                         <div class="col-md-6">

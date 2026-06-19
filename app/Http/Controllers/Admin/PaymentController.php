@@ -19,7 +19,7 @@ class PaymentController extends Controller
     /** Kolom template import pembayaran (urut sesuai sheet "Data Pembayaran"). */
     private array $importColumns = [
         'ID Siswa* (Master Siswa)', 'Tanggal Bayar (YYYY-MM-DD)*', 'Tanggal Expired (YYYY-MM-DD)',
-        'Kategori (1/2/3)*', 'Deskripsi', 'Jumlah*', 'Metode (cash/transfer)',
+        'Kategori (1/2/3/4)*', 'Deskripsi', 'Jumlah*', 'Metode (cash/transfer)',
         'Dari (Pembayar)', 'Penerima', 'Kuota',
     ];
 
@@ -42,12 +42,14 @@ class PaymentController extends Controller
                     1 => 'Registrasi',
                     2 => 'SPP',
                     3 => 'Kegiatan',
+                    4 => 'Registrasi dan SPP',
                     default => '-'
                 };
                 $badgeClass = match ($pay->category_payment) {
                     1 => 'bg-primary-subtle text-primary',
                     2 => 'bg-info-subtle text-info',
                     3 => 'bg-warning-subtle text-warning',
+                    4 => 'bg-success-subtle text-success',
                     default => 'bg-secondary-subtle text-secondary'
                 };
                 return '<span class="badge ' . $badgeClass . '">' . $label . '</span>';
@@ -76,11 +78,23 @@ class PaymentController extends Controller
     public function create()
     {
         $students = Student::where('status', 1)->orderBy('full_name')->get();
+
+        // Peta harga master per kombinasi paket-program-jenjang-durasi (sekali query)
+        $priceMap = \App\Models\Pricing::all()->keyBy(
+            fn($p) => $p->package_id . '-' . $p->program_id . '-' . $p->grade_id . '-' . $p->duration
+        );
+
+        // Harga otomatis per siswa bila kombinasi datanya cocok dengan master harga
+        $studentPrices = $students->mapWithKeys(function ($s) use ($priceMap) {
+            $key = $s->package_id . '-' . $s->program_id . '-' . $s->grade_id . '-' . $s->duration;
+            return [$s->id => optional($priceMap->get($key))->price];
+        });
+
         $today = now();
         $count = Payment::whereDate('created_at', $today->toDateString())->count() + 1;
         $noPayment = 'LVR-' . $today->format('ymd') . str_pad($count, 4, '0', STR_PAD_LEFT);
 
-        return view('admin.payments.create', compact('students', 'noPayment'));
+        return view('admin.payments.create', compact('students', 'noPayment', 'studentPrices'));
     }
 
     public function store(Request $request)
@@ -89,7 +103,7 @@ class PaymentController extends Controller
             'student_id' => 'required|exists:students,id',
             'payment_date' => 'required|date',
             'expired_date' => 'nullable|date',
-            'category_payment' => 'required|in:1,2,3',
+            'category_payment' => 'required|in:1,2,3,4',
             'description' => 'required|string',
             'amount' => 'required|numeric|min:0',
             'payment_method' => 'required|in:cash,transfer',
@@ -116,6 +130,11 @@ class PaymentController extends Controller
             'quota' => $request->quota,
         ]);
 
+        // Hanya kategori SPP (2) & Registrasi dan SPP (4) yang menambah kuota sesi belajar
+        if (in_array((int) $request->category_payment, [2, 4], true) && (int) $request->quota > 0) {
+            Student::where('id', $request->student_id)->increment('quota_sessions', (int) $request->quota);
+        }
+
         return redirect()->route('admin.payments.index')->with('success', 'Pembayaran berhasil ditambahkan.');
     }
 
@@ -137,7 +156,7 @@ class PaymentController extends Controller
             'student_id' => 'required|exists:students,id',
             'payment_date' => 'required|date',
             'expired_date' => 'nullable|date',
-            'category_payment' => 'required|in:1,2,3',
+            'category_payment' => 'required|in:1,2,3,4',
             'description' => 'required|string',
             'amount' => 'required|numeric|min:0',
             'payment_method' => 'required|in:cash,transfer',
@@ -210,10 +229,11 @@ class PaymentController extends Controller
         $addSheet('Master Siswa', ['ID', 'Nama Siswa', 'NIS', 'Kelas'],
             Student::orderBy('full_name')->get()->map(fn($s) => [$s->id, $s->full_name, $s->nis, $s->grade])->toArray());
 
-        $addSheet('Kategori Pembayaran', ['Kode', 'Kategori'], [
-            [1, 'Registrasi'],
-            [2, 'SPP'],
-            [3, 'Kegiatan'],
+        $addSheet('Kategori Pembayaran', ['Kode', 'Kategori', 'Menambah Kuota?'], [
+            [1, 'Registrasi', 'Tidak'],
+            [2, 'SPP', 'Ya'],
+            [3, 'Kegiatan', 'Tidak'],
+            [4, 'Registrasi dan SPP', 'Ya'],
         ]);
 
         $addSheet('Metode Pembayaran', ['Kode'], [
@@ -287,11 +307,11 @@ class PaymentController extends Controller
             }
             $paymentDate = date('Y-m-d', strtotime($paymentDate));
 
-            // Kategori (wajib, 1/2/3)
+            // Kategori (wajib, 1/2/3/4)
             $category = (int) $get(3);
-            if (!in_array($category, [1, 2, 3], true)) {
+            if (!in_array($category, [1, 2, 3, 4], true)) {
                 $skipped++;
-                $errors[] = "Baris {$line}: Kategori '{$get(3)}' tidak valid (gunakan 1/2/3).";
+                $errors[] = "Baris {$line}: Kategori '{$get(3)}' tidak valid (gunakan 1/2/3/4).";
                 continue;
             }
 
@@ -332,8 +352,8 @@ class PaymentController extends Controller
                 'quota'            => $quota,
             ]);
 
-            // Tambah kuota sesi siswa untuk pembayaran registrasi yang menyertakan kuota
-            if ($category === 1 && $quota > 0) {
+            // Hanya kategori SPP (2) & Registrasi dan SPP (4) yang menambah kuota sesi belajar
+            if (in_array($category, [2, 4], true) && $quota > 0) {
                 $student->increment('quota_sessions', $quota);
             }
 

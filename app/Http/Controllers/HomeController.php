@@ -144,6 +144,7 @@ class HomeController extends Controller
         $firstSessionId   = $classSchedules->first()?->session_id;
 
         $data = array_merge($validated, [
+            'class_type'          => $validated['grade'] ?? null,
             'status'              => 'Baru',
             'registration_code'   => 'REG-' . strtoupper(str_replace(' ', '', substr($request->full_name, 0, 3))) . '-' . date('YmdHis'),
             'program'             => !empty($programNames) ? json_encode($programNames) : null,

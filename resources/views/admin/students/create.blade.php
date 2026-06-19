@@ -222,6 +222,7 @@
                     <select name="status" class="form-select" required>
                         <option value="1" {{ old('status', 1) == 1 ? 'selected' : '' }}>Aktif</option>
                         <option value="2" {{ old('status') == 2 ? 'selected' : '' }}>Non-Aktif</option>
+                        <option value="3" {{ old('status') == 3 ? 'selected' : '' }}>Cuti</option>
                     </select>
                 </div>
             </div>

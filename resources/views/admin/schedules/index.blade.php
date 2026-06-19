@@ -365,55 +365,26 @@
                 </div>
                 <div class="row g-3 mb-3">
                     <div class="col-6">
-                        <label class="form-label fw-semibold">Pre Test (0–100)</label>
-                        <input type="number" id="eval-pretest" class="form-control" min="0" max="100" placeholder="0–100">
+                        <label class="form-label fw-semibold">Nilai (1–100)</label>
+                        <input type="number" id="eval-posttest" class="form-control" min="1" max="100" placeholder="1–100">
                     </div>
                     <div class="col-6">
-                        <label class="form-label fw-semibold">Post Test (0–100)</label>
-                        <input type="number" id="eval-posttest" class="form-control" min="0" max="100" placeholder="0–100">
-                    </div>
-                </div>
-                <div class="row g-3 mb-3">
-                    <div class="col-6">
-                        <label class="form-label fw-semibold">Pemahaman</label>
-                        <select id="eval-pemahaman" class="form-select">
-                            <option value="">—</option>
-                            @foreach(\App\Models\Evaluation::GRADES as $grade)
-                                <option value="{{ $grade }}">{{ $grade }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-6">
-                        <label class="form-label fw-semibold">Poin</label>
-                        <select id="eval-poin" class="form-select">
-                            <option value="">—</option>
-                            @foreach(\App\Models\Evaluation::GRADES as $grade)
-                                <option value="{{ $grade }}">{{ $grade }}</option>
-                            @endforeach
-                        </select>
+                        <label class="form-label fw-semibold">Pemahaman (1–100)</label>
+                        <input type="number" id="eval-pemahaman" class="form-control" min="1" max="100" placeholder="1–100">
                     </div>
                 </div>
                 <div class="row g-3 mb-3">
                     <div class="col-4">
-                        <label class="form-label fw-semibold">Kemampuan Analisa</label>
-                        <select id="eval-analisa" class="form-select">
-                            <option value="">—</option>
-                            @foreach(\App\Models\Evaluation::GRADES as $grade)<option value="{{ $grade }}">{{ $grade }}</option>@endforeach
-                        </select>
+                        <label class="form-label fw-semibold">Kemampuan Analisa (1–100)</label>
+                        <input type="number" id="eval-analisa" class="form-control" min="1" max="100" placeholder="1–100">
                     </div>
                     <div class="col-4">
-                        <label class="form-label fw-semibold">Kemampuan Hafalan</label>
-                        <select id="eval-hafalan" class="form-select">
-                            <option value="">—</option>
-                            @foreach(\App\Models\Evaluation::GRADES as $grade)<option value="{{ $grade }}">{{ $grade }}</option>@endforeach
-                        </select>
+                        <label class="form-label fw-semibold">Kemampuan Hafalan (1–100)</label>
+                        <input type="number" id="eval-hafalan" class="form-control" min="1" max="100" placeholder="1–100">
                     </div>
                     <div class="col-4">
-                        <label class="form-label fw-semibold">Kepercayaan Diri</label>
-                        <select id="eval-kepercayaan" class="form-select">
-                            <option value="">—</option>
-                            @foreach(\App\Models\Evaluation::GRADES as $grade)<option value="{{ $grade }}">{{ $grade }}</option>@endforeach
-                        </select>
+                        <label class="form-label fw-semibold">Kepercayaan Diri (1–100)</label>
+                        <input type="number" id="eval-kepercayaan" class="form-control" min="1" max="100" placeholder="1–100">
                     </div>
                 </div>
                 <div class="mb-3">
@@ -760,14 +731,12 @@ $(function () {
             $('#eval-syllabus-empty').toggle(syllabi.length === 0);
 
             $('input[name="student_attendance"]').prop('checked', false);
-            $('#eval-syllabus, #eval-pretest, #eval-posttest, #eval-pemahaman, #eval-poin, #eval-analisa, #eval-hafalan, #eval-kepercayaan, #eval-notes').val('');
+            $('#eval-syllabus, #eval-posttest, #eval-pemahaman, #eval-analisa, #eval-hafalan, #eval-kepercayaan, #eval-notes').val('');
             if (data.evaluation) {
                 $('input[name="student_attendance"][value="' + data.evaluation.student_attendance + '"]').prop('checked', true);
                 $('#eval-syllabus').val(data.evaluation.syllabus_id ?? '');
-                $('#eval-pretest').val(data.evaluation.pre_test ?? '');
                 $('#eval-posttest').val(data.evaluation.post_test ?? '');
                 $('#eval-pemahaman').val(data.evaluation.pemahaman ?? '');
-                $('#eval-poin').val(data.evaluation.poin ?? '');
                 $('#eval-analisa').val(data.evaluation.kemampuan_analisa ?? '');
                 $('#eval-hafalan').val(data.evaluation.kemampuan_hafalan ?? '');
                 $('#eval-kepercayaan').val(data.evaluation.kepercayaan_diri ?? '');
@@ -896,10 +865,8 @@ $(function () {
                 schedule_id:        $('#eval-schedule-id').val(),
                 syllabus_id:        $('#eval-syllabus').val() || null,
                 student_attendance: attendance,
-                pre_test:           $('#eval-pretest').val() || null,
                 post_test:          $('#eval-posttest').val() || null,
                 pemahaman:          $('#eval-pemahaman').val() || null,
-                poin:               $('#eval-poin').val() || null,
                 kemampuan_analisa:  $('#eval-analisa').val() || null,
                 kemampuan_hafalan:  $('#eval-hafalan').val() || null,
                 kepercayaan_diri:   $('#eval-kepercayaan').val() || null,

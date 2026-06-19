@@ -327,8 +327,8 @@ class ScheduleController extends Controller
     private array $evalImportColumns = [
         'ID Siswa (Kelas)*', 'ID Tutor*', 'ID Mapel*', 'ID Sesi*', 'Tanggal (YYYY-MM-DD)*',
         'ID Silabus (opsional)', 'Kehadiran (hadir/izin/alfa)',
-        'Pre Test (0-100)', 'Post Test (0-100)', 'Pemahaman (A+..D)', 'Poin (A+..D)',
-        'Kemampuan Analisa (A+..D)', 'Kemampuan Hafalan (A+..D)', 'Kepercayaan Diri (A+..D)',
+        'Nilai (1-100)', 'Pemahaman (1-100)',
+        'Kemampuan Analisa (1-100)', 'Kemampuan Hafalan (1-100)', 'Kepercayaan Diri (1-100)',
         'Catatan Tutor',
     ];
 
@@ -346,7 +346,7 @@ class ScheduleController extends Controller
         $sheet->fromArray($this->evalImportColumns, null, 'A1');
         $sheet->fromArray([[
             1, 1, 1, 1, now()->format('Y-m-d'),
-            '', 'hadir', 70, 85, 'A-', 'B+', 'A', 'B+', 'A-', 'Perkembangan baik',
+            '', 'hadir', 85, 80, 90, 80, 85, 'Perkembangan baik',
         ]], null, 'A2');
 
         $lastCol = $sheet->getHighestColumn();
@@ -464,18 +464,17 @@ class ScheduleController extends Controller
                 $skipped++; $errors[] = "Baris {$line}: Kehadiran '{$get(6)}' tidak valid (hadir/izin/alfa)."; continue;
             }
 
-            $pre  = $get(7) !== '' && is_numeric($get(7)) ? max(0, min(100, (int) $get(7))) : null;
-            $post = $get(8) !== '' && is_numeric($get(8)) ? max(0, min(100, (int) $get(8))) : null;
-            $grade = fn($idx) => in_array($get($idx), Evaluation::GRADES, true) ? $get($idx) : null;
-            $pemahaman  = $grade(9);
-            $poin       = $grade(10);
-            $analisa    = $grade(11);
-            $hafalan    = $grade(12);
-            $kepercayaan = $grade(13);
+            // Semua nilai berupa angka 1–100 (null bila kosong/tidak valid)
+            $num = fn($idx) => $get($idx) !== '' && is_numeric($get($idx)) ? max(1, min(100, (int) $get($idx))) : null;
+            $post        = $num(7);  // Nilai
+            $pemahaman   = $num(8);
+            $analisa     = $num(9);
+            $hafalan     = $num(10);
+            $kepercayaan = $num(11);
 
             // Buat jadwal + evaluasi secara paralel (transaksi per baris)
             try {
-                DB::transaction(function () use ($get, $session, $date, $syllabusId, $att, $pre, $post, $pemahaman, $poin, $analisa, $hafalan, $kepercayaan) {
+                DB::transaction(function () use ($get, $session, $date, $syllabusId, $att, $post, $pemahaman, $analisa, $hafalan, $kepercayaan) {
                     $schedule = Schedule::create([
                         'student_id'      => (int) $get(0),
                         'tutor_id'        => (int) $get(1),
@@ -490,14 +489,12 @@ class ScheduleController extends Controller
                         'schedule_id'        => $schedule->id,
                         'syllabus_id'        => $syllabusId,
                         'student_attendance' => $att,
-                        'pre_test'           => $pre,
                         'post_test'          => $post,
                         'pemahaman'          => $pemahaman,
-                        'poin'               => $poin,
                         'kemampuan_analisa'  => $analisa,
                         'kemampuan_hafalan'  => $hafalan,
                         'kepercayaan_diri'   => $kepercayaan,
-                        'tutor_notes'        => $get(14) ?: null,
+                        'tutor_notes'        => $get(12) ?: null,
                         'is_published'       => false,
                     ]);
                 });

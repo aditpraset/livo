@@ -59,8 +59,12 @@
                 <p class="text-muted small mb-3">ID: {{ $student->registration_code }}</p>
                 <div class="d-flex justify-content-center gap-2">
                     @php
-                        $badgeClass = $student->status == 1 ? 'bg-success' : 'bg-danger';
-                        $statusText = $student->status == 1 ? 'Aktif' : 'Non-Aktif';
+                        $statusMap = [
+                            1 => ['bg-success', 'Aktif'],
+                            2 => ['bg-danger', 'Non-Aktif'],
+                            3 => ['bg-warning text-dark', 'Cuti'],
+                        ];
+                        [$badgeClass, $statusText] = $statusMap[$student->status] ?? ['bg-secondary', '-'];
                     @endphp
                     <span class="badge {{ $badgeClass }}">{{ $statusText }}</span>
                     @forelse($student->program_list as $prog)
@@ -337,10 +341,8 @@
                                 'program'   => $s->subject->subject_name ?? 'Tanpa Program',
                                 'ym'        => $date->format('Y-m'),
                                 'month'     => $date->translatedFormat('M Y'),
-                                'pre'       => $s->evaluation->pre_test,
                                 'post'      => $s->evaluation->post_test,
                                 'pemahaman' => $s->evaluation->pemahaman,
-                                'poin'      => $s->evaluation->poin,
                             ];
                         })->values();
                         $evalMonths = $evalSessions->pluck('ym')->unique()->sort()->values();
@@ -363,7 +365,7 @@
                             <div class="col-4">
                                 <div class="text-center p-3 rounded bg-info bg-opacity-10">
                                     <div class="fs-3 fw-bold text-info">{{ $avgScore ?? '—' }}</div>
-                                    <div class="small text-muted">Rata-rata Post Test</div>
+                                    <div class="small text-muted">Rata-rata Nilai</div>
                                 </div>
                             </div>
                         </div>
@@ -396,10 +398,8 @@
                                     <tr>
                                         <th>Bulan</th>
                                         <th class="text-center">Total Sesi</th>
-                                        <th class="text-center">Rata Post Test</th>
-                                        <th class="text-center">Rata Pre Test</th>
+                                        <th class="text-center">Rata Nilai</th>
                                         <th class="text-center">Rata Pemahaman</th>
-                                        <th class="text-center">Rata Poin</th>
                                     </tr>
                                 </thead>
                                 <tbody id="eval-summary-body"></tbody>
@@ -572,55 +572,26 @@
                 </div>
                 <div class="row g-3 mb-3">
                     <div class="col-6">
-                        <label class="form-label fw-semibold">Pre Test (0–100)</label>
-                        <input type="number" id="eval-pretest" class="form-control" min="0" max="100" placeholder="0–100">
+                        <label class="form-label fw-semibold">Nilai (1–100)</label>
+                        <input type="number" id="eval-posttest" class="form-control" min="1" max="100" placeholder="1–100">
                     </div>
                     <div class="col-6">
-                        <label class="form-label fw-semibold">Post Test (0–100)</label>
-                        <input type="number" id="eval-posttest" class="form-control" min="0" max="100" placeholder="0–100">
-                    </div>
-                </div>
-                <div class="row g-3 mb-3">
-                    <div class="col-6">
-                        <label class="form-label fw-semibold">Pemahaman</label>
-                        <select id="eval-pemahaman" class="form-select">
-                            <option value="">—</option>
-                            @foreach(\App\Models\Evaluation::GRADES as $grade)
-                                <option value="{{ $grade }}">{{ $grade }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-6">
-                        <label class="form-label fw-semibold">Poin</label>
-                        <select id="eval-poin" class="form-select">
-                            <option value="">—</option>
-                            @foreach(\App\Models\Evaluation::GRADES as $grade)
-                                <option value="{{ $grade }}">{{ $grade }}</option>
-                            @endforeach
-                        </select>
+                        <label class="form-label fw-semibold">Pemahaman (1–100)</label>
+                        <input type="number" id="eval-pemahaman" class="form-control" min="1" max="100" placeholder="1–100">
                     </div>
                 </div>
                 <div class="row g-3 mb-3">
                     <div class="col-4">
-                        <label class="form-label fw-semibold">Kemampuan Analisa</label>
-                        <select id="eval-analisa" class="form-select">
-                            <option value="">—</option>
-                            @foreach(\App\Models\Evaluation::GRADES as $grade)<option value="{{ $grade }}">{{ $grade }}</option>@endforeach
-                        </select>
+                        <label class="form-label fw-semibold">Kemampuan Analisa (1–100)</label>
+                        <input type="number" id="eval-analisa" class="form-control" min="1" max="100" placeholder="1–100">
                     </div>
                     <div class="col-4">
-                        <label class="form-label fw-semibold">Kemampuan Hafalan</label>
-                        <select id="eval-hafalan" class="form-select">
-                            <option value="">—</option>
-                            @foreach(\App\Models\Evaluation::GRADES as $grade)<option value="{{ $grade }}">{{ $grade }}</option>@endforeach
-                        </select>
+                        <label class="form-label fw-semibold">Kemampuan Hafalan (1–100)</label>
+                        <input type="number" id="eval-hafalan" class="form-control" min="1" max="100" placeholder="1–100">
                     </div>
                     <div class="col-4">
-                        <label class="form-label fw-semibold">Kepercayaan Diri</label>
-                        <select id="eval-kepercayaan" class="form-select">
-                            <option value="">—</option>
-                            @foreach(\App\Models\Evaluation::GRADES as $grade)<option value="{{ $grade }}">{{ $grade }}</option>@endforeach
-                        </select>
+                        <label class="form-label fw-semibold">Kepercayaan Diri (1–100)</label>
+                        <input type="number" id="eval-kepercayaan" class="form-control" min="1" max="100" placeholder="1–100">
                     </div>
                 </div>
                 <div class="mb-3">
@@ -647,29 +618,14 @@ $(function () {
     (function () {
         var sessions = @json($evalSessions);
         if (!sessions.length) {
-            $('#eval-summary-body').html('<tr><td colspan="6" class="text-center text-muted py-3">Belum ada data evaluasi.</td></tr>');
+            $('#eval-summary-body').html('<tr><td colspan="4" class="text-center text-muted py-3">Belum ada data evaluasi.</td></tr>');
             return;
         }
-
-        var gradePoints = { 'A+': 10, 'A': 9, 'A-': 8, 'B+': 7, 'B': 6, 'B-': 5, 'C+': 4, 'C': 3, 'C-': 2, 'D': 1 };
-        var pointGrades = { 10: 'A+', 9: 'A', 8: 'A-', 7: 'B+', 6: 'B', 5: 'B-', 4: 'C+', 3: 'C', 2: 'C-', 1: 'D' };
 
         function avgNum(arr) {
             var v = arr.filter(function (x) { return x !== null && x !== '' && x !== undefined; }).map(Number);
             if (!v.length) return null;
             return Math.round((v.reduce(function (a, b) { return a + b; }, 0) / v.length) * 10) / 10;
-        }
-        function avgGrade(arr) {
-            var pts = arr.map(function (g) { return gradePoints[g]; }).filter(function (p) { return p != null; });
-            if (!pts.length) return null;
-            var r = Math.round(pts.reduce(function (a, b) { return a + b; }, 0) / pts.length);
-            r = Math.max(1, Math.min(10, r));
-            return pointGrades[r];
-        }
-        function gradeBadge(g) {
-            if (!g) return '<span class="text-muted">—</span>';
-            var cls = g.charAt(0) === 'A' ? 'bg-success' : g.charAt(0) === 'B' ? 'bg-primary' : g.charAt(0) === 'C' ? 'bg-warning text-dark' : 'bg-danger';
-            return '<span class="badge ' + cls + '">' + g + '</span>';
         }
         function numBadge(n) {
             return n === null ? '<span class="text-muted">—</span>' : '<span class="badge bg-light text-dark border">' + n + '</span>';
@@ -687,7 +643,7 @@ $(function () {
 
             var $body = $('#eval-summary-body').empty();
             if (!rows.length) {
-                $body.html('<tr><td colspan="6" class="text-center text-muted py-3">Tidak ada data pada periode ini.</td></tr>');
+                $body.html('<tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data pada periode ini.</td></tr>');
                 return;
             }
 
@@ -698,7 +654,7 @@ $(function () {
             });
 
             Object.keys(byProgram).sort().forEach(function (program) {
-                $body.append('<tr class="table-primary"><td colspan="6" class="fw-bold"><i class="bi bi-journal-bookmark me-1"></i>' + program + '</td></tr>');
+                $body.append('<tr class="table-primary"><td colspan="4" class="fw-bold"><i class="bi bi-journal-bookmark me-1"></i>' + program + '</td></tr>');
 
                 var byMonth = {};
                 byProgram[program].forEach(function (s) {
@@ -712,9 +668,7 @@ $(function () {
                         '<td>' + g.label + '</td>' +
                         '<td class="text-center">' + g.items.length + '</td>' +
                         '<td class="text-center">' + numBadge(avgNum(g.items.map(function (x) { return x.post; }))) + '</td>' +
-                        '<td class="text-center">' + numBadge(avgNum(g.items.map(function (x) { return x.pre; }))) + '</td>' +
-                        '<td class="text-center">' + gradeBadge(avgGrade(g.items.map(function (x) { return x.pemahaman; }))) + '</td>' +
-                        '<td class="text-center">' + gradeBadge(avgGrade(g.items.map(function (x) { return x.poin; }))) + '</td>' +
+                        '<td class="text-center">' + numBadge(avgNum(g.items.map(function (x) { return x.pemahaman; }))) + '</td>' +
                         '</tr>'
                     );
                 });
@@ -884,16 +838,14 @@ $(function () {
 
             // Reset
             $('input[name="eval_att"]').prop('checked', false);
-            $('#eval-syllabus, #eval-pretest, #eval-posttest, #eval-pemahaman, #eval-poin, #eval-analisa, #eval-hafalan, #eval-kepercayaan, #eval-notes').val('');
+            $('#eval-syllabus, #eval-posttest, #eval-pemahaman, #eval-analisa, #eval-hafalan, #eval-kepercayaan, #eval-notes').val('');
 
             // Pre-fill jika sudah ada evaluasi
             if (data.evaluation) {
                 $('input[name="eval_att"][value="' + data.evaluation.student_attendance + '"]').prop('checked', true);
                 $('#eval-syllabus').val(data.evaluation.syllabus_id ?? '');
-                $('#eval-pretest').val(data.evaluation.pre_test ?? '');
                 $('#eval-posttest').val(data.evaluation.post_test ?? '');
                 $('#eval-pemahaman').val(data.evaluation.pemahaman ?? '');
-                $('#eval-poin').val(data.evaluation.poin ?? '');
                 $('#eval-analisa').val(data.evaluation.kemampuan_analisa ?? '');
                 $('#eval-hafalan').val(data.evaluation.kemampuan_hafalan ?? '');
                 $('#eval-kepercayaan').val(data.evaluation.kepercayaan_diri ?? '');
@@ -915,10 +867,8 @@ $(function () {
                 schedule_id:        $('#eval-sched-id').val(),
                 syllabus_id:        $('#eval-syllabus').val() || null,
                 student_attendance: att,
-                pre_test:           $('#eval-pretest').val() || null,
                 post_test:          $('#eval-posttest').val() || null,
                 pemahaman:          $('#eval-pemahaman').val() || null,
-                poin:               $('#eval-poin').val() || null,
                 kemampuan_analisa:  $('#eval-analisa').val() || null,
                 kemampuan_hafalan:  $('#eval-hafalan').val() || null,
                 kepercayaan_diri:   $('#eval-kepercayaan').val() || null,

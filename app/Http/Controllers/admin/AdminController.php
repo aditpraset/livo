@@ -117,7 +117,16 @@ class AdminController extends Controller
             $registration->append('program_label');
             return response()->json($registration);
         }
-        return view('admin.registrations.show', compact('registration'));
+
+        // Nominal otomatis dari master harga bila kombinasi paket/program/jenjang/durasi cocok
+        $autoAmount = \App\Models\Pricing::findPrice(
+            $registration->package_id,
+            $registration->program_id,
+            $registration->grade_id,
+            $registration->duration
+        );
+
+        return view('admin.registrations.show', compact('registration', 'autoAmount'));
     }
 
     public function storePayment(Request $request, StudentRegistration $registration)
@@ -125,6 +134,7 @@ class AdminController extends Controller
         $request->validate([
             'payment_date' => 'required|date',
             'expired_date' => 'nullable|date',
+            'category_payment' => 'required|in:1,4',
             'description' => 'required|string',
             'amount' => 'required|numeric',
             'payment_method' => 'required|in:cash,transfer',
@@ -190,7 +200,7 @@ class AdminController extends Controller
             'no_payment' => $no_payment,
             'payment_date' => $request->payment_date,
             'expired_date' => $request->expired_date,
-            'category_payment' => 1, // Registrasi
+            'category_payment' => $request->category_payment, // 1=Registrasi, 4=Registrasi dan SPP
             'description' => $request->description,
             'amount' => $request->amount,
             'payment_method' => $request->payment_method,
@@ -199,8 +209,8 @@ class AdminController extends Controller
             'quota' => $request->quota,
         ]);
 
-        // Tambahkan kuota sesi siswa sesuai nilai kuota pada pembayaran registrasi
-        if ((int) $request->quota > 0) {
+        // Hanya kategori Registrasi dan SPP (4) yang menambah kuota; Registrasi (1) saja tidak menambah
+        if (in_array((int) $request->category_payment, [2, 4], true) && (int) $request->quota > 0) {
             $student->increment('quota_sessions', (int) $request->quota);
         }
 
@@ -284,7 +294,8 @@ class AdminController extends Controller
 
         if ($student) {
             $payment = \App\Models\Payment::where('student_id', $student->id)
-                ->where('category_payment', 1)
+                ->whereIn('category_payment', [1, 4])
+                ->latest()
                 ->first();
         }
 

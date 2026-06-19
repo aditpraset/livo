@@ -167,6 +167,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/evaluations/student/{student}', [EvaluationController::class, 'studentReport'])->name('evaluations.student');
         Route::get('/data/evaluations/student/{student}', [EvaluationController::class, 'dataStudentReport'])->name('data.evaluations.student');
         Route::get('/evaluations/student/{student}/summary-pdf', [EvaluationController::class, 'downloadSummary'])->name('evaluations.student.summary');
+        Route::get('/evaluations/student/{student}/excel', [EvaluationController::class, 'exportStudentExcel'])->name('evaluations.student.excel');
         Route::post('/evaluations', [EvaluationController::class, 'store'])->name('evaluations.store');
         Route::put('/evaluations/{evaluation}', [EvaluationController::class, 'update'])->name('evaluations.update');
         Route::put('/evaluations/{evaluation}/publish', [EvaluationController::class, 'publish'])->name('evaluations.publish');

@@ -157,7 +157,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label-livo">Kelas</label>
-                            <select class="form-control-livo" name="grade">
+                            <select class="form-control-livo" name="grade" id="reg-kelas">
                                 <option value="">-- Pilih Kelas --</option>
                                 <option value="TK">TK</option>
                                 <option value="SD Kelas 1">SD Kelas 1</option>
@@ -217,23 +217,7 @@
                         <span>Data Pilihan Program</span>
                     </div>
                     <div class="row g-4 mb-5">
-                        <div class="col-md-4">
-                            <label class="form-label-livo">Kelas / Jenjang</label>
-                            <select class="form-control-livo" name="class_type" id="reg-class-type">
-                                <option value="">-- Pilih Kelas --</option>
-                                <option value="TK">TK</option>
-                                <option value="SD Kelas 1">SD Kelas 1</option>
-                                <option value="SD Kelas 2">SD Kelas 2</option>
-                                <option value="SD Kelas 3">SD Kelas 3</option>
-                                <option value="SD Kelas 4">SD Kelas 4</option>
-                                <option value="SD Kelas 5">SD Kelas 5</option>
-                                <option value="SD Kelas 6">SD Kelas 6</option>
-                                <option value="SMP Kelas 7">SMP Kelas 7</option>
-                                <option value="SMP Kelas 8">SMP Kelas 8</option>
-                                <option value="SMP Kelas 9">SMP Kelas 9</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label-livo">Pilihan Proses KBM</label>
                             <select name="kbm_process" class="form-control-livo">
                                 <option value="">-- Pilih --</option>
@@ -261,7 +245,7 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label-livo">Durasi</label>
+                            <label class="form-label-livo">Paket</label>
                             <select name="duration" id="reg-duration" class="form-control-livo">
                                 <option value="">-- Pilih Durasi --</option>
                                 <option value="1">1 Bulan</option>
@@ -271,7 +255,7 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label-livo">Paket</label>
+                            <label class="form-label-livo">Jenis Kelas</label>
                             <select name="package_id" id="reg-package" class="form-control-livo">
                                 <option value="">-- Pilih Paket --</option>
                                 @foreach($packages as $package)
@@ -390,7 +374,7 @@
     var programSelect  = document.getElementById('reg-program');
     var scheduleBox    = document.getElementById('schedule-container');
     var scheduleHint   = document.getElementById('schedule-hint');
-    var classSelect    = document.getElementById('reg-class-type');
+    var classSelect    = document.getElementById('reg-kelas');
 
     programSelect.addEventListener('change', renderSchedules);
 

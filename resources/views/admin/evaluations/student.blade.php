@@ -26,7 +26,7 @@
     <div class="col-6 col-md-3">
         <div class="card border-0 shadow-sm text-center py-3">
             <div class="fs-2 fw-bold text-info">{{ $stats['avg_score'] ?? '—' }}</div>
-            <div class="small text-muted">Rata-rata Post Test</div>
+            <div class="small text-muted">Rata-rata Nilai</div>
         </div>
     </div>
     <div class="col-6 col-md-2">
@@ -73,11 +73,16 @@
 <div class="card border-0 shadow-sm">
     <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
         <h5 class="mb-0">Rincian Evaluasi Per Sesi</h5>
-        @if($stats['evaluated'] < $stats['total'])
-            <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
-                {{ $stats['total'] - $stats['evaluated'] }} sesi belum dievaluasi
-            </span>
-        @endif
+        <div class="d-flex align-items-center gap-2">
+            @if($stats['evaluated'] < $stats['total'])
+                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
+                    {{ $stats['total'] - $stats['evaluated'] }} sesi belum dievaluasi
+                </span>
+            @endif
+            <button class="btn btn-success btn-sm" id="btn-export-excel">
+                <i class="bi bi-file-earmark-excel me-1"></i> Download Excel
+            </button>
+        </div>
     </div>
     <div class="card-body">
         <div class="table-responsive">
@@ -90,10 +95,11 @@
                         <th>Tutor</th>
                         <th>Sub Pokok Bahasan</th>
                         <th class="text-center">Kehadiran</th>
-                        <th class="text-center">Pre Test</th>
-                        <th class="text-center">Post Test</th>
+                        <th class="text-center">Nilai</th>
                         <th class="text-center">Pemahaman</th>
-                        <th class="text-center">Poin</th>
+                        <th class="text-center">Kemampuan Analisa</th>
+                        <th class="text-center">Kemampuan Hafalan</th>
+                        <th class="text-center">Kepercayaan Diri</th>
                         <th>Catatan Tutor</th>
                         <th class="text-center">Laporan</th>
                         <th class="text-center">Aksi</th>
@@ -127,10 +133,11 @@ $(function () {
             { data: 'tutor_name', name: 'tutors.name' },
             { data: 'materi', orderable: false, searchable: false },
             { data: 'attendance', name: 'evaluations.student_attendance', className: 'text-center', searchable: false },
-            { data: 'pre_test', name: 'evaluations.pre_test', className: 'text-center', searchable: false },
             { data: 'post_test', name: 'evaluations.post_test', className: 'text-center', searchable: false },
             { data: 'pemahaman', name: 'evaluations.pemahaman', className: 'text-center', searchable: false },
-            { data: 'poin', name: 'evaluations.poin', className: 'text-center', searchable: false },
+            { data: 'kemampuan_analisa', name: 'evaluations.kemampuan_analisa', className: 'text-center', searchable: false },
+            { data: 'kemampuan_hafalan', name: 'evaluations.kemampuan_hafalan', className: 'text-center', searchable: false },
+            { data: 'kepercayaan_diri', name: 'evaluations.kepercayaan_diri', className: 'text-center', searchable: false },
             { data: 'notes', orderable: false, searchable: false },
             { data: 'published', orderable: false, searchable: false, className: 'text-center' },
             { data: 'action', orderable: false, searchable: false, className: 'text-center' },
@@ -143,6 +150,14 @@ $(function () {
         $('#filter-start').val('{{ now()->subYear()->format('Y-m-d') }}');
         $('#filter-end').val('{{ now()->format('Y-m-d') }}');
         table.ajax.reload();
+    });
+
+    $('#btn-export-excel').on('click', function () {
+        var base = "{{ route('admin.evaluations.student.excel', $student->id) }}";
+        var params = [];
+        if ($('#filter-start').val()) params.push('start=' + $('#filter-start').val());
+        if ($('#filter-end').val())   params.push('end=' + $('#filter-end').val());
+        window.location.href = base + (params.length ? '?' + params.join('&') : '');
     });
 
     $(document).on('click', '.btn-toggle-publish', function () {
