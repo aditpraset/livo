@@ -434,7 +434,19 @@ class StudentController extends Controller
 
     public function edit(Student $student)
     {
-        return view('admin.students.edit', compact('student'));
+        // Maksimum jadwal = frekuensi (x/minggu) dari program yang dipilih siswa
+        $program  = $student->program_id ? Program::find($student->program_id) : null;
+        $maxSlots = (int) ($program->duration ?? 0);
+
+        // Jadwal yang tersedia disaring sesuai kelas siswa (class_type, fallback grade)
+        $kelas = $student->class_type ?: $student->grade;
+        $classSchedules = ClassSchedule::with('session')
+            ->when($kelas, fn($q) => $q->where('kelas', $kelas))
+            ->get();
+
+        $selectedScheduleIds = $student->class_schedule_ids ?? [];
+
+        return view('admin.students.edit', compact('student', 'program', 'maxSlots', 'classSchedules', 'selectedScheduleIds'));
     }
 
     public function update(Request $request, Student $student)
@@ -447,9 +459,12 @@ class StudentController extends Controller
             'phone' => 'nullable|string',
             'whatsapp' => 'nullable|string',
             'photo' => 'nullable|image|max:5120', // semua tipe foto, maks 5 MB
+            'quota_sessions' => 'nullable|integer|min:0',
+            'class_schedule_ids' => 'nullable|array',
+            'class_schedule_ids.*' => 'nullable|exists:class_schedules,id',
         ]);
 
-        $data = $request->except('photo');
+        $data = $request->except(['photo', 'class_schedule_ids']);
 
         if ($request->hasFile('photo')) {
             if ($student->photo) {
@@ -457,6 +472,18 @@ class StudentController extends Controller
             }
             $data['photo'] = $request->file('photo')->store('students', 'public');
         }
+
+        // Jadwal: bersihkan, batasi sesuai frekuensi program, lalu turunkan field terkait
+        $scheduleIds = array_values(array_unique(array_filter($request->input('class_schedule_ids', []))));
+        $maxSlots = (int) (optional(Program::find($student->program_id))->duration ?? 0);
+        if ($maxSlots > 0 && count($scheduleIds) > $maxSlots) {
+            $scheduleIds = array_slice($scheduleIds, 0, $maxSlots);
+        }
+        $classSchedules = ClassSchedule::with('session')->whereIn('id', $scheduleIds)->get();
+
+        $data['class_schedule_ids']  = !empty($scheduleIds) ? $scheduleIds : null;
+        $data['selected_days']       = $classSchedules->pluck('hari')->implode(', ') ?: null;
+        $data['schedule_session_id'] = $classSchedules->first()?->session_id;
 
         $student->update($data);
 

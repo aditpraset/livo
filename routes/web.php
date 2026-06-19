@@ -64,6 +64,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
         Route::get('/data/payments', [PaymentController::class, 'dataPayments'])->name('data.payments');
         Route::get('/payments/create', [PaymentController::class, 'create'])->name('payments.create');
+        Route::get('/payments/template', [PaymentController::class, 'template'])->name('payments.template');
+        Route::post('/payments/import', [PaymentController::class, 'import'])->name('payments.import');
         Route::post('/payments', [PaymentController::class, 'store'])->name('payments.store');
         Route::get('/payments/{payment}', [PaymentController::class, 'show'])->name('payments.show');
         Route::get('/payments/{payment}/edit', [PaymentController::class, 'edit'])->name('payments.edit');

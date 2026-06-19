@@ -83,6 +83,60 @@
                     </div>
                 </div>
             </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Kuota & Jadwal Belajar</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Kuota Sesi</label>
+                            <input type="number" name="quota_sessions" min="0"
+                                class="form-control @error('quota_sessions') is-invalid @enderror"
+                                value="{{ old('quota_sessions', $student->quota_sessions ?? 0) }}">
+                            @error('quota_sessions') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-md-8 d-flex align-items-end">
+                            <p class="text-muted small mb-0">
+                                Program: <strong>{{ $program->program_name ?? '-' }}</strong>
+                                @if($maxSlots > 0)
+                                    &mdash; maksimal <strong>{{ $maxSlots }}</strong> jadwal/minggu.
+                                @endif
+                            </p>
+                        </div>
+
+                        @php $slots = $maxSlots > 0 ? $maxSlots : count($selectedScheduleIds); @endphp
+                        @if($slots > 0 && $classSchedules->isNotEmpty())
+                            @for($i = 0; $i < $slots; $i++)
+                                <div class="col-md-6">
+                                    <label class="form-label">Jadwal Pertemuan {{ $i + 1 }}</label>
+                                    <select name="class_schedule_ids[]" class="form-select">
+                                        <option value="">-- Pilih Jadwal --</option>
+                                        @foreach($classSchedules as $cs)
+                                            <option value="{{ $cs->id }}"
+                                                {{ (isset($selectedScheduleIds[$i]) && $selectedScheduleIds[$i] == $cs->id) ? 'selected' : '' }}>
+                                                {{ $cs->hari }} — {{ $cs->session->name ?? '-' }}
+                                                @if($cs->session)
+                                                    ({{ \Illuminate\Support\Str::substr($cs->session->time_start, 0, 5) }} - {{ \Illuminate\Support\Str::substr($cs->session->time_end, 0, 5) }})
+                                                @endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            @endfor
+                        @elseif($classSchedules->isEmpty())
+                            <div class="col-12">
+                                <p class="text-muted small mb-0">Belum ada master jadwal untuk kelas siswa ini ({{ $student->class_type ?: $student->grade ?: '-' }}).</p>
+                            </div>
+                        @else
+                            <div class="col-12">
+                                <p class="text-muted small mb-0">Program siswa belum diatur, sehingga jumlah jadwal belum dapat ditentukan.</p>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="col-md-4">
