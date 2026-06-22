@@ -22,6 +22,7 @@
                 <tr>
                     <th width="60">#</th>
                     <th>Nama Mata Pelajaran</th>
+                    <th>Jenjang</th>
                     <th width="170" class="text-center">Aksi</th>
                 </tr>
             </thead>
@@ -32,7 +33,7 @@
 
 {{-- Modal --}}
 <div class="modal fade" id="modal-subject" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-sm">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modal-title">Tambah Mata Pelajaran</h5>
@@ -44,6 +45,15 @@
                     <label class="form-label fw-semibold">Nama Mata Pelajaran <span class="text-danger">*</span></label>
                     <input type="text" id="field-name" class="form-control" placeholder="cth: Matematika">
                     <div class="invalid-feedback" id="err-name"></div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Jenjang yang Mendapat Mapel Ini</label>
+                    <select id="field-grades" class="form-select" multiple size="5">
+                        @foreach($grades as $grade)
+                            <option value="{{ $grade->id }}">{{ $grade->grade_name }}</option>
+                        @endforeach
+                    </select>
+                    <small class="text-muted">Tahan Ctrl (Cmd di Mac) untuk memilih lebih dari satu jenjang.</small>
                 </div>
             </div>
             <div class="modal-footer">
@@ -65,6 +75,7 @@ $(function () {
         columns: [
             { data: 'DT_RowIndex', orderable: false, searchable: false },
             { data: 'subject_name' },
+            { data: 'jenjang', orderable: false, searchable: false },
             { data: 'action', orderable: false, searchable: false, className: 'text-center' },
         ],
         language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json' }
@@ -74,6 +85,7 @@ $(function () {
         $('#subject-id').val('');
         $('#field-name').val('').removeClass('is-invalid');
         $('#err-name').text('');
+        $('#field-grades').val([]);
     }
 
     $('#btn-add').on('click', function () {
@@ -87,6 +99,8 @@ $(function () {
         $('#modal-title').text('Edit Mata Pelajaran');
         $('#subject-id').val($(this).data('id'));
         $('#field-name').val($(this).data('name'));
+        var grades = $(this).data('grades') || [];
+        $('#field-grades').val(grades.map(String));
         $('#modal-subject').modal('show');
     });
 
@@ -97,7 +111,11 @@ $(function () {
 
         $.ajax({
             url: url, type: type,
-            data: { subject_name: $('#field-name').val(), _token: '{{ csrf_token() }}' },
+            data: {
+                subject_name: $('#field-name').val(),
+                grade_ids: $('#field-grades').val() || [],
+                _token: '{{ csrf_token() }}'
+            },
             success: function (res) {
                 $('#modal-subject').modal('hide');
                 table.ajax.reload();

@@ -66,7 +66,7 @@
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Kelas</label>
-                    <select name="grade" class="form-select">
+                    <select name="grade" id="reg-kelas" class="form-select">
                         <option value="">-- Pilih Kelas --</option>
                         @foreach(['TK','SD Kelas 1','SD Kelas 2','SD Kelas 3','SD Kelas 4','SD Kelas 5','SD Kelas 6','SMP Kelas 7','SMP Kelas 8','SMP Kelas 9','SMA Kelas 10','SMA Kelas 11','SMA Kelas 12'] as $g)
                             <option value="{{ $g }}" {{ old('grade') == $g ? 'selected' : '' }}>{{ $g }}</option>
@@ -124,17 +124,8 @@
         <div class="card-header bg-white"><h5 class="mb-0">Data Pilihan Program</h5></div>
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-4">
-                    <label class="form-label">Kelas / Jenjang</label>
-                    <select name="class_type" class="form-select">
-                        <option value="">-- Pilih Kelas --</option>
-                        @foreach(['TK','SD Kelas 1','SD Kelas 2','SD Kelas 3','SD Kelas 4','SD Kelas 5','SD Kelas 6','SMP Kelas 7','SMP Kelas 8','SMP Kelas 9','SMA Kelas 10','SMA Kelas 11','SMA Kelas 12'] as $c)
-                            <option value="{{ $c }}" {{ old('class_type') == $c ? 'selected' : '' }}>{{ $c }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Proses KBM</label>
+                <div class="col-md-6">
+                    <label class="form-label">Pilihan Proses KBM</label>
                     <select name="kbm_process" class="form-select">
                         <option value="">-- Pilih --</option>
                         @foreach(['Offline (Di Livo)','Home Visit (Guru ke Rumah)','Online'] as $k)
@@ -142,57 +133,78 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Paket Belajar</label>
+                <div class="col-md-3">
+                    <label class="form-label">Program Belajar</label>
+                    <select name="program_id" id="reg-program" class="form-select">
+                        <option value="">-- Pilih Program --</option>
+                        @foreach($programs as $program)
+                            <option value="{{ $program->id }}" data-duration="{{ $program->duration }}" {{ old('program_id') == $program->id ? 'selected' : '' }}>{{ $program->program_name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Jenjang</label>
+                    <select name="grade_id" id="reg-grade" class="form-select">
+                        <option value="">-- Pilih Jenjang --</option>
+                        @foreach($grades as $grade)
+                            <option value="{{ $grade->id }}" {{ old('grade_id') == $grade->id ? 'selected' : '' }}>{{ $grade->grade_name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Durasi</label>
+                    <select name="duration" id="reg-duration" class="form-select">
+                        <option value="">-- Pilih Durasi --</option>
+                        @foreach([1,3,6,12] as $d)
+                            <option value="{{ $d }}" {{ old('duration') == $d ? 'selected' : '' }}>{{ $d }} Bulan</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Jenis Kelas (Paket)</label>
                     <select name="package_id" id="reg-package" class="form-select">
                         <option value="">-- Pilih Paket --</option>
                         @foreach($packages as $pkg)
-                            <option value="{{ $pkg->id }}" data-price="{{ $pkg->price }}" data-sessions="{{ $pkg->total_sessions }}" {{ old('package_id') == $pkg->id ? 'selected' : '' }}>
-                                {{ $pkg->package_name }} — {{ $pkg->total_sessions }} sesi
-                            </option>
+                            <option value="{{ $pkg->id }}" {{ old('package_id') == $pkg->id ? 'selected' : '' }}>{{ $pkg->package_name }}</option>
                         @endforeach
                     </select>
                 </div>
                 <div class="col-12">
                     <label class="form-label">Program / Mata Pelajaran yang Dipilih</label>
-                    <div class="d-flex flex-wrap gap-3 mt-1">
-                        @forelse($subjects as $subject)
-                            <div class="form-check">
+                    <div class="d-flex flex-wrap gap-3 mt-1" id="subject-list">
+                        @foreach($subjects as $subject)
+                            <div class="form-check subject-item" style="min-width: 160px;" data-grades="{{ json_encode($subject->grade_ids ?? []) }}">
                                 <input class="form-check-input" type="checkbox" name="program[]" value="{{ $subject->id }}" id="subj-{{ $subject->id }}"
                                     {{ collect(old('program', []))->contains($subject->id) ? 'checked' : '' }}>
                                 <label class="form-check-label fw-semibold" for="subj-{{ $subject->id }}">{{ $subject->subject_name }}</label>
                             </div>
-                        @empty
+                        @endforeach
+                        @if($subjects->isEmpty())
                             <p class="text-muted small mb-0">Belum ada mata pelajaran tersedia.</p>
-                        @endforelse
+                        @endif
                     </div>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Pilihan Hari</label>
-                    <select name="selected_days" class="form-select">
-                        <option value="">-- Pilih Hari --</option>
-                        @foreach(['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'] as $d)
-                            <option value="{{ $d }}" {{ old('selected_days') == $d ? 'selected' : '' }}>{{ $d }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Sesi Belajar</label>
-                    <select name="schedule_session_id" class="form-select">
-                        <option value="">-- Pilih Sesi --</option>
-                        @foreach($sessions as $session)
-                            <option value="{{ $session->id }}" {{ old('schedule_session_id') == $session->id ? 'selected' : '' }}>
-                                {{ $session->name }} ({{ date('H:i', strtotime($session->time_start)) }} - {{ date('H:i', strtotime($session->time_end)) }})
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Kurikulum Sekolah</label>
-                    <input type="text" name="school_curriculum" class="form-control" value="{{ old('school_curriculum') }}" placeholder="cth: Kurikulum Merdeka">
+                    <small class="text-muted" id="subject-hint">Pilih jenjang terlebih dahulu untuk menampilkan mata pelajaran yang sesuai.</small>
                 </div>
                 <div class="col-12">
-                    <label class="form-label">Materi Pembelajaran</label>
+                    <label class="form-label">Pilihan Jadwal</label>
+                    <div id="schedule-hint" class="small text-muted mb-2" style="display:none;"></div>
+                    <div id="schedule-container" class="row g-3">
+                        <div class="col-12">
+                            <p class="text-muted small mb-0">Pilih Kelas & Program terlebih dahulu.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Kurikulum Sekolah</label>
+                    <select name="school_curriculum" class="form-select">
+                        <option value="">-- Pilih Kurikulum --</option>
+                        @foreach(['Kurikulum Merdeka','Kurikulum 2013','Kurikulum Nasional Plus','Internasional'] as $kur)
+                            <option value="{{ $kur }}" {{ old('school_curriculum') == $kur ? 'selected' : '' }}>{{ $kur }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Catatan Khusus</label>
                     <input type="text" name="learning_material" class="form-control" value="{{ old('learning_material') }}" placeholder="Materi spesifik yang ingin dipelajari">
                 </div>
             </div>
@@ -204,6 +216,10 @@
         <div class="card-header bg-white"><h5 class="mb-0">Informasi Pendaftaran</h5></div>
         <div class="card-body">
             <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Kode Promo (jika ada)</label>
+                    <input type="text" name="promo_code" class="form-control text-uppercase" value="{{ old('promo_code') }}" placeholder="cth: HEMAT50">
+                </div>
                 <div class="col-md-4">
                     <label class="form-label">Informasi Pendaftaran</label>
                     <select name="registration_info" class="form-select">
@@ -237,3 +253,99 @@
     </div>
 </form>
 @endsection
+
+@push('js')
+<script>
+(function () {
+    var classSchedules = @json($classSchedules);
+    var oldSchedules   = @json(old('class_schedule_ids', []));
+
+    var programSelect = document.getElementById('reg-program');
+    var classSelect   = document.getElementById('reg-kelas');   // dropdown "Kelas" (teks) → filter jadwal
+    var gradeSelect   = document.getElementById('reg-grade');   // dropdown "Jenjang" (master) → filter mapel
+    var scheduleBox   = document.getElementById('schedule-container');
+    var scheduleHint  = document.getElementById('schedule-hint');
+    var subjectHint   = document.getElementById('subject-hint');
+
+    /* ---- Mata pelajaran tampil sesuai jenjang yang dipilih ---- */
+    function filterSubjectsByGrade() {
+        var gradeId = gradeSelect ? parseInt(gradeSelect.value) : NaN;
+        var items   = document.querySelectorAll('#subject-list .subject-item');
+        var shown   = 0;
+        items.forEach(function (item) {
+            var grades = [];
+            try { grades = JSON.parse(item.getAttribute('data-grades') || '[]'); } catch (e) { grades = []; }
+            var match = !isNaN(gradeId) && grades.map(Number).indexOf(gradeId) !== -1;
+            item.style.display = match ? '' : 'none';
+            if (!match) {
+                var cb = item.querySelector('input[type="checkbox"]');
+                if (cb) cb.checked = false;
+            } else { shown++; }
+        });
+        if (subjectHint) {
+            if (isNaN(gradeId)) {
+                subjectHint.textContent = 'Pilih jenjang terlebih dahulu untuk menampilkan mata pelajaran yang sesuai.';
+                subjectHint.style.display = '';
+            } else if (shown === 0) {
+                subjectHint.textContent = 'Belum ada mata pelajaran untuk jenjang ini.';
+                subjectHint.style.display = '';
+            } else {
+                subjectHint.style.display = 'none';
+            }
+        }
+    }
+
+    /* ---- Jadwal: jumlah pilihan mengikuti durasi (x per minggu) program ---- */
+    function scheduleOptionsHtml(selectedKelas, selectedId) {
+        var list = classSchedules.filter(function (s) { return s.kelas === selectedKelas; });
+        var html = '<option value="">-- Pilih Jadwal --</option>';
+        list.forEach(function (s) {
+            var sel = (String(s.id) === String(selectedId)) ? ' selected' : '';
+            html += '<option value="' + s.id + '"' + sel + '>' + s.hari_label + ' — ' + s.session_name +
+                    (s.session_time ? ' (' + s.session_time + ')' : '') + '</option>';
+        });
+        return html;
+    }
+
+    function renderSchedules() {
+        scheduleBox.innerHTML = '';
+        scheduleHint.style.display = 'none';
+
+        var kelas = classSelect ? classSelect.value : '';
+        if (!kelas) {
+            scheduleBox.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">Pilih Kelas terlebih dahulu.</p></div>';
+            return;
+        }
+        var opt      = programSelect.options[programSelect.selectedIndex];
+        var duration = programSelect.value ? (parseInt(opt.getAttribute('data-duration')) || 0) : 0;
+        if (!programSelect.value || duration < 1) {
+            scheduleBox.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">Pilih Program Belajar terlebih dahulu.</p></div>';
+            return;
+        }
+        var available = classSchedules.filter(function (s) { return s.kelas === kelas; });
+        if (available.length === 0) {
+            scheduleBox.innerHTML = '<div class="col-12"><p class="text-danger small mb-0">Belum ada jadwal untuk kelas ini.</p></div>';
+            return;
+        }
+        scheduleHint.textContent = 'Program ini ' + duration + 'x per minggu. Silakan pilih ' + duration + ' jadwal pertemuan.';
+        scheduleHint.style.display = 'block';
+
+        for (var i = 0; i < duration; i++) {
+            var col = document.createElement('div');
+            col.className = 'col-md-6';
+            col.innerHTML =
+                '<label class="form-label">Pertemuan ' + (i + 1) + '</label>' +
+                '<select name="class_schedule_ids[]" class="form-select sch-select">' + scheduleOptionsHtml(kelas, oldSchedules[i] || '') + '</select>';
+            scheduleBox.appendChild(col);
+        }
+    }
+
+    if (gradeSelect)   gradeSelect.addEventListener('change', filterSubjectsByGrade);
+    if (programSelect) programSelect.addEventListener('change', renderSchedules);
+    if (classSelect)   classSelect.addEventListener('change', renderSchedules);
+
+    filterSubjectsByGrade();
+    renderSchedules();
+})();
+</script>
+@endpush

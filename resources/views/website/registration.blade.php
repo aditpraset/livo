@@ -265,9 +265,10 @@
                         </div>
                         <div class="col-12">
                             <label class="form-label-livo">Program / Mata Pelajaran yang Dipilih</label>
-                            <div class="d-flex flex-wrap gap-3 mt-1">
+                            <div class="d-flex flex-wrap gap-3 mt-1" id="subject-list">
                                 @foreach($subjects as $subject)
-                                    <div class="form-check" style="min-width: 160px;">
+                                    <div class="form-check subject-item" style="min-width: 160px;"
+                                        data-grades="{{ json_encode($subject->grade_ids ?? []) }}">
                                         <input class="form-check-input" type="checkbox"
                                             name="program[]"
                                             value="{{ $subject->id }}"
@@ -281,6 +282,7 @@
                                     <p class="text-muted small mb-0">Belum ada mata pelajaran tersedia.</p>
                                 @endif
                             </div>
+                            <small class="text-muted" id="subject-hint">Pilih jenjang terlebih dahulu untuk menampilkan mata pelajaran yang sesuai.</small>
                         </div>
                         <div class="col-12">
                             <label class="form-label-livo">Pilihan Jadwal</label>
@@ -377,6 +379,44 @@
     var classSelect    = document.getElementById('reg-kelas');
 
     programSelect.addEventListener('change', renderSchedules);
+
+    /* ---- Mata pelajaran tampil sesuai jenjang yang dipilih ---- */
+    var gradeSelect = document.getElementById('reg-grade');
+    var subjectHint = document.getElementById('subject-hint');
+
+    function filterSubjectsByGrade() {
+        var gradeId = gradeSelect ? parseInt(gradeSelect.value) : NaN;
+        var items   = document.querySelectorAll('#subject-list .subject-item');
+        var shown   = 0;
+
+        items.forEach(function (item) {
+            var grades = [];
+            try { grades = JSON.parse(item.getAttribute('data-grades') || '[]'); } catch (e) { grades = []; }
+            var match = !isNaN(gradeId) && grades.map(Number).indexOf(gradeId) !== -1;
+            item.style.display = match ? '' : 'none';
+            if (!match) {
+                var cb = item.querySelector('input[type="checkbox"]');
+                if (cb) cb.checked = false;
+            } else {
+                shown++;
+            }
+        });
+
+        if (subjectHint) {
+            if (isNaN(gradeId)) {
+                subjectHint.textContent = 'Pilih jenjang terlebih dahulu untuk menampilkan mata pelajaran yang sesuai.';
+                subjectHint.style.display = '';
+            } else if (shown === 0) {
+                subjectHint.textContent = 'Belum ada mata pelajaran untuk jenjang ini.';
+                subjectHint.style.display = '';
+            } else {
+                subjectHint.style.display = 'none';
+            }
+        }
+    }
+
+    if (gradeSelect) gradeSelect.addEventListener('change', filterSubjectsByGrade);
+    filterSubjectsByGrade();
 
     /* ---- Jadwal: jumlah pilihan mengikuti durasi (x per minggu) program ---- */
     function scheduleOptionsHtml(selectedKelas) {

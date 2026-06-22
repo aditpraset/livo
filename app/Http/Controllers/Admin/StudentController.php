@@ -72,11 +72,27 @@ class StudentController extends Controller
 
     public function create()
     {
-        $sessions = \App\Models\ScheduleSession::orderBy('time_start')->get();
+        // Selaras dengan form pendaftaran publik
         $subjects = \App\Models\Subject::orderBy('subject_name')->get();
-        $packages = \App\Models\Package::orderBy('price')->get();
+        $programs = Program::orderBy('program_name')->get(['id', 'program_name', 'duration']);
+        $grades   = Grade::orderBy('grade_name')->get(['id', 'grade_name']);
+        $packages = Package::orderBy('package_name')->get(['id', 'package_name']);
 
-        return view('admin.students.create', compact('sessions', 'subjects', 'packages'));
+        // Master jadwal kelas → filter jadwal (hari + sesi) berdasarkan kelas, sama seperti pendaftaran
+        $classSchedules = ClassSchedule::with('session')->get()->map(function ($c) {
+            return [
+                'id'           => $c->id,
+                'kelas'        => $c->kelas,
+                'hari_label'   => $c->hari,
+                'session_id'   => $c->session_id,
+                'session_name' => $c->session?->name,
+                'session_time' => $c->session
+                    ? date('H:i', strtotime($c->session->time_start)) . ' - ' . date('H:i', strtotime($c->session->time_end))
+                    : null,
+            ];
+        });
+
+        return view('admin.students.create', compact('subjects', 'programs', 'grades', 'packages', 'classSchedules'));
     }
 
     public function store(Request $request)
@@ -98,18 +114,21 @@ class StudentController extends Controller
             'email'               => 'nullable|email|max:255',
             'phone'               => 'nullable|string|max:20',
             'whatsapp'            => 'nullable|string|max:20',
-            'class_type'          => 'nullable|string|max:50',
-            'kbm_process'         => 'nullable|string|max:100',
-            'package_id'          => 'nullable|exists:packages,id',
-            'program'             => 'nullable|array',
-            'program.*'           => 'string|max:100',
-            'selected_days'       => 'nullable|string|max:50',
-            'schedule_session_id' => 'nullable|exists:schedule_sessions,id',
-            'school_curriculum'   => 'nullable|string|max:100',
-            'learning_material'   => 'nullable|string|max:255',
-            'registration_info'   => 'nullable|string|max:100',
-            'marketing_pic'       => 'nullable|string|max:100',
-            'status'              => 'required|in:1,2,3',
+            'kbm_process'          => 'nullable|string|max:100',
+            'program_id'           => 'nullable|exists:programs,id',
+            'grade_id'             => 'nullable|exists:grades,id',
+            'duration'             => 'nullable|integer|in:1,3,6,12',
+            'package_id'           => 'nullable|exists:packages,id',
+            'program'              => 'nullable|array',
+            'program.*'            => 'string|max:100',
+            'class_schedule_ids'   => 'nullable|array',
+            'class_schedule_ids.*' => 'nullable|exists:class_schedules,id',
+            'school_curriculum'    => 'nullable|string|max:100',
+            'learning_material'    => 'nullable|string|max:255',
+            'promo_code'           => 'nullable|string|max:50',
+            'registration_info'    => 'nullable|string|max:100',
+            'marketing_pic'        => 'nullable|string|max:100',
+            'status'               => 'required|in:1,2,3',
         ]);
 
         // Program (multi-pilih ID mapel) → simpan sebagai JSON nama mapel
@@ -119,26 +138,39 @@ class StudentController extends Controller
             $programNames = \App\Models\Subject::whereIn('id', $subjectIds)->pluck('subject_name')->toArray();
         }
 
-        // Nama paket untuk kolom `package`
-        $packageName = !empty($validated['package_id'])
-            ? \App\Models\Package::find($validated['package_id'])?->package_name
-            : null;
+        // Nama paket untuk kolom `package` (paket + program)
+        $packageName = null;
+        if (!empty($validated['package_id'])) {
+            $pkg  = Package::find($validated['package_id']);
+            $prog = !empty($validated['program_id']) ? Program::find($validated['program_id']) : null;
+            $packageName = trim(($pkg?->package_name ?? '') . ' - ' . ($prog?->program_name ?? ''), ' -');
+        }
+
+        // Resolve jadwal dari master jadwal yang dipilih (bisa lebih dari satu sesuai durasi program)
+        $scheduleIds    = array_values(array_filter($validated['class_schedule_ids'] ?? []));
+        $classSchedules = ClassSchedule::with('session')->whereIn('id', $scheduleIds)->get();
+        $selectedDays   = $classSchedules->pluck('hari')->implode(', ');
+        $firstSessionId = $classSchedules->first()?->session_id;
 
         $data = array_merge($validated, [
-            'registration_code' => 'REG-' . strtoupper(str_replace(' ', '', substr($validated['full_name'], 0, 3))) . '-' . date('YmdHis'),
-            'registration_date' => $validated['registration_date'] ?? now()->toDateString(),
-            'program'           => !empty($programNames) ? json_encode($programNames) : null,
-            'package'           => $packageName,
+            'registration_code'   => 'REG-' . strtoupper(str_replace(' ', '', substr($validated['full_name'], 0, 3))) . '-' . date('YmdHis'),
+            'registration_date'   => $validated['registration_date'] ?? now()->toDateString(),
+            'class_type'          => $validated['grade'] ?? null,
+            'program'             => !empty($programNames) ? json_encode($programNames) : null,
+            'package'             => $packageName,
+            'class_schedule_ids'  => !empty($scheduleIds) ? $scheduleIds : null,
+            'selected_days'       => $selectedDays ?: null,
+            'schedule_session_id' => $firstSessionId,
         ]);
 
         $student = Student::create($data);
 
-        // Jadwal awal (jika hari & sesi dipilih)
-        if (!empty($validated['selected_days']) && !empty($validated['schedule_session_id'])) {
+        // Simpan setiap jadwal terpilih ke ScheduleStudent (satu baris per pertemuan)
+        foreach ($classSchedules as $cs) {
             \App\Models\ScheduleStudent::create([
                 'student_id'          => $student->id,
-                'schedule_session_id' => $validated['schedule_session_id'],
-                'date'                => $validated['selected_days'],
+                'schedule_session_id' => $cs->session_id,
+                'date'                => $cs->hari,
                 'notes'               => 'Jadwal Pendaftaran Awal',
             ]);
         }
