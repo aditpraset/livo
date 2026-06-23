@@ -78,7 +78,6 @@
                         <th>Sub Pokok Bahasan</th>
                         <th class="text-center">Kehadiran</th>
                         <th class="text-center">Nilai</th>
-                        <th class="text-center">Pemahaman</th>
                         <th width="60" class="text-center">Aksi</th>
                     </tr>
                 </thead>
@@ -151,7 +150,6 @@ $(function () {
             { data: 'materi', name: 'evaluations.pokok_bahasan', orderable: false, searchable: false },
             { data: 'attendance', name: 'evaluations.student_attendance', className: 'text-center', searchable: false },
             { data: 'post_test', name: 'evaluations.post_test', className: 'text-center', searchable: false },
-            { data: 'pemahaman', name: 'evaluations.pemahaman', className: 'text-center', searchable: false },
             { data: 'action', orderable: false, searchable: false, className: 'text-center' },
         ],
         language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json' }

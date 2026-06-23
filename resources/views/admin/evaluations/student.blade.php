@@ -96,7 +96,6 @@
                         <th>Sub Pokok Bahasan</th>
                         <th class="text-center">Kehadiran</th>
                         <th class="text-center">Nilai</th>
-                        <th class="text-center">Pemahaman</th>
                         <th class="text-center">Kemampuan Analisa</th>
                         <th class="text-center">Kemampuan Hafalan</th>
                         <th class="text-center">Kepercayaan Diri</th>
@@ -134,7 +133,6 @@ $(function () {
             { data: 'materi', orderable: false, searchable: false },
             { data: 'attendance', name: 'evaluations.student_attendance', className: 'text-center', searchable: false },
             { data: 'post_test', name: 'evaluations.post_test', className: 'text-center', searchable: false },
-            { data: 'pemahaman', name: 'evaluations.pemahaman', className: 'text-center', searchable: false },
             { data: 'kemampuan_analisa', name: 'evaluations.kemampuan_analisa', className: 'text-center', searchable: false },
             { data: 'kemampuan_hafalan', name: 'evaluations.kemampuan_hafalan', className: 'text-center', searchable: false },
             { data: 'kepercayaan_diri', name: 'evaluations.kepercayaan_diri', className: 'text-center', searchable: false },

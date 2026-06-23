@@ -363,26 +363,24 @@
                         Belum ada silabus untuk mata pelajaran ini di kelas siswa.
                     </small>
                 </div>
+                {{-- Pemahaman disembunyikan dari pengisian (tetap ada agar skrip aman) --}}
+                <input type="hidden" id="eval-pemahaman">
                 <div class="row g-3 mb-3">
-                    <div class="col-6">
+                    <div class="col-12">
                         <label class="form-label fw-semibold">Nilai (1–100)</label>
                         <input type="number" id="eval-posttest" class="form-control" min="1" max="100" placeholder="1–100">
                     </div>
-                    <div class="col-6">
-                        <label class="form-label fw-semibold">Pemahaman (1–100)</label>
-                        <input type="number" id="eval-pemahaman" class="form-control" min="1" max="100" placeholder="1–100">
-                    </div>
                 </div>
                 <div class="row g-3 mb-3">
-                    <div class="col-4">
+                    <div class="col-md-4">
                         <label class="form-label fw-semibold">Kemampuan Analisa (1–100)</label>
                         <input type="number" id="eval-analisa" class="form-control" min="1" max="100" placeholder="1–100">
                     </div>
-                    <div class="col-4">
+                    <div class="col-md-4">
                         <label class="form-label fw-semibold">Kemampuan Hafalan (1–100)</label>
                         <input type="number" id="eval-hafalan" class="form-control" min="1" max="100" placeholder="1–100">
                     </div>
-                    <div class="col-4">
+                    <div class="col-md-4">
                         <label class="form-label fw-semibold">Kepercayaan Diri (1–100)</label>
                         <input type="number" id="eval-kepercayaan" class="form-control" min="1" max="100" placeholder="1–100">
                     </div>

@@ -78,11 +78,10 @@ class EvaluationController extends Controller
             ->addColumn('post_test', fn($s) => $s->evaluation && $s->evaluation->post_test !== null
                 ? '<span class="badge bg-light text-dark border fs-6">' . $s->evaluation->post_test . '</span>'
                 : '<span class="text-muted">—</span>')
-            ->addColumn('pemahaman', fn($s) => $numBadge($s->evaluation->pemahaman ?? null))
             ->addColumn('action', fn($s) => '<a href="' . route('admin.evaluations.student', $s->student_id) . '" class="btn btn-sm btn-outline-primary" title="Lihat Laporan Siswa">
                             <i class="bi bi-clipboard2-data"></i>
                         </a>')
-            ->rawColumns(['class_date', 'student_name', 'grade', 'materi', 'attendance', 'post_test', 'pemahaman', 'action'])
+            ->rawColumns(['class_date', 'student_name', 'grade', 'materi', 'attendance', 'post_test', 'action'])
             ->make(true);
     }
 
@@ -157,7 +156,6 @@ class EvaluationController extends Controller
             })
             ->addColumn('post_test', fn($s) => ($s->evaluation && $s->evaluation->post_test !== null)
                 ? '<span class="badge bg-light text-dark border fs-6">' . $s->evaluation->post_test . '</span>' : $dash)
-            ->addColumn('pemahaman', fn($s) => $numBadge($s->evaluation->pemahaman ?? null))
             ->addColumn('kemampuan_analisa', fn($s) => $numBadge($s->evaluation->kemampuan_analisa ?? null))
             ->addColumn('kemampuan_hafalan', fn($s) => $numBadge($s->evaluation->kemampuan_hafalan ?? null))
             ->addColumn('kepercayaan_diri', fn($s) => $numBadge($s->evaluation->kepercayaan_diri ?? null))
@@ -176,7 +174,7 @@ class EvaluationController extends Controller
                     . ($p ? '<i class="bi bi-eye-slash me-1"></i>Sembunyikan' : '<i class="bi bi-send me-1"></i>Terbitkan')
                     . '</button>';
             })
-            ->rawColumns(['class_date', 'subject_name', 'materi', 'attendance', 'post_test', 'pemahaman', 'kemampuan_analisa', 'kemampuan_hafalan', 'kepercayaan_diri', 'notes', 'published', 'action'])
+            ->rawColumns(['class_date', 'subject_name', 'materi', 'attendance', 'post_test', 'kemampuan_analisa', 'kemampuan_hafalan', 'kepercayaan_diri', 'notes', 'published', 'action'])
             ->make(true);
     }
 
@@ -213,7 +211,7 @@ class EvaluationController extends Controller
 
         $headers = [
             'No', 'Tanggal', 'Waktu', 'Mata Pelajaran', 'Tutor', 'Sub Pokok Bahasan',
-            'Kehadiran', 'Nilai', 'Pemahaman', 'Kemampuan Analisa', 'Kemampuan Hafalan',
+            'Kehadiran', 'Nilai', 'Kemampuan Analisa', 'Kemampuan Hafalan',
             'Kepercayaan Diri', 'Catatan Tutor', 'Status Laporan',
         ];
         $headerRow = 6;
@@ -234,12 +232,11 @@ class EvaluationController extends Controller
                 $s->tutor->name ?? '-',
                 $materi,
                 $ev ? ucfirst($ev->student_attendance) : 'Belum dievaluasi',
-                $ev->post_test ?? '',
-                $ev->pemahaman ?? '',
-                $ev->kemampuan_analisa ?? '',
-                $ev->kemampuan_hafalan ?? '',
-                $ev->kepercayaan_diri ?? '',
-                $ev->tutor_notes ?? '',
+                $ev?->post_test ?? '',
+                $ev?->kemampuan_analisa ?? '',
+                $ev?->kemampuan_hafalan ?? '',
+                $ev?->kepercayaan_diri ?? '',
+                $ev?->tutor_notes ?? '',
                 $ev ? ($ev->is_published ? 'Diterbitkan' : 'Privat') : '-',
             ]], null, 'A' . $r++);
         }
