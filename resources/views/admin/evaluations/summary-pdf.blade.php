@@ -39,6 +39,14 @@
         .catatan-box { border: 1px solid #777; height: 70px; }
         .ttd { width: 100%; margin-top: 6px; }
         .ttd td { vertical-align: top; font-size: 9.5px; }
+
+        /* Grafik batang sesi per bulan */
+        table.bar-chart { width: 100%; border-collapse: collapse; }
+        table.bar-chart td { padding: 3px 4px; font-size: 9px; vertical-align: middle; }
+        .bc-label { width: 64px; font-weight: bold; white-space: nowrap; }
+        .bc-track { background: #eef2f9; border: 1px solid #d4ddec; }
+        .bc-bar { background: #2C3E73; height: 11px; line-height: 11px; font-size: 0; }
+        .bc-val { width: 50px; font-weight: bold; text-align: right; white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -132,8 +140,24 @@
 <table class="two-col">
     <tr>
         <td>
-            <div class="section-title">Grafik Kurva (Kehadiran)</div>
-            {!! $barSvg !!}
+            <div class="section-title">Grafik Sesi per Bulan</div>
+            @if(count($rows))
+                @php $maxSesi = max(1, collect($rows)->max('sesi') ?: 1); @endphp
+                <table class="bar-chart">
+                    @foreach($rows as $r)
+                        @php $pct = max(2, round(($r['sesi'] / $maxSesi) * 100)); @endphp
+                        <tr>
+                            <td class="bc-label">{{ $r['label'] }}</td>
+                            <td class="bc-track">
+                                <div class="bc-bar" style="width: {{ $pct }}%;">&nbsp;</div>
+                            </td>
+                            <td class="bc-val">{{ $r['sesi'] }} sesi</td>
+                        </tr>
+                    @endforeach
+                </table>
+            @else
+                <div style="color:#888; font-size:9px;">Belum ada data sesi pada periode ini.</div>
+            @endif
         </td>
         <td>
             @include('admin.evaluations._materi-table', ['title' => $progList[0] ?? null, 'list' => $materi[$progList[0] ?? ''] ?? []])

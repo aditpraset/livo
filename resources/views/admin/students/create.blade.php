@@ -340,9 +340,10 @@
         }
     }
 
-    if (gradeSelect)   gradeSelect.addEventListener('change', filterSubjectsByGrade);
-    if (programSelect) programSelect.addEventListener('change', renderSchedules);
-    if (classSelect)   classSelect.addEventListener('change', renderSchedules);
+    // Pakai event jQuery karena <select> di admin diubah menjadi Select2,
+    // yang memicu event "change" via jQuery (tidak tertangkap addEventListener native).
+    $('#reg-grade').on('change', filterSubjectsByGrade);
+    $('#reg-program, #reg-kelas').on('change', renderSchedules);
 
     filterSubjectsByGrade();
     renderSchedules();

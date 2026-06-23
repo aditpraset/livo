@@ -260,10 +260,7 @@ class ScheduleController extends Controller
             'end_time'   => 'required|date_format:H:i|after:start_time',
         ]);
 
-        if ($this->hasConflict($validated['tutor_id'], $validated['class_date'], $validated['start_time'], $validated['end_time'])) {
-            return response()->json(['success' => false, 'message' => 'Tutor ini sudah memiliki jadwal yang bentrok pada waktu tersebut.'], 422);
-        }
-
+        // Tutor boleh dipilih di berbagai siswa (tanpa cek bentrok waktu).
         Schedule::create($validated + ['status_schedule' => 'scheduled']);
         return response()->json(['success' => true, 'message' => 'Jadwal berhasil ditambahkan.']);
     }
@@ -295,10 +292,7 @@ class ScheduleController extends Controller
             'end_time'   => 'required|date_format:H:i|after:start_time',
         ]);
 
-        if ($this->hasConflict($validated['tutor_id'], $validated['class_date'], $validated['start_time'], $validated['end_time'], $schedule->id)) {
-            return response()->json(['success' => false, 'message' => 'Tutor ini sudah memiliki jadwal yang bentrok pada waktu tersebut.'], 422);
-        }
-
+        // Tutor boleh dipilih di berbagai siswa (tanpa cek bentrok waktu).
         $schedule->update($validated);
         return response()->json(['success' => true, 'message' => 'Jadwal berhasil diperbarui.']);
     }
@@ -525,16 +519,5 @@ class ScheduleController extends Controller
             'skipped'  => $skipped,
             'errors'   => $errors,
         ]);
-    }
-
-    private function hasConflict(int $tutorId, string $date, string $start, string $end, ?int $excludeId = null): bool
-    {
-        return Schedule::where('tutor_id', $tutorId)
-            ->where('class_date', $date)
-            ->where('status_schedule', '!=', 'canceled')
-            ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
-            ->where('start_time', '<', $end)
-            ->where('end_time', '>', $start)
-            ->exists();
     }
 }
