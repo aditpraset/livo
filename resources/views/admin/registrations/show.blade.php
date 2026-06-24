@@ -18,7 +18,7 @@
                     <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modal-payment">
                         <i class="bi bi-cash me-1"></i> Pembayaran
                     </button>
-                    @if($registration->status === 'Lunas')
+                    @if($registration->student_id)
                     <a href="{{ route('admin.registrations.receipt', $registration->id) }}" target="_blank" class="btn btn-outline-primary">
                         <i class="bi bi-printer me-1"></i> Cetak Kwitansi
                     </a>

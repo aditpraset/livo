@@ -189,6 +189,11 @@ class AdminController extends Controller
             ]);
         }
 
+        // Tautkan siswa ke pendaftaran lebih dulu agar pembayaran bisa direference via student_id
+        if ($registration->student_id !== $student->id) {
+            $registration->update(['student_id' => $student->id]);
+        }
+
         // Generate no_payment securely on the server
         $today = now();
         $count = \App\Models\Payment::whereDate('created_at', $today->toDateString())->count() + 1;
@@ -214,12 +219,18 @@ class AdminController extends Controller
             $student->increment('quota_sessions', (int) $request->quota);
         }
 
-        // Update registration status to Lunas if not already
-        if ($registration->status !== 'Lunas') {
-            $registration->update(['status' => 'Lunas']);
+        // Status Lunas hanya bila pembayaran mencakup SPP (kategori SPP=2 atau Registrasi dan SPP=4).
+        // Registrasi saja (1) belum dianggap lunas → tandai "Belum Lunas".
+        $coversSpp = in_array((int) $request->category_payment, [2, 4], true);
+        if ($coversSpp) {
+            if ($registration->status !== 'Lunas') {
+                $registration->update(['status' => 'Lunas']);
+            }
+        } elseif ($registration->status === 'Baru') {
+            $registration->update(['status' => 'Belum Lunas']);
         }
 
-        return redirect()->back()->with('success', 'Pembayaran berhasil disimpan dan status menjadi Lunas.');
+        return redirect()->back()->with('success', 'Pembayaran berhasil disimpan. Status pendaftaran: ' . $registration->status . '.');
     }
 
     public function updateStatus(Request $request, StudentRegistration $registration)
@@ -278,6 +289,11 @@ class AdminController extends Controller
                     'marketing_pic' => $registration->marketing_pic,
                 ]);
             }
+
+            // Tautkan siswa ke pendaftaran untuk reference pembayaran/receipt
+            if ($registration->student_id !== $student->id) {
+                $registration->update(['student_id' => $student->id]);
+            }
         }
 
         return redirect()->back()->with('success', 'Status pendaftaran berhasil diperbarui.');
@@ -285,21 +301,30 @@ class AdminController extends Controller
 
     public function printReceipt(StudentRegistration $registration)
     {
-        if ($registration->status !== 'Lunas') {
-            return redirect()->back()->with('error', 'Kwitansi hanya tersedia untuk pendaftaran yang sudah Lunas.');
+        // Receipt selalu bisa dicetak sebagai bukti registrasi, walau belum Lunas.
+
+        // Reference utama via student_id; fallback NIS / registration_code untuk data lama
+        $student = $registration->student_id
+            ? \App\Models\Student::find($registration->student_id)
+            : null;
+        if (!$student && $registration->nis) {
+            $student = \App\Models\Student::where('nis', $registration->nis)->first();
+        }
+        if (!$student) {
+            $student = \App\Models\Student::where('registration_code', $registration->registration_code)->first();
         }
 
-        $student = \App\Models\Student::where('registration_code', $registration->registration_code)->first();
+        // Ambil pembayaran pendaftaran (Registrasi / Registrasi dan SPP); jika tak ada, pakai pembayaran terbaru
         $payment = null;
-
         if ($student) {
             $payment = \App\Models\Payment::where('student_id', $student->id)
-                ->whereIn('category_payment', [1, 4])
-                ->latest()
-                ->first();
+                    ->whereIn('category_payment', [1, 4])
+                    ->latest()
+                    ->first()
+                ?? \App\Models\Payment::where('student_id', $student->id)->latest()->first();
         }
 
-        // Use actual amount if payment exists, otherwise fallback to 200000
+        // Nominal mengikuti data pembayaran; fallback 200000 hanya bila benar-benar belum ada pembayaran
         $amount = $payment ? $payment->amount : 200000;
         $terbilang = $this->terbilang($amount) . ' Rupiah';
 
