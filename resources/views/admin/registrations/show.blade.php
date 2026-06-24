@@ -286,6 +286,7 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Jumlah (Rp)</label>
+                        @php $autoAmount = $autoAmount ?? \App\Models\Pricing::findPrice($registration->package_id, $registration->program_id, $registration->grade_id, $registration->duration); @endphp
                         <input type="number" class="form-control" name="amount" value="{{ $autoAmount ?? 200000 }}" required>
                         @if(!is_null($autoAmount))
                             <small class="text-success"><i class="bi bi-magic me-1"></i>Nominal terisi otomatis dari master harga.</small>
