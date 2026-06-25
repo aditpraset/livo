@@ -359,11 +359,12 @@ class EvaluationController extends Controller
         $overall = count($allAvgs) ? array_sum($allAvgs) / count($allAvgs) : 0;
         $predikat = $overall >= 90 ? 'Amat Baik' : ($overall >= 80 ? 'Baik' : ($overall >= 70 ? 'Cukup' : ($overall > 0 ? 'Perlu Bimbingan' : '-')));
 
-        // Materi per mata pelajaran (dari silabus atau materi manual "Lainnya")
+        // Materi per mata pelajaran, dikelompokkan per pokok bahasan
+        // (bila satu pokok bahasan punya >1 evaluasi, nilainya dirata-rata)
         $materi = [];
         foreach ($programs as $prog) {
-            $items = $schedules->filter(fn($s) => ($s->subject->subject_name ?? 'Tanpa Program') === $prog && $s->evaluation?->materi_text);
-            $grouped = $items->groupBy(fn($s) => $s->evaluation->materi_text);
+            $items = $schedules->filter(fn($s) => ($s->subject->subject_name ?? 'Tanpa Program') === $prog && $s->evaluation?->materi_display);
+            $grouped = $items->groupBy(fn($s) => $s->evaluation->materi_display['pokok']);
             $materi[$prog] = $grouped->map(fn($g, $name) => ['name' => $name, 'nilai' => $subjectScore($g)])->values()->all();
         }
 

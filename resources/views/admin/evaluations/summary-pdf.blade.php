@@ -107,7 +107,7 @@
         @forelse($rows as $i => $r)
         <tr>
             <td>{{ $i + 1 }}</td>
-            <td class="name-col">Bulan {{ $r['label'] }}</td>
+            <td class="name-col">{{ $r['label'] }}</td>
             <td>{{ $r['sesi'] }} Sesi</td>
             @foreach($programs as $prog)
                 <td>{{ $fmt($r['subjects'][$prog] ?? null) }}</td>
