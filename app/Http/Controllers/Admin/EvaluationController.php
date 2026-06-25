@@ -64,10 +64,12 @@ class EvaluationController extends Controller
                 : '<span class="text-muted">—</span>')
             ->addColumn('subject_name', fn($s) => e($s->subject->subject_name ?? '-'))
             ->addColumn('tutor_name', fn($s) => e($s->tutor->name ?? '-'))
-            ->addColumn('materi', fn($s) => $s->evaluation && $s->evaluation->syllabus
-                ? '<div class="small fw-semibold">' . e($s->evaluation->syllabus->pokok_bahasan) . '</div>'
-                  . ($s->evaluation->syllabus->sub_pokok_bahasan ? '<small class="text-muted">' . e($s->evaluation->syllabus->sub_pokok_bahasan) . '</small>' : '')
-                : '<span class="text-muted">—</span>')
+            ->addColumn('materi', function ($s) {
+                $m = $s->evaluation?->materi_display;
+                if (!$m) return '<span class="text-muted">—</span>';
+                return '<div class="small fw-semibold">' . e($m['pokok']) . '</div>'
+                    . ($m['sub'] ? '<small class="text-muted">' . e($m['sub']) . '</small>' : '');
+            })
             ->addColumn('attendance', function ($s) {
                 $att = $s->evaluation->student_attendance ?? null;
                 $badge = match ($att) {
@@ -142,10 +144,12 @@ class EvaluationController extends Controller
             ->addColumn('subject_name', fn($s) =>
                 '<span class="badge bg-primary-subtle text-primary border border-primary-subtle">' . e($s->subject->subject_name ?? '-') . '</span>')
             ->addColumn('tutor_name', fn($s) => e($s->tutor->name ?? '-'))
-            ->addColumn('materi', fn($s) => ($s->evaluation && $s->evaluation->syllabus)
-                ? '<div class="small fw-semibold">' . e($s->evaluation->syllabus->pokok_bahasan) . '</div>'
-                  . ($s->evaluation->syllabus->sub_pokok_bahasan ? '<small class="text-muted">' . e($s->evaluation->syllabus->sub_pokok_bahasan) . '</small>' : '')
-                : $dash)
+            ->addColumn('materi', function ($s) use ($dash) {
+                $m = $s->evaluation?->materi_display;
+                if (!$m) return $dash;
+                return '<div class="small fw-semibold">' . e($m['pokok']) . '</div>'
+                    . ($m['sub'] ? '<small class="text-muted">' . e($m['sub']) . '</small>' : '');
+            })
             ->addColumn('attendance', function ($s) {
                 if (!$s->evaluation) return '<span class="text-muted small">—</span>';
                 $att = $s->evaluation->student_attendance;
@@ -221,9 +225,7 @@ class EvaluationController extends Controller
         $no = 1;
         foreach ($schedules as $s) {
             $ev = $s->evaluation;
-            $materi = $ev && $ev->syllabus
-                ? trim($ev->syllabus->pokok_bahasan . ($ev->syllabus->sub_pokok_bahasan ? ' — ' . $ev->syllabus->sub_pokok_bahasan : ''))
-                : '';
+            $materi = $ev?->materi_text ?? '';
             $sheet->fromArray([[
                 $no++,
                 \Carbon\Carbon::parse($s->class_date)->format('Y-m-d'),
@@ -357,12 +359,11 @@ class EvaluationController extends Controller
         $overall = count($allAvgs) ? array_sum($allAvgs) / count($allAvgs) : 0;
         $predikat = $overall >= 90 ? 'Amat Baik' : ($overall >= 80 ? 'Baik' : ($overall >= 70 ? 'Cukup' : ($overall > 0 ? 'Perlu Bimbingan' : '-')));
 
-        // Materi per mata pelajaran (dari silabus evaluasi)
+        // Materi per mata pelajaran (dari silabus atau materi manual "Lainnya")
         $materi = [];
         foreach ($programs as $prog) {
-            $items = $schedules->filter(fn($s) => ($s->subject->subject_name ?? 'Tanpa Program') === $prog && $s->evaluation->syllabus);
-            $grouped = $items->groupBy(fn($s) => $s->evaluation->syllabus->pokok_bahasan
-                . ($s->evaluation->syllabus->sub_pokok_bahasan ? ' — ' . $s->evaluation->syllabus->sub_pokok_bahasan : ''));
+            $items = $schedules->filter(fn($s) => ($s->subject->subject_name ?? 'Tanpa Program') === $prog && $s->evaluation?->materi_text);
+            $grouped = $items->groupBy(fn($s) => $s->evaluation->materi_text);
             $materi[$prog] = $grouped->map(fn($g, $name) => ['name' => $name, 'nilai' => $subjectScore($g)])->values()->all();
         }
 
@@ -480,6 +481,7 @@ class EvaluationController extends Controller
         $validated = $request->validate([
             'schedule_id'        => 'required|exists:schedules,id',
             'syllabus_id'        => 'nullable|exists:syllabi,id',
+            'materi_manual'      => 'nullable|string|max:255',
             'student_attendance' => 'required|in:hadir,izin,alfa',
             'post_test'          => 'nullable|integer|min:1|max:100',
             'pemahaman'          => 'nullable|integer|min:1|max:100',
@@ -488,6 +490,9 @@ class EvaluationController extends Controller
             'kepercayaan_diri'   => 'nullable|integer|min:1|max:100',
             'tutor_notes'        => 'nullable|string|max:1000',
         ]);
+
+        // Silabus & materi manual saling eksklusif
+        $validated = $this->normalizeMateri($validated);
 
         $evaluation = Evaluation::updateOrCreate(
             ['schedule_id' => $validated['schedule_id']],
@@ -503,6 +508,7 @@ class EvaluationController extends Controller
     {
         $validated = $request->validate([
             'syllabus_id'        => 'nullable|exists:syllabi,id',
+            'materi_manual'      => 'nullable|string|max:255',
             'student_attendance' => 'required|in:hadir,izin,alfa',
             'post_test'          => 'nullable|integer|min:1|max:100',
             'pemahaman'          => 'nullable|integer|min:1|max:100',
@@ -512,9 +518,23 @@ class EvaluationController extends Controller
             'tutor_notes'        => 'nullable|string|max:1000',
         ]);
 
+        $validated = $this->normalizeMateri($validated);
+
         $evaluation->update($validated);
         $this->syncQuota($evaluation);
         return response()->json(['success' => true, 'message' => 'Evaluasi berhasil diperbarui.']);
+    }
+
+    /** Pastikan silabus & materi manual saling eksklusif (silabus menang bila keduanya terisi). */
+    private function normalizeMateri(array $data): array
+    {
+        if (!empty($data['syllabus_id'])) {
+            $data['materi_manual'] = null;
+        } elseif (array_key_exists('materi_manual', $data)) {
+            $data['syllabus_id'] = null;
+            $data['materi_manual'] = $data['materi_manual'] ?: null;
+        }
+        return $data;
     }
 
     /**

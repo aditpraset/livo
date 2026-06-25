@@ -358,10 +358,13 @@
                     <label class="form-label fw-semibold">Sub Pokok Bahasan</label>
                     <select id="eval-syllabus" class="form-select">
                         <option value="">— Pilih materi sesuai silabus mapel —</option>
+                        <option value="__other__">Lainnya (isi manual)</option>
                     </select>
                     <small class="text-muted" id="eval-syllabus-empty" style="display:none;">
                         Belum ada silabus untuk mata pelajaran ini di kelas siswa.
                     </small>
+                    <input type="text" id="eval-materi-manual" class="form-control mt-2" style="display:none;"
+                        placeholder="Tulis materi / sub pokok bahasan secara manual">
                 </div>
                 {{-- Pemahaman disembunyikan dari pengisian (tetap ada agar skrip aman) --}}
                 <input type="hidden" id="eval-pemahaman">
@@ -720,19 +723,25 @@ $(function () {
             );
             // Isi dropdown Sub Pokok Bahasan sesuai silabus mata pelajaran
             var $syl = $('#eval-syllabus');
-            $syl.find('option:not(:first)').remove();
+            $syl.find('option').not('[value=""]').not('[value="__other__"]').remove();
             var syllabi = (data.subject && data.subject.syllabi) ? data.subject.syllabi : [];
             syllabi.forEach(function (s) {
                 var label = s.pokok_bahasan + (s.sub_pokok_bahasan ? ' — ' + s.sub_pokok_bahasan : '');
-                $syl.append('<option value="' + s.id + '">' + label + '</option>');
+                $syl.find('option[value="__other__"]').before('<option value="' + s.id + '">' + label + '</option>');
             });
             $('#eval-syllabus-empty').toggle(syllabi.length === 0);
 
             $('input[name="student_attendance"]').prop('checked', false);
             $('#eval-syllabus, #eval-posttest, #eval-pemahaman, #eval-analisa, #eval-hafalan, #eval-kepercayaan, #eval-notes').val('');
+            $('#eval-materi-manual').val('').hide();
             if (data.evaluation) {
                 $('input[name="student_attendance"][value="' + data.evaluation.student_attendance + '"]').prop('checked', true);
-                $('#eval-syllabus').val(data.evaluation.syllabus_id ?? '');
+                if (data.evaluation.syllabus_id) {
+                    $('#eval-syllabus').val(String(data.evaluation.syllabus_id));
+                } else if (data.evaluation.materi_manual) {
+                    $('#eval-syllabus').val('__other__');
+                    $('#eval-materi-manual').val(data.evaluation.materi_manual).show();
+                }
                 $('#eval-posttest').val(data.evaluation.post_test ?? '');
                 $('#eval-pemahaman').val(data.evaluation.pemahaman ?? '');
                 $('#eval-analisa').val(data.evaluation.kemampuan_analisa ?? '');
@@ -850,6 +859,11 @@ $(function () {
         });
     });
 
+    /* Tampilkan input materi manual saat memilih "Lainnya" */
+    $('#eval-syllabus').on('change', function () {
+        $('#eval-materi-manual').toggle($(this).val() === '__other__');
+    });
+
     /* ================================================================
        Simpan Evaluasi
     ================================================================ */
@@ -857,11 +871,15 @@ $(function () {
         var attendance = $('input[name="student_attendance"]:checked').val();
         if (!attendance) { Swal.fire('Perhatian', 'Kehadiran siswa harus dipilih.', 'warning'); return; }
 
+        var sylVal   = $('#eval-syllabus').val();
+        var isOther  = sylVal === '__other__';
+
         $.ajax({
             url: '{{ route("admin.evaluations.store") }}', type: 'POST',
             data: {
                 schedule_id:        $('#eval-schedule-id').val(),
-                syllabus_id:        $('#eval-syllabus').val() || null,
+                syllabus_id:        isOther ? null : (sylVal || null),
+                materi_manual:      isOther ? ($('#eval-materi-manual').val() || null) : null,
                 student_attendance: attendance,
                 post_test:          $('#eval-posttest').val() || null,
                 pemahaman:          $('#eval-pemahaman').val() || null,
