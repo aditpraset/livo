@@ -159,7 +159,7 @@
         <td valign="top">
             <div class="section-title">Grafik Sesi per Bulan</div>
             @if(count($rows))
-                {!! $sessionSvg !!}
+                <img src="data:image/svg+xml;base64,{{ base64_encode($sessionSvg) }}" style="width:100%; height:auto;">
             @else
                 <div style="color:#888; font-size:9px;">Belum ada data sesi pada periode ini.</div>
             @endif
@@ -167,7 +167,7 @@
         <td valign="top">
             <div class="section-title">Profil Kemampuan</div>
             @if(count($rows))
-                {!! $abilitySvg !!}
+                <img src="data:image/svg+xml;base64,{{ base64_encode($abilitySvg) }}" style="width:100%; height:auto;">
             @else
                 <div style="color:#888; font-size:9px;">Belum ada data pada periode ini.</div>
             @endif

@@ -375,11 +375,17 @@ class EvaluationController extends Controller
 
         // Grafik sesi: batang vertikal bertumpuk per bulan, dibagi per mata pelajaran
         $sessionSvg = $this->buildSessionStackedSvg($rows, $programs->values()->all());
-        // Grafik profil kemampuan: batang vertikal (sumbu X = kemampuan, sumbu Y = nilai)
-        $abilitySvg = $this->buildAbilityBarSvg([
-            'Analisa' => $footer['analisa'],
-            'Hafalan' => $footer['hafalan'],
-        ]);
+        // Grafik profil kemampuan: batang vertikal (sumbu X = kemampuan, sumbu Y = nilai).
+        // Mencakup Analisa, Hafalan, Percaya Diri, dan rata-rata tiap mata pelajaran.
+        $abilityData = [
+            'Analisa'      => $footer['analisa'],
+            'Hafalan'      => $footer['hafalan'],
+            'Percaya Diri' => $footer['kepercayaan'],
+        ];
+        foreach ($programs as $prog) {
+            $abilityData[$prog] = $footer['subjects'][$prog] ?? null;
+        }
+        $abilitySvg = $this->buildAbilityBarSvg($abilityData);
 
         $periode = $this->periodLabel($startDate, $endDate);
         $student->loadMissing('scheduleSession');
@@ -411,7 +417,7 @@ class EvaluationController extends Controller
         $base = $padT + $plotH;
         $bw   = ($plotW / $n) * 0.5;
 
-        $svg = '<svg width="' . $w . '" height="' . $h . '" xmlns="http://www.w3.org/2000/svg">';
+        $svg = '<svg width="' . $w . '" height="' . $h . '" viewBox="0 0 ' . $w . ' ' . $h . '" xmlns="http://www.w3.org/2000/svg">';
         // grid + skala sumbu Y
         $step = max(1, (int) ($max / 4));
         for ($i = 0; $i <= $max; $i += $step) {
@@ -464,15 +470,15 @@ class EvaluationController extends Controller
      */
     private function buildAbilityBarSvg(array $data): string
     {
-        $w = 340; $h = 220; $padL = 26; $padB = 44; $padT = 12; $padR = 10; $max = 100;
+        $w = 340; $h = 230; $padL = 26; $padB = 56; $padT = 12; $padR = 10; $max = 100;
         $plotW = $w - $padL - $padR; $plotH = $h - $padT - $padB;
         $labels = array_keys($data); $vals = array_values($data);
         $n = max(1, count($labels));
         $base = $padT + $plotH;
-        $bw   = ($plotW / $n) * 0.42;
-        $colors = ['#2C3E73', '#4299e1', '#16a34a', '#d97706'];
+        $bw   = ($plotW / $n) * 0.55;
+        $colors = ['#2C3E73', '#4299e1', '#16a34a', '#d97706', '#9333ea', '#dc2626'];
 
-        $svg = '<svg width="' . $w . '" height="' . $h . '" xmlns="http://www.w3.org/2000/svg">';
+        $svg = '<svg width="' . $w . '" height="' . $h . '" viewBox="0 0 ' . $w . ' ' . $h . '" xmlns="http://www.w3.org/2000/svg">';
         // grid + skala sumbu Y
         for ($i = 0; $i <= $max; $i += 25) {
             $y = $base - ($i / $max) * $plotH;
@@ -484,7 +490,7 @@ class EvaluationController extends Controller
         $svg .= '<line x1="' . $padL . '" y1="' . $base . '" x2="' . ($w - $padR) . '" y2="' . $base . '" stroke="#888" stroke-width="1"/>';
         $svg .= '<text x="4" y="' . ($padT + 4) . '" font-size="7.5" fill="#444" font-weight="bold">Nilai</text>';
 
-        // batang per kemampuan
+        // batang per kemampuan / mata pelajaran
         foreach ($labels as $idx => $label) {
             $v  = $vals[$idx];
             $cx = $padL + ($idx + 0.5) * ($plotW / $n);
@@ -493,12 +499,16 @@ class EvaluationController extends Controller
             $y  = $base - $bh;
             if ($v !== null) {
                 $svg .= '<rect x="' . round($x, 1) . '" y="' . round($y, 1) . '" width="' . round($bw, 1) . '" height="' . round($bh, 1) . '" fill="' . $colors[$idx % count($colors)] . '" rx="2"/>';
-                $svg .= '<text x="' . round($cx, 1) . '" y="' . round($y - 3, 1) . '" font-size="9" text-anchor="middle" fill="#222" font-weight="bold">' . number_format($v, 0) . '</text>';
+                $svg .= '<text x="' . round($cx, 1) . '" y="' . round($y - 3, 1) . '" font-size="8.5" text-anchor="middle" fill="#222" font-weight="bold">' . number_format($v, 0) . '</text>';
             }
-            $svg .= '<text x="' . round($cx, 1) . '" y="' . ($base + 13) . '" font-size="8.5" text-anchor="middle" fill="#444">' . htmlspecialchars($label) . '</text>';
+            // label (sumbu X) — dipecah per kata agar muat
+            $lines = explode("\n", wordwrap($label, 9, "\n", true));
+            foreach ($lines as $li => $line) {
+                $svg .= '<text x="' . round($cx, 1) . '" y="' . ($base + 11 + $li * 8) . '" font-size="7" text-anchor="middle" fill="#444">' . htmlspecialchars($line) . '</text>';
+            }
         }
         // judul sumbu X
-        $svg .= '<text x="' . round($padL + $plotW / 2, 1) . '" y="' . ($base + 28) . '" font-size="8" text-anchor="middle" fill="#444" font-weight="bold">Kemampuan</text>';
+        $svg .= '<text x="' . round($padL + $plotW / 2, 1) . '" y="' . ($base + 40) . '" font-size="8" text-anchor="middle" fill="#444" font-weight="bold">Kemampuan / Mata Pelajaran</text>';
         $svg .= '</svg>';
         return $svg;
     }
