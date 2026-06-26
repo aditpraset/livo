@@ -404,7 +404,7 @@
         <div class="sig-side">
           <div class="date-city">Jakarta, {{ \Carbon\Carbon::parse($payment->payment_date)->translatedFormat('d F Y') }}</div>
           @if(!empty($qrCode))
-            <img src="{{ $qrCode }}" alt="QR" style="width:60px;height:60px;display:block;margin-left:auto;margin-bottom:4px;">
+            <img src="{{ $qrCode }}" alt="QR" style="width:60px;height:60px;display:block;margin-left:auto;margin-bottom:6px;">
           @else
             <div style="height:60px;"></div>
           @endif
