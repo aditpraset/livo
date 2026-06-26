@@ -181,14 +181,26 @@
             <td style="width:60%; padding:0 6px 0 0;" valign="top">
                 <div class="catatan-box"></div>
             </td>
-            <td style="width:40%; text-align:center; padding-left:6px;" valign="bottom">
-                <div style="margin-bottom:6px;">Jakarta, {{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}</div>
-                @if(!empty($qrCode))
-                    <img src="{{ $qrCode }}" style="display:block; width:72px; height:72px; margin:0 auto 6px;">
-                @else
-                    <div style="height:78px;"></div>
-                @endif
-                <div style="font-weight:bold; border-top:1px solid #333; display:inline-block; padding-top:2px;">Branch Manager</div>
+            <td style="width:40%; padding-left:6px;" valign="bottom">
+                <table style="width:100%; border-collapse:collapse; text-align:center;">
+                    <tr>
+                        <td style="text-align:center; padding-bottom:15px;">Jakarta, {{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align:center; padding-bottom:15px;">
+                            @if(!empty($qrCode))
+                                <img src="{{ $qrCode }}" style="width:72px; height:72px;">
+                            @else
+                                <span style="display:inline-block; height:72px;"></span>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align:center;">
+                            <span style="font-weight:bold; border-top:1px solid #333; padding-top:2px;">Branch Manager</span>
+                        </td>
+                    </tr>
+                </table>
             </td>
         </tr>
     </table>
