@@ -7,13 +7,13 @@
         @page { margin: 7mm 8mm; }
         * { font-family: DejaVu Sans, sans-serif; }
         body { font-size: 9px; color: #222; margin: 0; }
-        .header-top { width: 100%; border-collapse: collapse; margin-bottom: 3px; }
+        .header-top { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         .header-top td { vertical-align: middle; }
         .title { text-align: center; font-size: 17px; font-weight: bold; letter-spacing: .5px; }
         .subtitle { text-align: center; font-size: 9px; color: #444; }
         .period-line { text-align: center; font-size: 10px; font-weight: bold; color: #222; margin: 3px 0 2px; }
         .logo { height: 40px; }
-        table.info { width: 100%; border-collapse: collapse; margin: 4px 0 6px; font-size: 9px; }
+        table.info { width: 100%; border-collapse: collapse; margin: 8px 0 6px; font-size: 9px; }
         table.info td { padding: 2px 4px; vertical-align: top; }
         .info .lbl { font-weight: bold; white-space: nowrap; }
         .info .sep { width: 6px; }
@@ -176,20 +176,20 @@
 </table>
 
 {{-- ── Catatan & TTD ── --}}
-<div style="margin-top:5px;">
+<div style="margin-top:10px;">
     <div class="section-title">Catatan Tambahan :</div>
     <table class="two-col">
         <tr>
             <td style="width:60%;" valign="top">
                 <table class="catatan-lines">
-                    @for($i = 0; $i < 5; $i++)
+                    @for($i = 0; $i < 8; $i++)
                         <tr><td>&nbsp;</td></tr>
                     @endfor
                 </table>
             </td>
             <td style="width:40%; text-align:center; vertical-align:top;">
                 <div>Jakarta, {{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}</div>
-                <div style="height:54px;"></div>
+                <div style="height:80px;"></div>
                 <div style="font-weight:bold; border-top:1px solid #333; display:inline-block; padding-top:2px;">Branch Manager</div>
             </td>
         </tr>
