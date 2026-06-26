@@ -116,11 +116,15 @@ class PaymentController extends Controller
         $count = Payment::whereDate('created_at', $today->toDateString())->count() + 1;
         $noPayment = 'LVR-' . $today->format('ymd') . str_pad($count, 4, '0', STR_PAD_LEFT);
 
+        // Tanggal expired dihitung otomatis dari durasi paket siswa (fallback ke input bila durasi kosong)
+        $student = Student::find($request->student_id);
+        $expiredDate = $this->calcExpiredDate($request->payment_date, (int) ($student->duration ?? 0)) ?? $request->expired_date;
+
         Payment::create([
             'student_id' => $request->student_id,
             'no_payment' => $noPayment,
             'payment_date' => $request->payment_date,
-            'expired_date' => $request->expired_date,
+            'expired_date' => $expiredDate,
             'category_payment' => $request->category_payment,
             'description' => $request->description,
             'amount' => $request->amount,
@@ -165,10 +169,13 @@ class PaymentController extends Controller
             'quota' => 'nullable|integer',
         ]);
 
+        $student = Student::find($request->student_id);
+        $expiredDate = $this->calcExpiredDate($request->payment_date, (int) ($student->duration ?? 0)) ?? $request->expired_date;
+
         $payment->update([
             'student_id' => $request->student_id,
             'payment_date' => $request->payment_date,
-            'expired_date' => $request->expired_date,
+            'expired_date' => $expiredDate,
             'category_payment' => $request->category_payment,
             'description' => $request->description,
             'amount' => $request->amount,
@@ -185,6 +192,26 @@ class PaymentController extends Controller
     {
         $payment->delete();
         return response()->json(['success' => true, 'message' => 'Pembayaran berhasil dihapus.']);
+    }
+
+    /**
+     * Hitung tanggal expired = kelipatan 30 hari sesuai durasi paket (bulan), dihitung dari tanggal 1:
+     *  - bayar tgl 1–10  → mulai dari tgl 1 bulan ini
+     *  - bayar tgl 11+   → mulai dari tgl 1 bulan berikutnya
+     * Mengembalikan null bila durasi tidak valid (agar bisa fallback ke input manual).
+     */
+    private function calcExpiredDate(?string $paymentDate, int $months): ?string
+    {
+        if (!$paymentDate || $months < 1) {
+            return null;
+        }
+
+        $pay   = \Carbon\Carbon::parse($paymentDate);
+        $start = $pay->day <= 10
+            ? $pay->copy()->startOfMonth()
+            : $pay->copy()->addMonthNoOverflow()->startOfMonth();
+
+        return $start->addDays($months * 30)->toDateString();
     }
 
     /** Unduh template Excel untuk import pembayaran (beserta sheet master & konstanta). */

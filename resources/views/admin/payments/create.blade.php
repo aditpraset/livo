@@ -35,7 +35,7 @@
                             <select name="student_id" class="form-select @error('student_id') is-invalid @enderror" required>
                                 <option value="">-- Pilih Siswa --</option>
                                 @foreach($students as $student)
-                                    <option value="{{ $student->id }}" {{ old('student_id') == $student->id ? 'selected' : '' }}>
+                                    <option value="{{ $student->id }}" data-duration="{{ $student->duration ?? '' }}" {{ old('student_id') == $student->id ? 'selected' : '' }}>
                                         {{ $student->full_name }} {{ $student->nis ? '(' . $student->nis . ')' : '' }}
                                     </option>
                                 @endforeach
@@ -76,12 +76,13 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">Tanggal Pembayaran <span class="text-danger">*</span></label>
-                            <input type="date" name="payment_date" class="form-control @error('payment_date') is-invalid @enderror" value="{{ old('payment_date', date('Y-m-d')) }}" required>
+                            <input type="date" id="payment-date" name="payment_date" class="form-control @error('payment_date') is-invalid @enderror" value="{{ old('payment_date', date('Y-m-d')) }}" required>
                             @error('payment_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Tanggal Expired</label>
-                            <input type="date" name="expired_date" class="form-control @error('expired_date') is-invalid @enderror" value="{{ old('expired_date', date('Y-m-d', strtotime('+1 month'))) }}">
+                            <input type="date" id="expired-date" name="expired_date" class="form-control @error('expired_date') is-invalid @enderror" value="{{ old('expired_date') }}">
+                            <small id="expired-auto-hint" class="text-muted d-none">Dihitung otomatis dari durasi paket siswa (kelipatan 30 hari).</small>
                             @error('expired_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                         <div class="col-md-6">
@@ -145,7 +146,37 @@
         } else {
             if (hint) hint.classList.add('d-none');
         }
+        recalcExpired();
     });
+
+    /* ── Auto-hitung Tanggal Expired (kelipatan 30 hari sesuai durasi paket) ──
+       bayar tgl 1–10 → mulai tgl 1 bulan ini; tgl 11+ → mulai tgl 1 bulan berikutnya */
+    var paymentDate  = document.getElementById('payment-date');
+    var expiredDate  = document.getElementById('expired-date');
+    var expiredHint  = document.getElementById('expired-auto-hint');
+
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+    function recalcExpired() {
+        if (!paymentDate || !expiredDate) return;
+        var opt = studentSelect.options[studentSelect.selectedIndex];
+        var months = opt ? parseInt(opt.getAttribute('data-duration'), 10) : NaN;
+        if (!paymentDate.value || !months || months < 1) {
+            if (expiredHint) expiredHint.classList.add('d-none');
+            return;
+        }
+        var d = new Date(paymentDate.value + 'T00:00:00');
+        // Tanggal mulai = tgl 1 bulan ini / bulan berikutnya
+        var startMonth = d.getDate() <= 10 ? d.getMonth() : d.getMonth() + 1;
+        var start = new Date(d.getFullYear(), startMonth, 1);
+        // Tambah kelipatan 30 hari sesuai durasi
+        start.setDate(start.getDate() + months * 30);
+        expiredDate.value = start.getFullYear() + '-' + pad(start.getMonth() + 1) + '-' + pad(start.getDate());
+        if (expiredHint) expiredHint.classList.remove('d-none');
+    }
+
+    if (paymentDate) paymentDate.addEventListener('change', recalcExpired);
+    recalcExpired();
 })();
 </script>
 @endpush
