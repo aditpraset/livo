@@ -408,7 +408,7 @@ class EvaluationController extends Controller
      */
     private function buildSessionStackedSvg(array $rows, array $programs): string
     {
-        $w = 340; $h = 175; $padL = 26; $padB = 48; $padT = 10; $padR = 10;
+        $w = 340; $h = 180; $padL = 26; $padB = 48; $padT = 18; $padR = 10;
         $plotW = $w - $padL - $padR; $plotH = $h - $padT - $padB;
         $n = max(1, count($rows));
         $colors = ['#2C3E73', '#4299e1', '#16a34a', '#d97706', '#9333ea', '#dc2626'];
@@ -430,7 +430,7 @@ class EvaluationController extends Controller
         // sumbu
         $svg .= '<line x1="' . $padL . '" y1="' . $padT . '" x2="' . $padL . '" y2="' . $base . '" stroke="#888" stroke-width="1"/>';
         $svg .= '<line x1="' . $padL . '" y1="' . $base . '" x2="' . ($w - $padR) . '" y2="' . $base . '" stroke="#888" stroke-width="1"/>';
-        $svg .= '<text x="4" y="' . ($padT + 4) . '" font-size="7.5" fill="#444" font-weight="bold">Sesi</text>';
+        $svg .= '<text x="4" y="10" font-size="7.5" fill="#444" font-weight="bold">Sesi</text>';
 
         // batang bertumpuk per bulan
         foreach ($rows as $idx => $r) {
@@ -472,7 +472,7 @@ class EvaluationController extends Controller
      */
     private function buildAbilityBarSvg(array $data): string
     {
-        $w = 340; $h = 180; $padL = 26; $padB = 48; $padT = 10; $padR = 10; $max = 100;
+        $w = 340; $h = 185; $padL = 26; $padB = 48; $padT = 18; $padR = 10; $max = 100;
         $plotW = $w - $padL - $padR; $plotH = $h - $padT - $padB;
         $labels = array_keys($data); $vals = array_values($data);
         $n = max(1, count($labels));
@@ -490,7 +490,7 @@ class EvaluationController extends Controller
         // sumbu
         $svg .= '<line x1="' . $padL . '" y1="' . $padT . '" x2="' . $padL . '" y2="' . $base . '" stroke="#888" stroke-width="1"/>';
         $svg .= '<line x1="' . $padL . '" y1="' . $base . '" x2="' . ($w - $padR) . '" y2="' . $base . '" stroke="#888" stroke-width="1"/>';
-        $svg .= '<text x="4" y="' . ($padT + 4) . '" font-size="7.5" fill="#444" font-weight="bold">Nilai</text>';
+        $svg .= '<text x="4" y="10" font-size="7.5" fill="#444" font-weight="bold">Nilai</text>';
 
         // batang per kemampuan / mata pelajaran
         foreach ($labels as $idx => $label) {

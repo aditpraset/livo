@@ -11,7 +11,7 @@
         .header-top td { vertical-align: middle; }
         .title { text-align: center; font-size: 17px; font-weight: bold; letter-spacing: .5px; }
         .subtitle { text-align: center; font-size: 9px; color: #444; }
-        .period-line { text-align: center; font-size: 10px; font-weight: bold; color: #222; margin-top: 1px; }
+        .period-line { text-align: center; font-size: 10px; font-weight: bold; color: #222; margin: 3px 0 2px; }
         .logo { height: 40px; }
         table.info { width: 100%; border-collapse: collapse; margin: 4px 0 6px; font-size: 9px; }
         table.info td { padding: 2px 4px; vertical-align: top; }
@@ -154,7 +154,7 @@
 </table>
 
 {{-- ── Grafik (di bawah tabel pembahasan, berdampingan) ── --}}
-<table class="two-col">
+<table class="two-col" style="margin-top:10px;">
     <tr>
         <td valign="top">
             <div class="section-title">Grafik Sesi per Bulan</div>
@@ -165,7 +165,7 @@
             @endif
         </td>
         <td valign="top">
-            <div class="section-title">Profil Kemampuan</div>
+            <div class="section-title">Grafik Penilaian Rata-rata</div>
             @if(count($rows))
                 <img src="data:image/svg+xml;base64,{{ base64_encode($abilitySvg) }}" style="width:100%; height:auto;">
             @else
@@ -189,7 +189,7 @@
             </td>
             <td style="width:40%; text-align:center; vertical-align:top;">
                 <div>Jakarta, {{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}</div>
-                <div style="height:42px;"></div>
+                <div style="height:54px;"></div>
                 <div style="font-weight:bold; border-top:1px solid #333; display:inline-block; padding-top:2px;">Branch Manager</div>
             </td>
         </tr>
