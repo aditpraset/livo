@@ -321,15 +321,18 @@ class EvaluationController extends Controller
             $ym = $m->format('Y-m');
             $mItems = $schedules->filter(fn($s) => \Carbon\Carbon::parse($s->class_date)->format('Y-m') === $ym);
 
-            $subjectVals = [];
+            $subjectVals  = [];
+            $subjectSesi  = [];
             foreach ($programs as $prog) {
                 $items = $mItems->filter(fn($s) => ($s->subject->subject_name ?? 'Tanpa Program') === $prog);
                 $subjectVals[$prog] = $subjectScore($items);
+                $subjectSesi[$prog] = $items->count();
             }
 
             $rows[] = [
                 'label'       => $m->translatedFormat('F'),
                 'sesi'        => $mItems->count(),
+                'sesiProg'    => $subjectSesi,
                 'subjects'    => $subjectVals,
                 'analisa'     => $abilityScore($mItems, 'kemampuan_analisa'),
                 'hafalan'     => $abilityScore($mItems, 'kemampuan_hafalan'),
@@ -370,8 +373,13 @@ class EvaluationController extends Controller
             $materi[$prog] = $grouped->map(fn($g, $name) => ['name' => $name, 'nilai' => $subjectScore($g)])->values()->all();
         }
 
-        // Grafik (profil kemampuan dirender sebagai bar HTML di view dari $footer)
-        $barSvg = $this->buildBarChartSvg(array_column($rows, 'label'), array_column($rows, 'sesi'));
+        // Grafik sesi: batang vertikal bertumpuk per bulan, dibagi per mata pelajaran
+        $sessionSvg = $this->buildSessionStackedSvg($rows, $programs->values()->all());
+        // Grafik profil kemampuan: batang vertikal (sumbu X = kemampuan, sumbu Y = nilai)
+        $abilitySvg = $this->buildAbilityBarSvg([
+            'Analisa' => $footer['analisa'],
+            'Hafalan' => $footer['hafalan'],
+        ]);
 
         $periode = $this->periodLabel($startDate, $endDate);
         $student->loadMissing('scheduleSession');
@@ -380,37 +388,117 @@ class EvaluationController extends Controller
         $logo = file_exists($logoPath) ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath)) : null;
 
         $pdf = Pdf::loadView('admin.evaluations.summary-pdf', compact(
-            'student', 'programs', 'rows', 'footer', 'predikat', 'periode', 'materi', 'barSvg', 'logo'
+            'student', 'programs', 'rows', 'footer', 'predikat', 'periode', 'materi', 'sessionSvg', 'abilitySvg', 'logo'
         ))->setPaper('a4', 'portrait');
 
         return $pdf->download('laporan-hasil-belajar-' . str()->slug($student->full_name) . '.pdf');
     }
 
-    /** Bar chart sederhana (SVG) untuk jumlah sesi per bulan. */
-    private function buildBarChartSvg(array $labels, array $values): string
+    /**
+     * Grafik batang vertikal bertumpuk (SVG) untuk jumlah sesi per bulan.
+     * Sumbu X = bulan, sumbu Y = jumlah sesi; tiap batang dibagi per mata pelajaran.
+     */
+    private function buildSessionStackedSvg(array $rows, array $programs): string
     {
-        $w = 460; $h = 200; $padL = 30; $padB = 30; $padT = 10; $padR = 10;
-        $max = max(1, max($values ?: [1]));
-        $max = (int) ceil($max / 2) * 2;
+        $w = 340; $h = 220; $padL = 26; $padB = 56; $padT = 12; $padR = 10;
         $plotW = $w - $padL - $padR; $plotH = $h - $padT - $padB;
-        $n = max(1, count($values));
-        $bw = $plotW / $n * 0.55;
+        $n = max(1, count($rows));
+        $colors = ['#2C3E73', '#4299e1', '#16a34a', '#d97706', '#9333ea', '#dc2626'];
+
+        $max = 1;
+        foreach ($rows as $r) { $max = max($max, (int) $r['sesi']); }
+        $max = max(2, (int) ceil($max / 2) * 2);
+        $base = $padT + $plotH;
+        $bw   = ($plotW / $n) * 0.5;
+
         $svg = '<svg width="' . $w . '" height="' . $h . '" xmlns="http://www.w3.org/2000/svg">';
-        // sumbu Y grid
-        for ($i = 0; $i <= $max; $i += max(1, (int) ($max / 4))) {
-            $y = $padT + $plotH - ($i / $max) * $plotH;
+        // grid + skala sumbu Y
+        $step = max(1, (int) ($max / 4));
+        for ($i = 0; $i <= $max; $i += $step) {
+            $y = $base - ($i / $max) * $plotH;
             $svg .= '<line x1="' . $padL . '" y1="' . $y . '" x2="' . ($w - $padR) . '" y2="' . $y . '" stroke="#e5e7eb" stroke-width="1"/>';
             $svg .= '<text x="' . ($padL - 5) . '" y="' . ($y + 3) . '" font-size="8" text-anchor="end" fill="#666">' . $i . '</text>';
         }
-        foreach ($values as $idx => $v) {
+        // sumbu
+        $svg .= '<line x1="' . $padL . '" y1="' . $padT . '" x2="' . $padL . '" y2="' . $base . '" stroke="#888" stroke-width="1"/>';
+        $svg .= '<line x1="' . $padL . '" y1="' . $base . '" x2="' . ($w - $padR) . '" y2="' . $base . '" stroke="#888" stroke-width="1"/>';
+        $svg .= '<text x="4" y="' . ($padT + 4) . '" font-size="7.5" fill="#444" font-weight="bold">Sesi</text>';
+
+        // batang bertumpuk per bulan
+        foreach ($rows as $idx => $r) {
             $cx = $padL + ($idx + 0.5) * ($plotW / $n);
-            $bh = ($v / $max) * $plotH;
-            $x = $cx - $bw / 2;
-            $y = $padT + $plotH - $bh;
-            $svg .= '<rect x="' . $x . '" y="' . $y . '" width="' . $bw . '" height="' . $bh . '" fill="#4299e1" rx="2"/>';
-            $svg .= '<text x="' . $cx . '" y="' . ($y - 3) . '" font-size="9" text-anchor="middle" fill="#222" font-weight="bold">' . $v . '</text>';
-            $svg .= '<text x="' . $cx . '" y="' . ($h - $padB + 12) . '" font-size="8" text-anchor="middle" fill="#444">' . htmlspecialchars(mb_substr($labels[$idx] ?? '', 0, 4)) . '</text>';
+            $x  = $cx - $bw / 2;
+            $yTop = $base;
+            foreach ($programs as $pi => $prog) {
+                $cnt = (int) ($r['sesiProg'][$prog] ?? 0);
+                if ($cnt <= 0) continue;
+                $segH = ($cnt / $max) * $plotH;
+                $yTop -= $segH;
+                $svg .= '<rect x="' . round($x, 1) . '" y="' . round($yTop, 1) . '" width="' . round($bw, 1) . '" height="' . round($segH, 1) . '" fill="' . $colors[$pi % count($colors)] . '"/>';
+                if ($segH >= 10) {
+                    $svg .= '<text x="' . round($cx, 1) . '" y="' . round($yTop + $segH / 2 + 3, 1) . '" font-size="7" text-anchor="middle" fill="#fff">' . $cnt . '</text>';
+                }
+            }
+            // total di atas batang
+            $svg .= '<text x="' . round($cx, 1) . '" y="' . round($yTop - 3, 1) . '" font-size="8" text-anchor="middle" fill="#222" font-weight="bold">' . (int) $r['sesi'] . '</text>';
+            // label bulan (sumbu X)
+            $svg .= '<text x="' . round($cx, 1) . '" y="' . ($base + 12) . '" font-size="8" text-anchor="middle" fill="#444">' . htmlspecialchars(mb_substr($r['label'], 0, 3)) . '</text>';
         }
+        // judul sumbu X
+        $svg .= '<text x="' . round($padL + $plotW / 2, 1) . '" y="' . ($base + 24) . '" font-size="8" text-anchor="middle" fill="#444" font-weight="bold">Bulan</text>';
+
+        // legenda mata pelajaran
+        $lx = $padL; $ly = $base + 38;
+        foreach ($programs as $pi => $prog) {
+            $svg .= '<rect x="' . round($lx, 1) . '" y="' . ($ly - 6) . '" width="8" height="8" fill="' . $colors[$pi % count($colors)] . '" rx="1"/>';
+            $svg .= '<text x="' . round($lx + 11, 1) . '" y="' . $ly . '" font-size="7" fill="#444">' . htmlspecialchars($prog) . '</text>';
+            $lx += 11 + mb_strlen($prog) * 4.0 + 12;
+        }
+        $svg .= '</svg>';
+        return $svg;
+    }
+
+    /**
+     * Grafik batang vertikal (SVG) untuk profil kemampuan.
+     * Sumbu X = jenis kemampuan, sumbu Y = nilai (skala 0-100).
+     */
+    private function buildAbilityBarSvg(array $data): string
+    {
+        $w = 340; $h = 220; $padL = 26; $padB = 44; $padT = 12; $padR = 10; $max = 100;
+        $plotW = $w - $padL - $padR; $plotH = $h - $padT - $padB;
+        $labels = array_keys($data); $vals = array_values($data);
+        $n = max(1, count($labels));
+        $base = $padT + $plotH;
+        $bw   = ($plotW / $n) * 0.42;
+        $colors = ['#2C3E73', '#4299e1', '#16a34a', '#d97706'];
+
+        $svg = '<svg width="' . $w . '" height="' . $h . '" xmlns="http://www.w3.org/2000/svg">';
+        // grid + skala sumbu Y
+        for ($i = 0; $i <= $max; $i += 25) {
+            $y = $base - ($i / $max) * $plotH;
+            $svg .= '<line x1="' . $padL . '" y1="' . $y . '" x2="' . ($w - $padR) . '" y2="' . $y . '" stroke="#e5e7eb" stroke-width="1"/>';
+            $svg .= '<text x="' . ($padL - 5) . '" y="' . ($y + 3) . '" font-size="8" text-anchor="end" fill="#666">' . $i . '</text>';
+        }
+        // sumbu
+        $svg .= '<line x1="' . $padL . '" y1="' . $padT . '" x2="' . $padL . '" y2="' . $base . '" stroke="#888" stroke-width="1"/>';
+        $svg .= '<line x1="' . $padL . '" y1="' . $base . '" x2="' . ($w - $padR) . '" y2="' . $base . '" stroke="#888" stroke-width="1"/>';
+        $svg .= '<text x="4" y="' . ($padT + 4) . '" font-size="7.5" fill="#444" font-weight="bold">Nilai</text>';
+
+        // batang per kemampuan
+        foreach ($labels as $idx => $label) {
+            $v  = $vals[$idx];
+            $cx = $padL + ($idx + 0.5) * ($plotW / $n);
+            $x  = $cx - $bw / 2;
+            $bh = $v === null ? 0 : ($v / $max) * $plotH;
+            $y  = $base - $bh;
+            if ($v !== null) {
+                $svg .= '<rect x="' . round($x, 1) . '" y="' . round($y, 1) . '" width="' . round($bw, 1) . '" height="' . round($bh, 1) . '" fill="' . $colors[$idx % count($colors)] . '" rx="2"/>';
+                $svg .= '<text x="' . round($cx, 1) . '" y="' . round($y - 3, 1) . '" font-size="9" text-anchor="middle" fill="#222" font-weight="bold">' . number_format($v, 0) . '</text>';
+            }
+            $svg .= '<text x="' . round($cx, 1) . '" y="' . ($base + 13) . '" font-size="8.5" text-anchor="middle" fill="#444">' . htmlspecialchars($label) . '</text>';
+        }
+        // judul sumbu X
+        $svg .= '<text x="' . round($padL + $plotW / 2, 1) . '" y="' . ($base + 28) . '" font-size="8" text-anchor="middle" fill="#444" font-weight="bold">Kemampuan</text>';
         $svg .= '</svg>';
         return $svg;
     }

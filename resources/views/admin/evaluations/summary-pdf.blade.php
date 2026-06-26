@@ -37,7 +37,9 @@
         table.materi .val { width: 80px; text-align: center; }
         table.materi .lbl-r { text-align: right; font-weight: bold; border: none; }
 
-        .catatan-box { border: 1px solid #777; height: 56px; }
+        table.catatan-lines { width: 100%; border: 1px solid #777; border-collapse: collapse; }
+        table.catatan-lines td { height: 22px; border-bottom: 1px solid #d4ddec; }
+        table.catatan-lines tr:last-child td { border-bottom: none; }
         .ttd { width: 100%; margin-top: 6px; }
         .ttd td { vertical-align: top; font-size: 9.5px; }
 
@@ -154,39 +156,21 @@
 {{-- ── Grafik (di bawah tabel pembahasan, berdampingan) ── --}}
 <table class="two-col">
     <tr>
-        <td>
+        <td valign="top">
             <div class="section-title">Grafik Sesi per Bulan</div>
             @if(count($rows))
-                @php $maxSesi = max(1, collect($rows)->max('sesi') ?: 1); @endphp
-                <table class="bar-chart">
-                    @foreach($rows as $r)
-                        @php $pct = max(2, round(($r['sesi'] / $maxSesi) * 100)); @endphp
-                        <tr>
-                            <td class="bc-label">{{ $r['label'] }}</td>
-                            <td class="bc-track">
-                                <div class="bc-bar" style="width: {{ $pct }}%;">&nbsp;</div>
-                            </td>
-                            <td class="bc-val">{{ $r['sesi'] }} sesi</td>
-                        </tr>
-                    @endforeach
-                </table>
+                {!! $sessionSvg !!}
             @else
                 <div style="color:#888; font-size:9px;">Belum ada data sesi pada periode ini.</div>
             @endif
         </td>
-        <td>
+        <td valign="top">
             <div class="section-title">Profil Kemampuan</div>
-            @php $abil = ['Kemampuan Analisa' => $footer['analisa'], 'Kemampuan Hafalan' => $footer['hafalan']]; @endphp
-            <table class="bar-chart">
-                @foreach($abil as $label => $val)
-                    @php $pct = $val === null ? 0 : max(2, round($val)); @endphp
-                    <tr>
-                        <td class="bc-label" style="width:100px;">{{ $label }}</td>
-                        <td class="bc-track"><div class="bc-bar" style="width: {{ $pct }}%;">&nbsp;</div></td>
-                        <td class="bc-val">{{ $val === null ? '-' : number_format($val, 0) }}</td>
-                    </tr>
-                @endforeach
-            </table>
+            @if(count($rows))
+                {!! $abilitySvg !!}
+            @else
+                <div style="color:#888; font-size:9px;">Belum ada data pada periode ini.</div>
+            @endif
         </td>
     </tr>
 </table>
@@ -196,11 +180,17 @@
     <div class="section-title">Catatan Tambahan :</div>
     <table class="two-col">
         <tr>
-            <td style="width:60%;"><div class="catatan-box"></div></td>
+            <td style="width:60%;" valign="top">
+                <table class="catatan-lines">
+                    @for($i = 0; $i < 7; $i++)
+                        <tr><td>&nbsp;</td></tr>
+                    @endfor
+                </table>
+            </td>
             <td style="width:40%; text-align:center; vertical-align:top;">
                 <div>Jakarta, {{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}</div>
-                <div style="height:48px;"></div>
-                <div style="font-weight:bold; border-top:1px solid #333; display:inline-block; padding-top:2px;">Pimpinan LIVO</div>
+                <div style="height:64px;"></div>
+                <div style="font-weight:bold; border-top:1px solid #333; display:inline-block; padding-top:2px;">Branch Manager</div>
             </td>
         </tr>
     </table>
