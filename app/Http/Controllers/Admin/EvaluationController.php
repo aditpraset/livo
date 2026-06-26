@@ -406,7 +406,7 @@ class EvaluationController extends Controller
      */
     private function buildSessionStackedSvg(array $rows, array $programs): string
     {
-        $w = 340; $h = 220; $padL = 26; $padB = 56; $padT = 12; $padR = 10;
+        $w = 340; $h = 175; $padL = 26; $padB = 48; $padT = 10; $padR = 10;
         $plotW = $w - $padL - $padR; $plotH = $h - $padT - $padB;
         $n = max(1, count($rows));
         $colors = ['#2C3E73', '#4299e1', '#16a34a', '#d97706', '#9333ea', '#dc2626'];
@@ -470,7 +470,7 @@ class EvaluationController extends Controller
      */
     private function buildAbilityBarSvg(array $data): string
     {
-        $w = 340; $h = 230; $padL = 26; $padB = 56; $padT = 12; $padR = 10; $max = 100;
+        $w = 340; $h = 180; $padL = 26; $padB = 48; $padT = 10; $padR = 10; $max = 100;
         $plotW = $w - $padL - $padR; $plotH = $h - $padT - $padB;
         $labels = array_keys($data); $vals = array_values($data);
         $n = max(1, count($labels));
