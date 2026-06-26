@@ -397,7 +397,9 @@ class EvaluationController extends Controller
             'student', 'programs', 'rows', 'footer', 'predikat', 'periode', 'materi', 'sessionSvg', 'abilitySvg', 'logo'
         ))->setPaper('a4', 'portrait');
 
-        return $pdf->download('laporan-hasil-belajar-' . str()->slug($student->full_name) . '.pdf');
+        $fileName = trim('Laporan Summary ' . ($student->nis ?? '-') . ' - ' . ($student->nickname ?? $student->full_name));
+
+        return $pdf->download($fileName . '.pdf');
     }
 
     /**
