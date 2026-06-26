@@ -333,6 +333,7 @@
                         $evalDone      = $doneSchedules->filter(fn($s) => $s->evaluation);
                         $scores        = $evalDone->filter(fn($s) => $s->evaluation->post_test !== null)->map(fn($s) => $s->evaluation->post_test);
                         $avgScore      = $scores->count() ? round($scores->avg(), 1) : null;
+                        $alfaCount     = $evalDone->filter(fn($s) => $s->evaluation->student_attendance === 'alfa')->count();
 
                         // Data sesi terevaluasi untuk ringkasan bulanan per program
                         $evalSessions = $evalDone->map(function ($s) {
@@ -343,6 +344,7 @@
                                 'month'     => $date->translatedFormat('M Y'),
                                 'post'      => $s->evaluation->post_test,
                                 'pemahaman' => $s->evaluation->pemahaman,
+                                'att'       => $s->evaluation->student_attendance,
                             ];
                         })->values();
                         $evalMonths = $evalSessions->pluck('ym')->unique()->sort()->values();
@@ -350,22 +352,28 @@
                     <div class="card-body">
                         {{-- Mini stats --}}
                         <div class="row g-3 mb-4">
-                            <div class="col-4">
+                            <div class="col-3">
                                 <div class="text-center p-3 rounded bg-primary bg-opacity-10">
                                     <div class="fs-3 fw-bold text-primary">{{ $doneSchedules->count() }}</div>
                                     <div class="small text-muted">Sesi Selesai</div>
                                 </div>
                             </div>
-                            <div class="col-4">
+                            <div class="col-3">
                                 <div class="text-center p-3 rounded bg-success bg-opacity-10">
                                     <div class="fs-3 fw-bold text-success">{{ $evalDone->count() }}</div>
                                     <div class="small text-muted">Sudah Dievaluasi</div>
                                 </div>
                             </div>
-                            <div class="col-4">
+                            <div class="col-3">
                                 <div class="text-center p-3 rounded bg-info bg-opacity-10">
                                     <div class="fs-3 fw-bold text-info">{{ $avgScore ?? '—' }}</div>
                                     <div class="small text-muted">Rata-rata Nilai</div>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="text-center p-3 rounded bg-danger bg-opacity-10">
+                                    <div class="fs-3 fw-bold text-danger">{{ $alfaCount }}</div>
+                                    <div class="small text-muted">Total Alfa</div>
                                 </div>
                             </div>
                         </div>
@@ -663,11 +671,15 @@ $(function () {
 
                 Object.keys(byMonth).sort().forEach(function (ym) {
                     var g = byMonth[ym];
+                    // Total Sesi tidak menghitung sesi alfa (hanya sesi yang dihadiri)
+                    var totalSesi = g.items.filter(function (x) { return x.att !== 'alfa'; }).length;
+                    var avg = avgNum(g.items.map(function (x) { return x.post; }));
+
                     $body.append(
                         '<tr>' +
                         '<td>' + g.label + '</td>' +
-                        '<td class="text-center">' + g.items.length + '</td>' +
-                        '<td class="text-center">' + numBadge(avgNum(g.items.map(function (x) { return x.post; }))) + '</td>' +
+                        '<td class="text-center">' + totalSesi + '</td>' +
+                        '<td class="text-center">' + numBadge(avg) + '</td>' +
                         '</tr>'
                     );
                 });

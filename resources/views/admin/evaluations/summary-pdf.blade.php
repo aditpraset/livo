@@ -87,6 +87,10 @@
         <td class="lbl">Predikat</td><td class="sep">:</td>
         <td><span class="badge" style="background:{{ $predColor }};">{{ $predikat }}</span></td>
     </tr>
+    <tr>
+        <td class="lbl">Total Alfa</td><td class="sep">:</td>
+        <td colspan="7"><span style="font-weight:bold; color:{{ ($alfaTotal ?? 0) > 0 ? '#dc2626' : '#222' }};">{{ $alfaTotal ?? 0 }} kali</span></td>
+    </tr>
 </table>
 <br>
 {{-- ── Tabel utama: rata-rata per bulan ── --}}

@@ -316,22 +316,27 @@ class EvaluationController extends Controller
             $items->map(fn($s) => $s->evaluation->{$field})
         );
 
+        // Akumulasi Sesi tidak menghitung sesi alfa (hanya sesi yang dihadiri)
+        $notAlfa = fn($s) => ($s->evaluation->student_attendance ?? null) !== 'alfa';
+
         $rows = [];
         foreach ($months as $m) {
             $ym = $m->format('Y-m');
-            $mItems = $schedules->filter(fn($s) => \Carbon\Carbon::parse($s->class_date)->format('Y-m') === $ym);
+            $mItems   = $schedules->filter(fn($s) => \Carbon\Carbon::parse($s->class_date)->format('Y-m') === $ym);
+            $attended = $mItems->filter($notAlfa);
 
             $subjectVals  = [];
             $subjectSesi  = [];
             foreach ($programs as $prog) {
                 $items = $mItems->filter(fn($s) => ($s->subject->subject_name ?? 'Tanpa Program') === $prog);
                 $subjectVals[$prog] = $subjectScore($items);
-                $subjectSesi[$prog] = $items->count();
+                $subjectSesi[$prog] = $items->filter($notAlfa)->count();
             }
 
             $rows[] = [
                 'label'       => $m->translatedFormat('F'),
-                'sesi'        => $mItems->count(),
+                'sesi'        => $attended->count(),
+                'sesiAll'     => $mItems->count(),
                 'sesiProg'    => $subjectSesi,
                 'subjects'    => $subjectVals,
                 'analisa'     => $abilityScore($mItems, 'kemampuan_analisa'),
@@ -339,7 +344,11 @@ class EvaluationController extends Controller
                 'kepercayaan' => $abilityScore($mItems, 'kepercayaan_diri'),
             ];
         }
-        $rows = array_values(array_filter($rows, fn($r) => $r['sesi'] > 0));
+        // Pertahankan bulan yang punya evaluasi (termasuk yang semuanya alfa → tampil 0 sesi)
+        $rows = array_values(array_filter($rows, fn($r) => $r['sesiAll'] > 0));
+
+        // Total alfa pada periode (untuk header info laporan)
+        $alfaTotal = $schedules->filter(fn($s) => ($s->evaluation->student_attendance ?? null) === 'alfa')->count();
 
         // Rata-rata kolom (footer)
         $colAvg = function (callable $pick) use ($rows) {
@@ -401,7 +410,7 @@ class EvaluationController extends Controller
         $logo = file_exists($logoPath) ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath)) : null;
 
         $pdf = Pdf::loadView('admin.evaluations.summary-pdf', compact(
-            'student', 'programs', 'rows', 'footer', 'predikat', 'periode', 'materi', 'sessionSvg', 'abilitySvg', 'qrCode', 'logo'
+            'student', 'programs', 'rows', 'footer', 'predikat', 'periode', 'materi', 'sessionSvg', 'abilitySvg', 'qrCode', 'logo', 'alfaTotal'
         ))->setPaper('a4', 'portrait');
 
         $fileName = trim('Laporan Summary ' . ($student->nis ?? '-') . ' - ' . ($student->nickname ?? $student->full_name));
