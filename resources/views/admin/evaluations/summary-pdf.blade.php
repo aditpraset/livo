@@ -71,7 +71,7 @@
         <td style="width:90px;"></td>
     </tr>
 </table>
-
+<br>
 <table class="info">
     <tr>
         <td class="lbl">NIS / Nama Panggilan</td><td class="sep">:</td>
@@ -90,7 +90,7 @@
         <td><span class="badge" style="background:{{ $predColor }};">{{ $predikat }}</span></td>
     </tr>
 </table>
-
+<br>
 {{-- ── Tabel utama: rata-rata per bulan ── --}}
 <table class="data">
     <thead>
