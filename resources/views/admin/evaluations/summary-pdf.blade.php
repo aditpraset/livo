@@ -12,7 +12,7 @@
         .title { text-align: center; font-size: 17px; font-weight: bold; letter-spacing: .5px; }
         .subtitle { text-align: center; font-size: 9px; color: #444; }
         .period-line { text-align: center; font-size: 10px; font-weight: bold; color: #222; margin: 3px 0 0; }
-        .logo { height: 40px; }
+        .logo { height: 50px; }
         table.info { width: 100%; border-collapse: collapse; margin: 10px 0 10px; font-size: 9px; }
         table.info td { padding: 2px 4px; vertical-align: top; }
         .info .lbl { font-weight: bold; white-space: nowrap; }
@@ -27,7 +27,7 @@
         table.data .name-col { text-align: left; padding-left: 6px; }
 
         .two-col { width: 100%; border-collapse: collapse; }
-        .two-col > td { vertical-align: top; width: 50%; padding: 0 5px; }
+        .two-col > td { vertical-align: top; width: 50%; padding: 0; }
         .section-title { font-weight: bold; font-size: 9px; margin: 3px 0 4px; }
 
         table.materi { width: 100%; border-collapse: collapse; }
@@ -37,9 +37,7 @@
         table.materi .val { width: 72px; text-align: center; }
         table.materi .lbl-r { text-align: right; font-weight: bold; border: none; }
 
-        table.catatan-lines { width: 100%; border: 1px solid #777; border-collapse: collapse; }
-        table.catatan-lines td { height: 16px; border-bottom: 1px solid #d4ddec; }
-        table.catatan-lines tr:last-child td { border-bottom: none; }
+        .catatan-box { border: 1px solid #777; height: 150px; }
         .ttd { width: 100%; margin-top: 6px; }
         .ttd td { vertical-align: top; font-size: 9.5px; }
 
@@ -143,8 +141,8 @@
 <table class="two-col">
     @foreach($progList->chunk(2) as $pair)
     <tr>
-        @foreach($pair as $prog)
-        <td valign="top" style="padding:0 12px 5px;">
+        @foreach($pair->values() as $idx => $prog)
+        <td valign="top" style="padding:0 {{ $idx === 0 ? '6px' : '0' }} 6px {{ $idx === 0 ? '0' : '6px' }};">
             @include('admin.evaluations._materi-table', ['title' => $prog, 'list' => $materi[$prog] ?? []])
         </td>
         @endforeach
@@ -156,7 +154,7 @@
 {{-- ── Grafik (di bawah tabel pembahasan, berdampingan) ── --}}
 <table class="two-col" style="margin-top:10px;">
     <tr>
-        <td valign="top">
+        <td valign="top" style="padding:0 6px 0 0;">
             <div class="section-title">Grafik Sesi per Bulan</div>
             @if(count($rows))
                 <img src="data:image/svg+xml;base64,{{ base64_encode($sessionSvg) }}" style="width:100%; height:auto;">
@@ -164,7 +162,7 @@
                 <div style="color:#888; font-size:9px;">Belum ada data sesi pada periode ini.</div>
             @endif
         </td>
-        <td valign="top">
+        <td valign="top" style="padding:0 0 0 6px;">
             <div class="section-title">Grafik Penilaian Rata-rata</div>
             @if(count($rows))
                 <img src="data:image/svg+xml;base64,{{ base64_encode($abilitySvg) }}" style="width:100%; height:auto;">
@@ -180,17 +178,17 @@
     <div class="section-title">Catatan Tambahan :</div>
     <table class="two-col">
         <tr>
-            <td style="width:60%;" valign="top">
-                <table class="catatan-lines">
-                    @for($i = 0; $i < 8; $i++)
-                        <tr><td>&nbsp;</td></tr>
-                    @endfor
-                </table>
+            <td style="width:60%; padding:0 6px 0 0;" valign="top">
+                <div class="catatan-box"></div>
             </td>
-            <td style="width:40%; text-align:center; vertical-align:top;">
+            <td style="width:40%; text-align:center; vertical-align:top; padding-left:6px;">
                 <div>Jakarta, {{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}</div>
-                <div style="height:120px;"></div>
-                <div style="font-weight:bold; border-top:1px solid #333; display:inline-block; padding-top:2px;">Branch Manager</div>
+                @if(!empty($qrCode))
+                    <img src="{{ $qrCode }}" style="width:72px; height:72px; margin-top:6px;">
+                @else
+                    <div style="height:78px;"></div>
+                @endif
+                <div style="font-weight:bold; border-top:1px solid #333; display:inline-block; padding-top:2px; margin-top:4px;">Branch Manager</div>
             </td>
         </tr>
     </table>

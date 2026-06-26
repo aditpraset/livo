@@ -383,7 +383,34 @@ class PaymentController extends Controller
         $amount = $payment->amount;
         $terbilang = $this->terbilang($amount) . ' Rupiah';
 
-        return view('admin.payments.receipt', compact('payment', 'amount', 'terbilang'));
+        // QR code berisi data pembayaran (untuk verifikasi keaslian receipt)
+        $qrCode = $this->buildQrDataUri(
+            "No: " . $payment->no_payment . "\n" .
+            "NIS: " . ($payment->student->nis ?? $payment->student->registration_code ?? '-') . "\n" .
+            "Nama: " . ($payment->student->full_name ?? '-') . "\n" .
+            "Tanggal: " . \Carbon\Carbon::parse($payment->payment_date)->format('d/m/Y') . "\n" .
+            "Jumlah: Rp " . number_format($amount, 0, ',', '.')
+        );
+
+        return view('admin.payments.receipt', compact('payment', 'amount', 'terbilang', 'qrCode'));
+    }
+
+    /** Hasilkan QR code sebagai data URI (PNG). Null bila gagal. */
+    private function buildQrDataUri(string $data): ?string
+    {
+        try {
+            $options = new \chillerlan\QRCode\QROptions([
+                'outputInterface' => \chillerlan\QRCode\Output\QRGdImagePNG::class,
+                'outputBase64'    => true,
+                'scale'           => 4,
+                'quietzoneSize'   => 2,
+                'eccLevel'        => \chillerlan\QRCode\Common\EccLevel::M,
+            ]);
+
+            return (new \chillerlan\QRCode\QRCode($options))->render($data);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     private function terbilang($nilai)

@@ -390,11 +390,18 @@ class EvaluationController extends Controller
         $periode = $this->periodLabel($startDate, $endDate);
         $student->loadMissing('scheduleSession');
 
+        // QR code berisi NIS, Nama, dan periode laporan (untuk verifikasi keaslian)
+        $qrCode = $this->buildQrDataUri(
+            "NIS: " . ($student->nis ?? '-') . "\n" .
+            "Nama: " . $student->full_name . "\n" .
+            "Periode: " . $periode
+        );
+
         $logoPath = public_path('frontend/images/logo.jpeg');
         $logo = file_exists($logoPath) ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath)) : null;
 
         $pdf = Pdf::loadView('admin.evaluations.summary-pdf', compact(
-            'student', 'programs', 'rows', 'footer', 'predikat', 'periode', 'materi', 'sessionSvg', 'abilitySvg', 'logo'
+            'student', 'programs', 'rows', 'footer', 'predikat', 'periode', 'materi', 'sessionSvg', 'abilitySvg', 'qrCode', 'logo'
         ))->setPaper('a4', 'portrait');
 
         $fileName = trim('Laporan Summary ' . ($student->nis ?? '-') . ' - ' . ($student->nickname ?? $student->full_name));
@@ -513,6 +520,24 @@ class EvaluationController extends Controller
         $svg .= '<text x="' . round($padL + $plotW / 2, 1) . '" y="' . ($base + 40) . '" font-size="8" text-anchor="middle" fill="#444" font-weight="bold">Kemampuan / Mata Pelajaran</text>';
         $svg .= '</svg>';
         return $svg;
+    }
+
+    /** Hasilkan QR code sebagai data URI (PNG). Null bila gagal. */
+    private function buildQrDataUri(string $data): ?string
+    {
+        try {
+            $options = new \chillerlan\QRCode\QROptions([
+                'outputInterface' => \chillerlan\QRCode\Output\QRGdImagePNG::class,
+                'outputBase64'    => true,
+                'scale'           => 4,
+                'quietzoneSize'   => 2,
+                'eccLevel'        => \chillerlan\QRCode\Common\EccLevel::M,
+            ]);
+
+            return (new \chillerlan\QRCode\QRCode($options))->render($data);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     private function avgNum($collection): ?float

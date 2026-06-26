@@ -232,13 +232,16 @@
       font-style: italic;
       font-weight: 700;
       color: #333;
-      margin-bottom: 26px;
+      margin-bottom: 6px;
     }
-    .sig-label {
-      font-size: 0.60rem;
-      font-style: italic;
-      color: #666;
+    .sig-name {
+      display: inline-block;
+      font-size: 0.66rem;
       font-weight: 700;
+      color: #111;
+      border-top: 1px solid #333;
+      padding-top: 2px;
+      margin-top: 2px;
     }
 
     /* ── PRINT ── */
@@ -400,54 +403,12 @@
 
         <div class="sig-side">
           <div class="date-city">Jakarta, {{ \Carbon\Carbon::parse($payment->payment_date)->translatedFormat('d F Y') }}</div>
-          <!-- QR Code SVG -->
-          <svg width="52" height="52" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" style="display:block;margin-left:auto;margin-bottom:3px;">
-            <rect x="4" y="4" width="22" height="22" rx="2" fill="#222"/>
-            <rect x="8" y="8" width="14" height="14" rx="1" fill="#fff"/>
-            <rect x="11" y="11" width="8" height="8" rx="1" fill="#222"/>
-            <rect x="54" y="4" width="22" height="22" rx="2" fill="#222"/>
-            <rect x="58" y="8" width="14" height="14" rx="1" fill="#fff"/>
-            <rect x="61" y="11" width="8" height="8" rx="1" fill="#222"/>
-            <rect x="4" y="54" width="22" height="22" rx="2" fill="#222"/>
-            <rect x="8" y="58" width="14" height="14" rx="1" fill="#fff"/>
-            <rect x="11" y="61" width="8" height="8" rx="1" fill="#222"/>
-            <rect x="30" y="4" width="5" height="5" fill="#222"/>
-            <rect x="38" y="4" width="5" height="5" fill="#222"/>
-            <rect x="46" y="4" width="5" height="5" fill="#222"/>
-            <rect x="30" y="12" width="5" height="5" fill="#222"/>
-            <rect x="38" y="12" width="5" height="5" fill="#222"/>
-            <rect x="46" y="12" width="5" height="5" fill="#222"/>
-            <rect x="30" y="20" width="5" height="5" fill="#222"/>
-            <rect x="4" y="30" width="5" height="5" fill="#222"/>
-            <rect x="12" y="30" width="5" height="5" fill="#222"/>
-            <rect x="20" y="30" width="5" height="5" fill="#222"/>
-            <rect x="30" y="30" width="5" height="5" fill="#222"/>
-            <rect x="38" y="30" width="5" height="5" fill="#222"/>
-            <rect x="54" y="30" width="5" height="5" fill="#222"/>
-            <rect x="62" y="30" width="5" height="5" fill="#222"/>
-            <rect x="70" y="30" width="5" height="5" fill="#222"/>
-            <rect x="4" y="38" width="5" height="5" fill="#222"/>
-            <rect x="20" y="38" width="5" height="5" fill="#222"/>
-            <rect x="30" y="38" width="5" height="5" fill="#222"/>
-            <rect x="46" y="38" width="5" height="5" fill="#222"/>
-            <rect x="62" y="38" width="5" height="5" fill="#222"/>
-            <rect x="4" y="46" width="5" height="5" fill="#222"/>
-            <rect x="12" y="46" width="5" height="5" fill="#222"/>
-            <rect x="38" y="46" width="5" height="5" fill="#222"/>
-            <rect x="54" y="46" width="5" height="5" fill="#222"/>
-            <rect x="70" y="46" width="5" height="5" fill="#222"/>
-            <rect x="30" y="54" width="5" height="5" fill="#222"/>
-            <rect x="46" y="54" width="5" height="5" fill="#222"/>
-            <rect x="62" y="54" width="5" height="5" fill="#222"/>
-            <rect x="30" y="62" width="5" height="5" fill="#222"/>
-            <rect x="38" y="62" width="5" height="5" fill="#222"/>
-            <rect x="54" y="62" width="5" height="5" fill="#222"/>
-            <rect x="70" y="62" width="5" height="5" fill="#222"/>
-            <rect x="30" y="70" width="5" height="5" fill="#222"/>
-            <rect x="46" y="70" width="5" height="5" fill="#222"/>
-            <rect x="62" y="70" width="5" height="5" fill="#222"/>
-          </svg>
-          <div class="sig-label">Authorized Signatures</div>
+          @if(!empty($qrCode))
+            <img src="{{ $qrCode }}" alt="QR" style="width:60px;height:60px;display:block;margin-left:auto;margin-bottom:4px;">
+          @else
+            <div style="height:60px;"></div>
+          @endif
+          <div class="sig-name">Branch Manager</div>
         </div>
       </div>
     </div>
