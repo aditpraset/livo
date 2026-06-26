@@ -72,7 +72,7 @@
     </tr>
 </table>
 
-<table class="info">
+<table class="info" style="margin-top: 10px">
     <tr>
         <td class="lbl">NIS / Nama Panggilan</td><td class="sep">:</td>
         <td>{{ $student->nis ?? '-' }}{{ $student->nickname ? ' ' . $student->nickname : '' }}</td>
@@ -189,7 +189,7 @@
             </td>
             <td style="width:40%; text-align:center; vertical-align:top;">
                 <div>Jakarta, {{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}</div>
-                <div style="height:80px;"></div>
+                <div style="height:100px;"></div>
                 <div style="font-weight:bold; border-top:1px solid #333; display:inline-block; padding-top:2px;">Branch Manager</div>
             </td>
         </tr>
