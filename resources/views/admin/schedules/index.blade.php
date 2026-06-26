@@ -247,10 +247,11 @@
                         <select id="field-subject" class="form-select">
                             <option value="">-- Pilih Mapel --</option>
                             @foreach($subjects as $sub)
-                                <option value="{{ $sub->id }}">{{ $sub->subject_name }}</option>
+                                <option value="{{ $sub->id }}" data-grade-ids='@json($sub->grade_ids ?? [])'>{{ $sub->subject_name }}</option>
                             @endforeach
                         </select>
                         <div class="invalid-feedback" id="err-subject"></div>
+                        <div class="form-text" id="subject-grade-hint"></div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Ruang Kelas</label>
@@ -587,9 +588,51 @@ $(function () {
         @endforeach
     };
 
+    /* Map student_id → grade_id (jenjang) untuk mengunci pilihan mata pelajaran */
+    var studentGrade = {
+        @foreach($students as $s)
+            {{ $s->id }}: {{ $s->grade_id ?? 'null' }},
+        @endforeach
+    };
+
+    /* Kunci opsi mata pelajaran sesuai jenjang siswa yang dipilih.
+       Mapel tanpa jenjang (grade_ids kosong) tetap tersedia untuk semua. */
+    function filterSubjectsByStudent() {
+        var gradeId = studentGrade[$('#field-student').val()] || null;
+        var $subject = $('#field-subject');
+        var visibleCount = 0;
+
+        $subject.find('option').each(function () {
+            var $opt = $(this);
+            if ($opt.val() === '') return; // placeholder
+
+            var ids = $opt.data('grade-ids') || [];
+            // Tersedia bila mapel tak terikat jenjang, atau jenjang siswa cocok.
+            var allowed = (ids.length === 0) || (gradeId !== null && ids.indexOf(gradeId) !== -1);
+
+            $opt.prop('disabled', !allowed).toggle(allowed);
+            if (allowed) visibleCount++;
+        });
+
+        // Reset bila pilihan saat ini tak lagi diperbolehkan
+        var $current = $subject.find('option:selected');
+        if ($current.length && $current.prop('disabled')) {
+            $subject.val('');
+        }
+
+        $('#subject-grade-hint').text(
+            $('#field-student').val()
+                ? (gradeId === null
+                    ? 'Siswa belum memiliki jenjang — semua mapel ditampilkan.'
+                    : visibleCount + ' mata pelajaran tersedia untuk jenjang siswa ini.')
+                : ''
+        );
+    }
+
     $('#field-student').on('change', function () {
         var sessionId = studentDefaultSession[$(this).val()] || null;
         $('#field-session').val(sessionId || '').trigger('change');
+        filterSubjectsByStudent();
     });
 
     $(document).on('change', '#field-session', function () {
@@ -614,6 +657,8 @@ $(function () {
         $('#field-room, #field-date, #field-start, #field-end').val('');
         $('#err-student, #err-tutor, #err-subject, #err-session, #err-date, #err-room').text('');
         $('#session-time-display').text('');
+        $('#subject-grade-hint').text('');
+        $('#field-subject option').prop('disabled', false).show();
     }
 
     $('#btn-add-schedule').on('click', function () {
@@ -633,6 +678,7 @@ $(function () {
             var savedEnd   = data.end_time.substring(0, 5);
             $('#schedule-id').val(data.id);
             $('#field-student').val(data.student_id);
+            filterSubjectsByStudent();
             $('#field-tutor').val(data.tutor_id);
             $('#field-subject').val(data.subject_id);
             $('#field-room').val(data.room);

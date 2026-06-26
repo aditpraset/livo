@@ -363,21 +363,23 @@ class EvaluationController extends Controller
         // (bila satu pokok bahasan punya >1 evaluasi, nilainya dirata-rata)
         $materi = [];
         foreach ($programs as $prog) {
-            $items = $schedules->filter(fn($s) => ($s->subject->subject_name ?? 'Tanpa Program') === $prog && $s->evaluation?->materi_display);
+            $items = $schedules->filter(fn($s) => ($s->subject->subject_name ?? 'Tanpa Program') === $prog
+                && $s->evaluation?->student_attendance !== 'alfa'
+                && $s->evaluation?->materi_display);
             $grouped = $items->groupBy(fn($s) => $s->evaluation->materi_display['pokok']);
             $materi[$prog] = $grouped->map(fn($g, $name) => ['name' => $name, 'nilai' => $subjectScore($g)])->values()->all();
         }
 
         // Grafik
         $barSvg   = $this->buildBarChartSvg(array_column($rows, 'label'), array_column($rows, 'sesi'));
-        $radarAxes = [];
-        foreach ($programs as $prog) {
-            $radarAxes[$prog] = $footer['subjects'][$prog] ?? 0;
-        }
-        $radarAxes['Kemampuan Analisa']  = $footer['analisa'] ?? 0;
-        $radarAxes['Kemampuan Hafalan']  = $footer['hafalan'] ?? 0;
-        $radarAxes['Kepercayaan Diri']   = $footer['kepercayaan'] ?? 0;
-        $radarSvg = $this->buildRadarSvg($radarAxes);
+        // Profil kemampuan: grafik batang per bulan untuk Kemampuan Analisa & Hafalan
+        $radarSvg = $this->buildAbilityBarSvg(
+            array_column($rows, 'label'),
+            [
+                'Kemampuan Analisa' => array_map(fn($r) => $r['analisa'], $rows),
+                'Kemampuan Hafalan' => array_map(fn($r) => $r['hafalan'], $rows),
+            ]
+        );
 
         $periode = $this->periodLabel($startDate, $endDate);
         $student->loadMissing('scheduleSession');
@@ -421,43 +423,50 @@ class EvaluationController extends Controller
         return $svg;
     }
 
-    /** Radar/spider chart (SVG) untuk profil kemampuan (skala 0-100). */
-    private function buildRadarSvg(array $axes): string
+    /**
+     * Grafik batang berkelompok (SVG) untuk profil kemampuan per bulan.
+     * $series = ['Label seri' => [nilai per bulan, ...], ...] (skala 0-100).
+     */
+    private function buildAbilityBarSvg(array $labels, array $series): string
     {
-        $size = 240; $cx = $size / 2; $cy = $size / 2 + 6; $r = 78; $max = 100;
-        $labels = array_keys($axes); $vals = array_values($axes);
-        $n = count($labels);
-        if ($n < 3) return '<svg width="' . $size . '" height="' . $size . '"></svg>';
-        $angle = fn($i) => (-90 + $i * 360 / $n) * M_PI / 180;
-        $svg = '<svg width="' . $size . '" height="' . $size . '" xmlns="http://www.w3.org/2000/svg">';
-        // grid rings
-        foreach ([0.25, 0.5, 0.75, 1] as $ring) {
-            $pts = [];
-            for ($i = 0; $i < $n; $i++) {
-                $pts[] = round($cx + cos($angle($i)) * $r * $ring, 1) . ',' . round($cy + sin($angle($i)) * $r * $ring, 1);
+        $w = 240; $h = 200; $padL = 26; $padB = 38; $padT = 10; $padR = 8; $max = 100;
+        $plotW = $w - $padL - $padR; $plotH = $h - $padT - $padB;
+        $n = max(1, count($labels));
+        $colors = ['#2C3E73', '#4299e1', '#16a34a', '#d97706'];
+        $seriesKeys = array_keys($series);
+        $sn = max(1, count($seriesKeys));
+        $groupW = $plotW / $n;
+        $bw = ($groupW * 0.7) / $sn;
+
+        $svg = '<svg width="' . $w . '" height="' . $h . '" xmlns="http://www.w3.org/2000/svg">';
+        // grid + sumbu Y
+        for ($i = 0; $i <= $max; $i += 25) {
+            $y = $padT + $plotH - ($i / $max) * $plotH;
+            $svg .= '<line x1="' . $padL . '" y1="' . $y . '" x2="' . ($w - $padR) . '" y2="' . $y . '" stroke="#e5e7eb" stroke-width="1"/>';
+            $svg .= '<text x="' . ($padL - 4) . '" y="' . ($y + 3) . '" font-size="7" text-anchor="end" fill="#666">' . $i . '</text>';
+        }
+        // batang per bulan
+        foreach ($labels as $idx => $label) {
+            $gx = $padL + $idx * $groupW + ($groupW - $bw * $sn) / 2;
+            foreach ($seriesKeys as $si => $key) {
+                $v = $series[$key][$idx] ?? null;
+                $bh = $v === null ? 0 : ($v / $max) * $plotH;
+                $x = $gx + $si * $bw;
+                $y = $padT + $plotH - $bh;
+                if ($v !== null) {
+                    $svg .= '<rect x="' . round($x, 1) . '" y="' . round($y, 1) . '" width="' . round($bw - 1, 1) . '" height="' . round($bh, 1) . '" fill="' . $colors[$si % count($colors)] . '" rx="1"/>';
+                    $svg .= '<text x="' . round($x + $bw / 2, 1) . '" y="' . round($y - 2, 1) . '" font-size="6.5" text-anchor="middle" fill="#222">' . number_format($v, 0) . '</text>';
+                }
             }
-            $svg .= '<polygon points="' . implode(' ', $pts) . '" fill="none" stroke="#d1d5db" stroke-width="0.8"/>';
+            $svg .= '<text x="' . round($padL + $idx * $groupW + $groupW / 2, 1) . '" y="' . ($padT + $plotH + 11) . '" font-size="7" text-anchor="middle" fill="#444">' . htmlspecialchars(mb_substr($label, 0, 4)) . '</text>';
         }
-        // axes + labels
-        for ($i = 0; $i < $n; $i++) {
-            $x = $cx + cos($angle($i)) * $r; $y = $cy + sin($angle($i)) * $r;
-            $svg .= '<line x1="' . $cx . '" y1="' . $cy . '" x2="' . round($x, 1) . '" y2="' . round($y, 1) . '" stroke="#d1d5db" stroke-width="0.8"/>';
-            $lx = $cx + cos($angle($i)) * ($r + 16); $ly = $cy + sin($angle($i)) * ($r + 12);
-            $anchor = abs(cos($angle($i))) < 0.3 ? 'middle' : ($x < $cx ? 'end' : 'start');
-            foreach (explode(' ', wordwrap($labels[$i], 12, "\n", true)) as $li => $line) {
-                $svg .= '<text x="' . round($lx, 1) . '" y="' . round($ly + $li * 9, 1) . '" font-size="7" text-anchor="' . $anchor . '" fill="#444">' . htmlspecialchars($line) . '</text>';
-            }
-        }
-        // data polygon
-        $pts = [];
-        for ($i = 0; $i < $n; $i++) {
-            $ratio = max(0, min(1, ($vals[$i] ?? 0) / $max));
-            $pts[] = round($cx + cos($angle($i)) * $r * $ratio, 1) . ',' . round($cy + sin($angle($i)) * $r * $ratio, 1);
-        }
-        $svg .= '<polygon points="' . implode(' ', $pts) . '" fill="rgba(66,153,225,0.35)" stroke="#1a4fd6" stroke-width="1.5"/>';
-        foreach ($pts as $p) {
-            [$px, $py] = explode(',', $p);
-            $svg .= '<circle cx="' . $px . '" cy="' . $py . '" r="2" fill="#1a4fd6"/>';
+        // legenda
+        $ly = $h - 12;
+        $lx = $padL;
+        foreach ($seriesKeys as $si => $key) {
+            $svg .= '<rect x="' . $lx . '" y="' . ($ly - 6) . '" width="8" height="8" fill="' . $colors[$si % count($colors)] . '" rx="1"/>';
+            $svg .= '<text x="' . ($lx + 11) . '" y="' . $ly . '" font-size="7" fill="#444">' . htmlspecialchars($key) . '</text>';
+            $lx += 11 + mb_strlen($key) * 4.2 + 14;
         }
         $svg .= '</svg>';
         return $svg;

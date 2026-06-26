@@ -24,9 +24,9 @@ class ScheduleController extends Controller
 {
     public function index()
     {
-        $students         = Student::orderBy('full_name')->get(['id', 'full_name', 'schedule_session_id']);
+        $students         = Student::orderBy('full_name')->get(['id', 'full_name', 'schedule_session_id', 'grade_id']);
         $tutors           = Tutor::orderBy('name')->get(['id', 'name']);
-        $subjects         = Subject::orderBy('subject_name')->get(['id', 'subject_name']);
+        $subjects         = Subject::orderBy('subject_name')->get(['id', 'subject_name', 'grade_ids']);
         $scheduleSessions = ScheduleSession::orderBy('time_start')->get();
 
         return view('admin.schedules.index', compact('students', 'tutors', 'subjects', 'scheduleSessions'));
@@ -260,9 +260,30 @@ class ScheduleController extends Controller
             'end_time'   => 'required|date_format:H:i|after:start_time',
         ]);
 
+        if ($error = $this->subjectGradeError($validated['subject_id'], $validated['student_id'])) {
+            return response()->json(['message' => $error, 'errors' => ['subject_id' => [$error]]], 422);
+        }
+
         // Tutor boleh dipilih di berbagai siswa (tanpa cek bentrok waktu).
         Schedule::create($validated + ['status_schedule' => 'scheduled']);
         return response()->json(['success' => true, 'message' => 'Jadwal berhasil ditambahkan.']);
+    }
+
+    /**
+     * Pastikan mata pelajaran sesuai jenjang siswa. Mengembalikan pesan error
+     * bila tidak cocok, atau null bila valid. Mapel tanpa jenjang (grade_ids
+     * kosong) atau siswa tanpa jenjang dianggap selalu valid.
+     */
+    private function subjectGradeError($subjectId, $studentId): ?string
+    {
+        $gradeIds = Subject::find($subjectId)?->grade_ids ?? [];
+        $gradeId  = Student::find($studentId)?->grade_id;
+
+        if (empty($gradeIds) || !$gradeId || in_array($gradeId, $gradeIds)) {
+            return null;
+        }
+
+        return 'Mata pelajaran ini tidak tersedia untuk jenjang siswa yang dipilih.';
     }
 
     public function show(Schedule $schedule)
@@ -291,6 +312,10 @@ class ScheduleController extends Controller
             'start_time' => 'required|date_format:H:i',
             'end_time'   => 'required|date_format:H:i|after:start_time',
         ]);
+
+        if ($error = $this->subjectGradeError($validated['subject_id'], $validated['student_id'])) {
+            return response()->json(['message' => $error, 'errors' => ['subject_id' => [$error]]], 422);
+        }
 
         // Tutor boleh dipilih di berbagai siswa (tanpa cek bentrok waktu).
         $schedule->update($validated);
