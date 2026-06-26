@@ -370,16 +370,8 @@ class EvaluationController extends Controller
             $materi[$prog] = $grouped->map(fn($g, $name) => ['name' => $name, 'nilai' => $subjectScore($g)])->values()->all();
         }
 
-        // Grafik
-        $barSvg   = $this->buildBarChartSvg(array_column($rows, 'label'), array_column($rows, 'sesi'));
-        // Profil kemampuan: grafik batang per bulan untuk Kemampuan Analisa & Hafalan
-        $radarSvg = $this->buildAbilityBarSvg(
-            array_column($rows, 'label'),
-            [
-                'Kemampuan Analisa' => array_map(fn($r) => $r['analisa'], $rows),
-                'Kemampuan Hafalan' => array_map(fn($r) => $r['hafalan'], $rows),
-            ]
-        );
+        // Grafik (profil kemampuan dirender sebagai bar HTML di view dari $footer)
+        $barSvg = $this->buildBarChartSvg(array_column($rows, 'label'), array_column($rows, 'sesi'));
 
         $periode = $this->periodLabel($startDate, $endDate);
         $student->loadMissing('scheduleSession');
@@ -388,7 +380,7 @@ class EvaluationController extends Controller
         $logo = file_exists($logoPath) ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath)) : null;
 
         $pdf = Pdf::loadView('admin.evaluations.summary-pdf', compact(
-            'student', 'programs', 'rows', 'footer', 'predikat', 'periode', 'materi', 'barSvg', 'radarSvg', 'logo'
+            'student', 'programs', 'rows', 'footer', 'predikat', 'periode', 'materi', 'barSvg', 'logo'
         ))->setPaper('a4', 'portrait');
 
         return $pdf->download('laporan-hasil-belajar-' . str()->slug($student->full_name) . '.pdf');
@@ -418,55 +410,6 @@ class EvaluationController extends Controller
             $svg .= '<rect x="' . $x . '" y="' . $y . '" width="' . $bw . '" height="' . $bh . '" fill="#4299e1" rx="2"/>';
             $svg .= '<text x="' . $cx . '" y="' . ($y - 3) . '" font-size="9" text-anchor="middle" fill="#222" font-weight="bold">' . $v . '</text>';
             $svg .= '<text x="' . $cx . '" y="' . ($h - $padB + 12) . '" font-size="8" text-anchor="middle" fill="#444">' . htmlspecialchars(mb_substr($labels[$idx] ?? '', 0, 4)) . '</text>';
-        }
-        $svg .= '</svg>';
-        return $svg;
-    }
-
-    /**
-     * Grafik batang berkelompok (SVG) untuk profil kemampuan per bulan.
-     * $series = ['Label seri' => [nilai per bulan, ...], ...] (skala 0-100).
-     */
-    private function buildAbilityBarSvg(array $labels, array $series): string
-    {
-        $w = 240; $h = 200; $padL = 26; $padB = 38; $padT = 10; $padR = 8; $max = 100;
-        $plotW = $w - $padL - $padR; $plotH = $h - $padT - $padB;
-        $n = max(1, count($labels));
-        $colors = ['#2C3E73', '#4299e1', '#16a34a', '#d97706'];
-        $seriesKeys = array_keys($series);
-        $sn = max(1, count($seriesKeys));
-        $groupW = $plotW / $n;
-        $bw = ($groupW * 0.7) / $sn;
-
-        $svg = '<svg width="' . $w . '" height="' . $h . '" xmlns="http://www.w3.org/2000/svg">';
-        // grid + sumbu Y
-        for ($i = 0; $i <= $max; $i += 25) {
-            $y = $padT + $plotH - ($i / $max) * $plotH;
-            $svg .= '<line x1="' . $padL . '" y1="' . $y . '" x2="' . ($w - $padR) . '" y2="' . $y . '" stroke="#e5e7eb" stroke-width="1"/>';
-            $svg .= '<text x="' . ($padL - 4) . '" y="' . ($y + 3) . '" font-size="7" text-anchor="end" fill="#666">' . $i . '</text>';
-        }
-        // batang per bulan
-        foreach ($labels as $idx => $label) {
-            $gx = $padL + $idx * $groupW + ($groupW - $bw * $sn) / 2;
-            foreach ($seriesKeys as $si => $key) {
-                $v = $series[$key][$idx] ?? null;
-                $bh = $v === null ? 0 : ($v / $max) * $plotH;
-                $x = $gx + $si * $bw;
-                $y = $padT + $plotH - $bh;
-                if ($v !== null) {
-                    $svg .= '<rect x="' . round($x, 1) . '" y="' . round($y, 1) . '" width="' . round($bw - 1, 1) . '" height="' . round($bh, 1) . '" fill="' . $colors[$si % count($colors)] . '" rx="1"/>';
-                    $svg .= '<text x="' . round($x + $bw / 2, 1) . '" y="' . round($y - 2, 1) . '" font-size="6.5" text-anchor="middle" fill="#222">' . number_format($v, 0) . '</text>';
-                }
-            }
-            $svg .= '<text x="' . round($padL + $idx * $groupW + $groupW / 2, 1) . '" y="' . ($padT + $plotH + 11) . '" font-size="7" text-anchor="middle" fill="#444">' . htmlspecialchars(mb_substr($label, 0, 4)) . '</text>';
-        }
-        // legenda
-        $ly = $h - 12;
-        $lx = $padL;
-        foreach ($seriesKeys as $si => $key) {
-            $svg .= '<rect x="' . $lx . '" y="' . ($ly - 6) . '" width="8" height="8" fill="' . $colors[$si % count($colors)] . '" rx="1"/>';
-            $svg .= '<text x="' . ($lx + 11) . '" y="' . $ly . '" font-size="7" fill="#444">' . htmlspecialchars($key) . '</text>';
-            $lx += 11 + mb_strlen($key) * 4.2 + 14;
         }
         $svg .= '</svg>';
         return $svg;

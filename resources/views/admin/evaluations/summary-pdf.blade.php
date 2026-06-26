@@ -176,7 +176,17 @@
         </td>
         <td>
             <div class="section-title">Profil Kemampuan</div>
-            {!! $radarSvg !!}
+            @php $abil = ['Kemampuan Analisa' => $footer['analisa'], 'Kemampuan Hafalan' => $footer['hafalan']]; @endphp
+            <table class="bar-chart">
+                @foreach($abil as $label => $val)
+                    @php $pct = $val === null ? 0 : max(2, round($val)); @endphp
+                    <tr>
+                        <td class="bc-label" style="width:100px;">{{ $label }}</td>
+                        <td class="bc-track"><div class="bc-bar" style="width: {{ $pct }}%;">&nbsp;</div></td>
+                        <td class="bc-val">{{ $val === null ? '-' : number_format($val, 0) }}</td>
+                    </tr>
+                @endforeach
+            </table>
         </td>
     </tr>
 </table>
