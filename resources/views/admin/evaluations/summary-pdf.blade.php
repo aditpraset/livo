@@ -4,21 +4,22 @@
     <meta charset="utf-8">
     <title>Laporan Hasil Belajar - {{ $student->full_name }}</title>
     <style>
+        @page { margin: 10mm 9mm; }
         * { font-family: DejaVu Sans, sans-serif; }
         body { font-size: 10px; color: #222; margin: 0; }
-        .header-top { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        .header-top { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
         .header-top td { vertical-align: middle; }
         .title { text-align: center; font-size: 20px; font-weight: bold; letter-spacing: .5px; }
         .subtitle { text-align: center; font-size: 10px; color: #444; }
         .logo { height: 46px; }
-        table.info { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 9.5px; }
+        table.info { width: 100%; border-collapse: collapse; margin: 4px 0 8px; font-size: 9.5px; }
         table.info td { padding: 2px 4px; vertical-align: top; }
         .info .lbl { font-weight: bold; width: 58px; }
         .info .sep { width: 6px; }
         .periode-box { border: 1px solid #999; text-align: center; font-weight: bold; padding: 6px; font-size: 10px; width: 130px; }
         .badge { display: inline-block; padding: 2px 10px; border-radius: 4px; color: #fff; font-weight: bold; font-size: 9.5px; }
 
-        table.data { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+        table.data { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         table.data th, table.data td { border: 1px solid #777; padding: 5px 4px; text-align: center; }
         table.data thead th { background: #cfd8ea; font-size: 9px; font-weight: bold; }
         table.data tbody td { font-size: 9.5px; }
@@ -36,7 +37,7 @@
         table.materi .val { width: 80px; text-align: center; }
         table.materi .lbl-r { text-align: right; font-weight: bold; border: none; }
 
-        .catatan-box { border: 1px solid #777; height: 70px; }
+        .catatan-box { border: 1px solid #777; height: 56px; }
         .ttd { width: 100%; margin-top: 6px; }
         .ttd td { vertical-align: top; font-size: 9.5px; }
 
@@ -135,8 +136,22 @@
     </tbody>
 </table>
 
-{{-- ── Grafik + tabel materi ── --}}
+{{-- ── Tabel pembahasan (berdampingan, 2 per baris) ── --}}
 @php $progList = $programs->values(); @endphp
+<table class="two-col">
+    @foreach($progList->chunk(2) as $pair)
+    <tr>
+        @foreach($pair as $prog)
+        <td style="padding-bottom:8px;">
+            @include('admin.evaluations._materi-table', ['title' => $prog, 'list' => $materi[$prog] ?? []])
+        </td>
+        @endforeach
+        @if($pair->count() < 2)<td></td>@endif
+    </tr>
+    @endforeach
+</table>
+
+{{-- ── Grafik (di bawah tabel pembahasan, berdampingan) ── --}}
 <table class="two-col">
     <tr>
         <td>
@@ -160,32 +175,14 @@
             @endif
         </td>
         <td>
-            @include('admin.evaluations._materi-table', ['title' => $progList[0] ?? null, 'list' => $materi[$progList[0] ?? ''] ?? []])
-        </td>
-    </tr>
-    <tr>
-        <td style="padding-top:10px;">
             <div class="section-title">Profil Kemampuan</div>
             {!! $radarSvg !!}
-        </td>
-        <td style="padding-top:10px;">
-            @if(isset($progList[1]))
-                @include('admin.evaluations._materi-table', ['title' => $progList[1], 'list' => $materi[$progList[1]] ?? []])
-            @endif
         </td>
     </tr>
 </table>
 
-@if($progList->count() > 2)
-    @foreach($progList->slice(2) as $prog)
-        <div style="margin-top:8px;">
-            @include('admin.evaluations._materi-table', ['title' => $prog, 'list' => $materi[$prog] ?? []])
-        </div>
-    @endforeach
-@endif
-
 {{-- ── Catatan & TTD ── --}}
-<div style="margin-top:10px;">
+<div style="margin-top:8px;">
     <div class="section-title">Catatan Tambahan :</div>
     <table class="two-col">
         <tr>

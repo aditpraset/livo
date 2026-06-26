@@ -2,7 +2,7 @@
     $vals = array_values(array_filter(array_map(fn($m) => $m['nilai'], $list), fn($v) => $v !== null));
     $total = array_sum($vals);
     $rata  = count($vals) ? round($total / count($vals)) : null;
-    $minRows = 6;
+    $minRows = 4;
 @endphp
 <div class="section-title">Mata Pelajaran ({{ $title ?? '-' }})</div>
 <table class="materi">
