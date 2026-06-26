@@ -11,13 +11,13 @@
         .header-top td { vertical-align: middle; }
         .title { text-align: center; font-size: 20px; font-weight: bold; letter-spacing: .5px; }
         .subtitle { text-align: center; font-size: 10px; color: #444; }
+        .period-line { text-align: center; font-size: 11px; font-weight: bold; color: #222; margin-top: 2px; }
         .logo { height: 46px; }
-        table.info { width: 100%; border-collapse: collapse; margin: 4px 0 8px; font-size: 9.5px; }
-        table.info td { padding: 2px 4px; vertical-align: top; }
-        .info .lbl { font-weight: bold; width: 58px; }
+        table.info { width: 100%; border-collapse: collapse; margin: 6px 0 8px; font-size: 9.5px; }
+        table.info td { padding: 3px 4px; vertical-align: top; }
+        .info .lbl { font-weight: bold; white-space: nowrap; }
         .info .sep { width: 6px; }
-        .periode-box { border: 1px solid #999; text-align: center; font-weight: bold; padding: 6px; font-size: 10px; width: 130px; }
-        .badge { display: inline-block; padding: 2px 10px; border-radius: 4px; color: #fff; font-weight: bold; font-size: 9.5px; }
+        .badge { display: inline-block; padding: 1px 7px; color: #111; font-weight: bold; font-size: 9.5px; }
 
         table.data { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         table.data th, table.data td { border: 1px solid #777; padding: 5px 4px; text-align: center; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 @php
-    $predColor = $predikat === 'Amat Baik' ? '#16a34a' : ($predikat === 'Baik' ? '#2563eb' : ($predikat === 'Cukup' ? '#d97706' : '#dc2626'));
+    $predColor = $predikat === 'Amat Baik' ? '#86efac' : ($predikat === 'Baik' ? '#5eead4' : ($predikat === 'Cukup' ? '#fde68a' : '#fca5a5'));
     $fmt = fn($v) => $v === null ? '-' : number_format($v, 0);
     $colspanInfo = 3 + count($programs) + 3;
 @endphp
@@ -64,6 +64,7 @@
         <td>
             <div class="title">LAPORAN HASIL BELAJAR</div>
             <div class="subtitle">Lembaga Bimbingan Belajar - Learning Innovation (LIVO)</div>
+            <div class="period-line">Periode : {{ $periode }}</div>
         </td>
         <td style="width:90px;"></td>
     </tr>
@@ -71,18 +72,17 @@
 
 <table class="info">
     <tr>
-        <td rowspan="2" style="width:140px;"><div class="periode-box">Periode<br>{{ $periode }}</div></td>
-        <td class="lbl">NIS</td><td class="sep">:</td>
-        <td>{{ $student->nis ?? '-' }}{{ $student->nickname ? ' - ' . $student->nickname : '' }}</td>
+        <td class="lbl">NIS / Nama Panggilan</td><td class="sep">:</td>
+        <td>{{ $student->nis ?? '-' }}{{ $student->nickname ? ' ' . $student->nickname : '' }}</td>
         <td class="lbl">Kelas</td><td class="sep">:</td>
         <td>{{ $student->grade ?? '-' }}</td>
         <td class="lbl">Program</td><td class="sep">:</td>
         <td>{{ $student->package ?? '-' }}</td>
     </tr>
     <tr>
-        <td class="lbl">Nama</td><td class="sep">:</td>
+        <td class="lbl">Nama Lengkap</td><td class="sep">:</td>
         <td>{{ $student->full_name }}</td>
-        <td class="lbl">Sekolah</td><td class="sep">:</td>
+        <td class="lbl">Asal Sekolah</td><td class="sep">:</td>
         <td>{{ $student->school_origin ?? '-' }}</td>
         <td class="lbl">Predikat</td><td class="sep">:</td>
         <td><span class="badge" style="background:{{ $predColor }};">{{ $predikat }}</span></td>
@@ -142,11 +142,11 @@
     @foreach($progList->chunk(2) as $pair)
     <tr>
         @foreach($pair as $prog)
-        <td style="padding-bottom:8px;">
+        <td valign="top" style="padding-bottom:8px;">
             @include('admin.evaluations._materi-table', ['title' => $prog, 'list' => $materi[$prog] ?? []])
         </td>
         @endforeach
-        @if($pair->count() < 2)<td></td>@endif
+        @if($pair->count() < 2)<td valign="top"></td>@endif
     </tr>
     @endforeach
 </table>
