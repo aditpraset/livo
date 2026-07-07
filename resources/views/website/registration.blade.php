@@ -562,8 +562,8 @@
     function addAsterisks() {
         var names = Object.keys(requiredFields);
         eitherGroups.forEach(function (g) { names = names.concat(g.names); });
-        // mata pelajaran & jadwal (grup khusus)
-        ['program[]', 'class_schedule_ids[]'].forEach(function (n) { names.push(n); });
+        // mata pelajaran (grup khusus)
+        ['program[]'].forEach(function (n) { names.push(n); });
         names.forEach(function (n) {
             var el = form.querySelector('[name="' + n + '"]');
             var lbl = el ? labelOf(el) : null;
@@ -574,7 +574,7 @@
         // label mata pelajaran & jadwal dari teks
         form.querySelectorAll('.form-label-livo').forEach(function (lbl) {
             var t = lbl.textContent.trim();
-            if ((t.indexOf('Program / Mata Pelajaran') === 0 || t.indexOf('Pilihan Jadwal') === 0) && !lbl.querySelector('.req-star')) {
+            if (t.indexOf('Program / Mata Pelajaran') === 0 && !lbl.querySelector('.req-star')) {
                 lbl.insertAdjacentHTML('beforeend', ' <span class="req-star" style="color:#dc3545;">*</span>');
             }
         });
@@ -603,11 +603,6 @@
         // minimal 1 mata pelajaran
         var subjects = form.querySelectorAll('input[name="program[]"]:checked');
         if (subjects.length === 0) missing.push('Mata Pelajaran (pilih minimal 1)');
-
-        // minimal 1 jadwal terisi
-        var schedSelects = form.querySelectorAll('select[name="class_schedule_ids[]"]');
-        var schedFilled = Array.prototype.some.call(schedSelects, function (s) { return s.value; });
-        if (schedSelects.length === 0 || !schedFilled) missing.push('Pilihan Jadwal');
 
         if (missing.length) {
             e.preventDefault();

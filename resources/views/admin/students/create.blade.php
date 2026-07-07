@@ -214,8 +214,7 @@
                     <small class="text-muted" id="subject-hint">Pilih jenjang terlebih dahulu untuk menampilkan mata pelajaran yang sesuai.</small>
                 </div>
                 <div class="col-12">
-                    <label class="form-label">Pilihan Jadwal <span class="text-danger">*</span></label>
-                    @error('class_schedule_ids') <div class="text-danger small mb-1">{{ $message }}</div> @enderror
+                    <label class="form-label">Pilihan Jadwal</label>
                     <div id="schedule-hint" class="small text-muted mb-2" style="display:none;"></div>
                     <div id="schedule-container" class="row g-3">
                         <div class="col-12">

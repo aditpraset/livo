@@ -68,7 +68,7 @@ trait RegistrationValidation
             'package_id'           => 'required|exists:packages,id',
             'program'              => 'required|array|min:1',
             'program.*'            => 'string|max:100',
-            'class_schedule_ids'   => 'required|array|min:1',
+            'class_schedule_ids'   => 'nullable|array',
             'class_schedule_ids.*' => 'nullable|exists:class_schedules,id',
         ];
     }
