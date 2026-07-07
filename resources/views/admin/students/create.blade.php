@@ -15,6 +15,20 @@
     </div>
 </div>
 
+@if($errors->any())
+    <div class="alert alert-danger d-flex align-items-start gap-2 shadow-sm" role="alert">
+        <i class="bi bi-exclamation-triangle-fill fs-5 mt-1"></i>
+        <div>
+            <div class="fw-semibold mb-1">Beberapa data wajib belum lengkap. Mohon periksa kembali:</div>
+            <ul class="mb-0 ps-3">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    </div>
+@endif
+
 <form action="{{ route('admin.students.store') }}" method="POST">
     @csrf
 
@@ -44,8 +58,9 @@
                     @error('nis') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Tanggal Lahir</label>
-                    <input type="date" name="birth_date" class="form-control" value="{{ old('birth_date') }}">
+                    <label class="form-label">Tanggal Lahir <span class="text-danger">*</span></label>
+                    <input type="date" name="birth_date" class="form-control @error('birth_date') is-invalid @enderror" value="{{ old('birth_date') }}">
+                    @error('birth_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Agama</label>
@@ -57,25 +72,28 @@
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Jenis Kelamin</label>
-                    <select name="gender" class="form-select">
+                    <label class="form-label">Jenis Kelamin <span class="text-danger">*</span></label>
+                    <select name="gender" class="form-select @error('gender') is-invalid @enderror">
                         <option value="">-- Pilih --</option>
                         <option value="Laki-laki" {{ old('gender') == 'Laki-laki' ? 'selected' : '' }}>Laki-laki</option>
                         <option value="Perempuan" {{ old('gender') == 'Perempuan' ? 'selected' : '' }}>Perempuan</option>
                     </select>
+                    @error('gender') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Kelas</label>
-                    <select name="grade" id="reg-kelas" class="form-select">
+                    <label class="form-label">Kelas <span class="text-danger">*</span></label>
+                    <select name="grade" id="reg-kelas" class="form-select @error('grade') is-invalid @enderror">
                         <option value="">-- Pilih Kelas --</option>
                         @foreach(['TK','SD Kelas 1','SD Kelas 2','SD Kelas 3','SD Kelas 4','SD Kelas 5','SD Kelas 6','SMP Kelas 7','SMP Kelas 8','SMP Kelas 9','SMA Kelas 10','SMA Kelas 11','SMA Kelas 12'] as $g)
                             <option value="{{ $g }}" {{ old('grade') == $g ? 'selected' : '' }}>{{ $g }}</option>
                         @endforeach
                     </select>
+                    @error('grade') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Asal Sekolah</label>
-                    <input type="text" name="school_origin" class="form-control" value="{{ old('school_origin') }}" placeholder="Nama sekolah saat ini">
+                    <label class="form-label">Asal Sekolah <span class="text-danger">*</span></label>
+                    <input type="text" name="school_origin" class="form-control @error('school_origin') is-invalid @enderror" value="{{ old('school_origin') }}" placeholder="Nama sekolah saat ini">
+                    @error('school_origin') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
             </div>
         </div>
@@ -87,8 +105,10 @@
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-4">
-                    <label class="form-label">Nama Ayah</label>
-                    <input type="text" name="father_name" class="form-control" value="{{ old('father_name') }}">
+                    <label class="form-label">Nama Ayah <span class="text-danger">*</span></label>
+                    <input type="text" name="father_name" class="form-control @error('father_name') is-invalid @enderror" value="{{ old('father_name') }}">
+                    @error('father_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    <small class="text-muted">Minimal salah satu dari Ayah/Ibu/Wali diisi.</small>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Nama Ibu</label>
@@ -108,12 +128,15 @@
                     @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">No. Telp / HP</label>
-                    <input type="tel" name="phone" class="form-control" value="{{ old('phone') }}">
+                    <label class="form-label">No. Telp / HP <span class="text-danger">*</span></label>
+                    <input type="tel" name="phone" class="form-control @error('phone') is-invalid @enderror" value="{{ old('phone') }}">
+                    @error('phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    <small class="text-muted">Isi Telp/HP atau WhatsApp.</small>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">No. WhatsApp</label>
-                    <input type="tel" name="whatsapp" class="form-control" value="{{ old('whatsapp') }}">
+                    <label class="form-label">No. WhatsApp <span class="text-danger">*</span></label>
+                    <input type="tel" name="whatsapp" class="form-control @error('whatsapp') is-invalid @enderror" value="{{ old('whatsapp') }}">
+                    @error('whatsapp') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
             </div>
         </div>
@@ -134,43 +157,47 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Program Belajar</label>
-                    <select name="program_id" id="reg-program" class="form-select">
+                    <label class="form-label">Program Belajar <span class="text-danger">*</span></label>
+                    <select name="program_id" id="reg-program" class="form-select @error('program_id') is-invalid @enderror">
                         <option value="">-- Pilih Program --</option>
                         @foreach($programs as $program)
                             <option value="{{ $program->id }}" data-duration="{{ $program->duration }}" {{ old('program_id') == $program->id ? 'selected' : '' }}>{{ $program->program_name }}</option>
                         @endforeach
                     </select>
+                    @error('program_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Jenjang</label>
-                    <select name="grade_id" id="reg-grade" class="form-select">
+                    <label class="form-label">Jenjang <span class="text-danger">*</span></label>
+                    <select name="grade_id" id="reg-grade" class="form-select @error('grade_id') is-invalid @enderror">
                         <option value="">-- Pilih Jenjang --</option>
                         @foreach($grades as $grade)
                             <option value="{{ $grade->id }}" {{ old('grade_id') == $grade->id ? 'selected' : '' }}>{{ $grade->grade_name }}</option>
                         @endforeach
                     </select>
+                    @error('grade_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Durasi</label>
-                    <select name="duration" id="reg-duration" class="form-select">
+                    <label class="form-label">Durasi <span class="text-danger">*</span></label>
+                    <select name="duration" id="reg-duration" class="form-select @error('duration') is-invalid @enderror">
                         <option value="">-- Pilih Durasi --</option>
                         @foreach([1,3,6,12] as $d)
                             <option value="{{ $d }}" {{ old('duration') == $d ? 'selected' : '' }}>{{ $d }} Bulan</option>
                         @endforeach
                     </select>
+                    @error('duration') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Jenis Kelas (Paket)</label>
-                    <select name="package_id" id="reg-package" class="form-select">
+                    <label class="form-label">Jenis Kelas (Paket) <span class="text-danger">*</span></label>
+                    <select name="package_id" id="reg-package" class="form-select @error('package_id') is-invalid @enderror">
                         <option value="">-- Pilih Paket --</option>
                         @foreach($packages as $pkg)
                             <option value="{{ $pkg->id }}" {{ old('package_id') == $pkg->id ? 'selected' : '' }}>{{ $pkg->package_name }}</option>
                         @endforeach
                     </select>
+                    @error('package_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <div class="col-12">
-                    <label class="form-label">Program / Mata Pelajaran yang Dipilih</label>
+                    <label class="form-label">Program / Mata Pelajaran yang Dipilih <span class="text-danger">*</span></label>
                     <div class="d-flex flex-wrap gap-3 mt-1" id="subject-list">
                         @foreach($subjects as $subject)
                             <div class="form-check subject-item" style="min-width: 160px;" data-grades="{{ json_encode($subject->grade_ids ?? []) }}">
@@ -183,10 +210,12 @@
                             <p class="text-muted small mb-0">Belum ada mata pelajaran tersedia.</p>
                         @endif
                     </div>
+                    @error('program') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
                     <small class="text-muted" id="subject-hint">Pilih jenjang terlebih dahulu untuk menampilkan mata pelajaran yang sesuai.</small>
                 </div>
                 <div class="col-12">
-                    <label class="form-label">Pilihan Jadwal</label>
+                    <label class="form-label">Pilihan Jadwal <span class="text-danger">*</span></label>
+                    @error('class_schedule_ids') <div class="text-danger small mb-1">{{ $message }}</div> @enderror
                     <div id="schedule-hint" class="small text-muted mb-2" style="display:none;"></div>
                     <div id="schedule-container" class="row g-3">
                         <div class="col-12">

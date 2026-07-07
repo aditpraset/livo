@@ -367,7 +367,7 @@
       <div class="row col2">
         <div class="cell">
           <div class="lbl">Amount Received By <small>(Di Terima Oleh)</small></div>
-          <div class="val-wrap"><span class="val">{{ $payment->received_by ?? '-' }}</span></div>
+          <div class="val-wrap"><span class="val">{{ $payment->receiver ?? '-' }}</span></div>
         </div>
         <div class="cell">
           <div class="lbl">Metode Pembayaran <small>(Payment Method)</small></div>

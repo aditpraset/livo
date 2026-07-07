@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\RegistrationValidation;
 use App\Http\Controllers\Controller;
 use App\Models\ClassSchedule;
 use App\Models\Grade;
@@ -22,6 +23,8 @@ use Yajra\DataTables\Facades\DataTables;
 
 class StudentController extends Controller
 {
+    use RegistrationValidation;
+
     public function index()
     {
         return view('admin.students.index');
@@ -97,39 +100,21 @@ class StudentController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'full_name'           => 'required|string|max:255',
             'nickname'            => 'nullable|string|max:255',
             'nis'                 => 'nullable|string|max:50|unique:students,nis',
             'registration_date'   => 'nullable|date',
-            'birth_date'          => 'nullable|date',
             'religion'            => 'nullable|string|max:50',
-            'gender'              => 'nullable|string|max:20',
-            'grade'               => 'nullable|string|max:50',
-            'school_origin'       => 'nullable|string|max:255',
-            'father_name'         => 'nullable|string|max:255',
-            'mother_name'         => 'nullable|string|max:255',
-            'guardian_name'       => 'nullable|string|max:255',
             'address'             => 'nullable|string',
-            'email'               => 'nullable|email|max:255',
-            'phone'               => 'nullable|string|max:20',
-            'whatsapp'            => 'nullable|string|max:20',
             'kbm_process'          => 'nullable|string|max:100',
-            'program_id'           => 'nullable|exists:programs,id',
-            'grade_id'             => 'nullable|exists:grades,id',
-            'duration'             => 'nullable|integer|in:1,3,6,12',
-            'package_id'           => 'nullable|exists:packages,id',
-            'program'              => 'nullable|array',
-            'program.*'            => 'string|max:100',
-            'class_schedule_ids'   => 'nullable|array',
-            'class_schedule_ids.*' => 'nullable|exists:class_schedules,id',
             'school_curriculum'    => 'nullable|string|max:100',
             'learning_material'    => 'nullable|string|max:255',
             'promo_code'           => 'nullable|string|max:50',
             'registration_info'    => 'nullable|string|max:100',
             'marketing_pic'        => 'nullable|string|max:100',
             'status'               => 'required|in:1,2,3',
-        ]);
+        ], $this->registrationRequiredRules()), $this->registrationMessages(), $this->registrationAttributes());
 
         // Program (multi-pilih ID mapel) → simpan sebagai JSON nama mapel
         $programNames = [];

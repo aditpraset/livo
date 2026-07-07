@@ -107,7 +107,25 @@
                     </div>
                 @endif
 
-                <form action="{{ route('registration.store') }}" method="POST" class="reg-card">
+                @if($errors->any())
+                    <div class="alert alert-danger alert-dismissible fade show mb-4 border-0 rounded-4 p-4" role="alert" id="reg-error-summary">
+                        <div class="d-flex align-items-start gap-3">
+                            <i class="bi bi-exclamation-triangle-fill fs-3"></i>
+                            <div>
+                                <h5 class="alert-heading mb-1 fw-bold">Data belum lengkap</h5>
+                                <p class="mb-2">Mohon lengkapi data wajib berikut sebelum mengirim:</p>
+                                <ul class="mb-0 ps-3">
+                                    @foreach($errors->all() as $error)
+                                        <li>{{ $error }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                @endif
+
+                <form action="{{ route('registration.store') }}" method="POST" class="reg-card" id="reg-form" novalidate>
                     @csrf
                     
                     <!-- Informasi Siswa -->
@@ -501,6 +519,115 @@
                 resultEl.innerHTML = '<span style="color:#dc3545;">Gagal memeriksa promo. Coba lagi.</span>';
                 resultEl.style.display = 'block';
             });
+    });
+})();
+
+/* ==========================================================================
+   Validasi tampilan: tandai field wajib & tampilkan notifikasi bila kosong
+   ========================================================================== */
+(function () {
+    var form = document.getElementById('reg-form');
+    if (!form) return;
+
+    // Field wajib tunggal → {name: 'Label'}
+    var requiredFields = {
+        full_name:     'Nama Lengkap',
+        birth_date:    'Tanggal Lahir',
+        gender:        'Jenis Kelamin',
+        grade:         'Kelas',
+        school_origin: 'Asal Sekolah',
+        program_id:    'Program Belajar',
+        grade_id:      'Jenjang',
+        duration:      'Durasi',
+        package_id:    'Paket'
+    };
+    // Grup "minimal salah satu"
+    var eitherGroups = [
+        { names: ['phone', 'whatsapp'],                    label: 'Nomor Telp/HP atau WhatsApp' },
+        { names: ['father_name', 'mother_name', 'guardian_name'], label: 'Nama Ayah/Ibu/Wali' }
+    ];
+
+    function field(name) { return form.querySelector('[name="' + name + '"]'); }
+    function labelOf(el) {
+        var col = el.closest('.col-md-6, .col-md-4, .col-md-3, .col-12, [class*="col-"]');
+        return col ? col.querySelector('.form-label-livo') : null;
+    }
+    function markInvalid(el, on) {
+        if (!el) return;
+        el.style.borderColor = on ? '#dc3545' : '';
+        el.style.boxShadow   = on ? '0 0 0 .15rem rgba(220,53,69,.15)' : '';
+    }
+
+    // Tambah tanda * pada label field wajib
+    function addAsterisks() {
+        var names = Object.keys(requiredFields);
+        eitherGroups.forEach(function (g) { names = names.concat(g.names); });
+        // mata pelajaran & jadwal (grup khusus)
+        ['program[]', 'class_schedule_ids[]'].forEach(function (n) { names.push(n); });
+        names.forEach(function (n) {
+            var el = form.querySelector('[name="' + n + '"]');
+            var lbl = el ? labelOf(el) : null;
+            if (lbl && !lbl.querySelector('.req-star')) {
+                lbl.insertAdjacentHTML('beforeend', ' <span class="req-star" style="color:#dc3545;">*</span>');
+            }
+        });
+        // label mata pelajaran & jadwal dari teks
+        form.querySelectorAll('.form-label-livo').forEach(function (lbl) {
+            var t = lbl.textContent.trim();
+            if ((t.indexOf('Program / Mata Pelajaran') === 0 || t.indexOf('Pilihan Jadwal') === 0) && !lbl.querySelector('.req-star')) {
+                lbl.insertAdjacentHTML('beforeend', ' <span class="req-star" style="color:#dc3545;">*</span>');
+            }
+        });
+    }
+    addAsterisks();
+
+    form.addEventListener('submit', function (e) {
+        var missing = [];
+
+        // reset highlight
+        Object.keys(requiredFields).forEach(function (n) { markInvalid(field(n), false); });
+        eitherGroups.forEach(function (g) { g.names.forEach(function (n) { markInvalid(field(n), false); }); });
+
+        // field wajib tunggal
+        Object.keys(requiredFields).forEach(function (n) {
+            var el = field(n);
+            if (el && !String(el.value).trim()) { missing.push(requiredFields[n]); markInvalid(el, true); }
+        });
+
+        // grup minimal salah satu
+        eitherGroups.forEach(function (g) {
+            var filled = g.names.some(function (n) { var el = field(n); return el && String(el.value).trim(); });
+            if (!filled) { missing.push(g.label); g.names.forEach(function (n) { markInvalid(field(n), true); }); }
+        });
+
+        // minimal 1 mata pelajaran
+        var subjects = form.querySelectorAll('input[name="program[]"]:checked');
+        if (subjects.length === 0) missing.push('Mata Pelajaran (pilih minimal 1)');
+
+        // minimal 1 jadwal terisi
+        var schedSelects = form.querySelectorAll('select[name="class_schedule_ids[]"]');
+        var schedFilled = Array.prototype.some.call(schedSelects, function (s) { return s.value; });
+        if (schedSelects.length === 0 || !schedFilled) missing.push('Pilihan Jadwal');
+
+        if (missing.length) {
+            e.preventDefault();
+            var html = '<div class="d-flex align-items-start gap-3">' +
+                '<i class="bi bi-exclamation-triangle-fill fs-3"></i><div>' +
+                '<h5 class="alert-heading mb-1 fw-bold">Data belum lengkap</h5>' +
+                '<p class="mb-2">Mohon lengkapi data wajib berikut sebelum mengirim:</p>' +
+                '<ul class="mb-0 ps-3"><li>' + missing.join('</li><li>') + '</li></ul></div></div>' +
+                '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+            var box = document.getElementById('reg-error-summary');
+            if (!box) {
+                box = document.createElement('div');
+                box.id = 'reg-error-summary';
+                box.className = 'alert alert-danger alert-dismissible fade show mb-4 border-0 rounded-4 p-4';
+                box.setAttribute('role', 'alert');
+                form.parentNode.insertBefore(box, form);
+            }
+            box.innerHTML = html;
+            box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
     });
 })();
 </script>
