@@ -81,8 +81,8 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Tanggal Expired</label>
-                            <input type="date" id="expired-date" name="expired_date" class="form-control @error('expired_date') is-invalid @enderror" value="{{ old('expired_date') }}">
-                            <small id="expired-auto-hint" class="text-muted d-none">Dihitung otomatis dari durasi paket siswa (kelipatan 30 hari).</small>
+                            <input type="date" name="expired_date" class="form-control @error('expired_date') is-invalid @enderror" value="{{ old('expired_date') }}">
+                            <small class="text-muted">Diisi sesuai kebutuhan (opsional).</small>
                             @error('expired_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                         <div class="col-md-6">
