@@ -169,13 +169,11 @@ class PaymentController extends Controller
             'quota' => 'nullable|integer',
         ]);
 
-        $student = Student::find($request->student_id);
-        $expiredDate = $this->calcExpiredDate($request->payment_date, (int) ($student->duration ?? 0)) ?? $request->expired_date;
-
+        // Saat edit, tanggal expired mengikuti pilihan admin (tidak dipaksa dari durasi paket)
         $payment->update([
             'student_id' => $request->student_id,
             'payment_date' => $request->payment_date,
-            'expired_date' => $expiredDate,
+            'expired_date' => $request->expired_date,
             'category_payment' => $request->category_payment,
             'description' => $request->description,
             'amount' => $request->amount,
