@@ -502,11 +502,8 @@ class StudentController extends Controller
         }
 
         // Jadwal: bersihkan, batasi sesuai frekuensi program, lalu turunkan field terkait
+        // Simpan seluruh jadwal (hari & sesi) yang dipilih admin, tanpa dibatasi frekuensi program.
         $scheduleIds = array_values(array_unique(array_filter($request->input('class_schedule_ids', []))));
-        $maxSlots = (int) (optional(Program::find($student->program_id))->duration ?? 0);
-        if ($maxSlots > 0 && count($scheduleIds) > $maxSlots) {
-            $scheduleIds = array_slice($scheduleIds, 0, $maxSlots);
-        }
         $classSchedules = ClassSchedule::with('session')->whereIn('id', $scheduleIds)->get();
 
         $data['class_schedule_ids']  = !empty($scheduleIds) ? $scheduleIds : null;

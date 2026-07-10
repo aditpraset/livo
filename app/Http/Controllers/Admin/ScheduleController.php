@@ -7,6 +7,7 @@ use App\Models\ClassSchedule;
 use App\Models\Evaluation;
 use App\Models\Schedule;
 use App\Models\ScheduleSession;
+use App\Models\StudentRegistration;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Syllabus;
@@ -153,18 +154,30 @@ class ScheduleController extends Controller
         $skipped = 0;
 
         foreach ($students as $student) {
-            // Tentukan slot jadwal (hari + sesi) dari master jadwal yang dipilih saat pendaftaran.
-            // Fallback ke field lama (selected_days + schedule_session_id) untuk data lama.
-            $slots = collect();
-            $scheduleIds = $student->class_schedule_ids ?? [];
+            // Tentukan slot jadwal (hari + sesi) dari data jadwal siswa (bisa diedit di profil).
+            // Bila siswa belum punya data jadwal, ambil dari data pendaftaran.
+            // Terakhir, fallback ke field lama (selected_days + schedule_session_id).
+            $slots        = collect();
+            $scheduleIds  = $student->class_schedule_ids ?? [];
+            $selectedDays = $student->selected_days;
+            $sessionId    = $student->schedule_session_id;
+
+            if (empty($scheduleIds) && !($selectedDays && $sessionId) && $student->registration_code) {
+                $reg = StudentRegistration::where('registration_code', $student->registration_code)->first();
+                if ($reg) {
+                    $scheduleIds  = $reg->class_schedule_ids ?: $scheduleIds;
+                    $selectedDays = $selectedDays ?: $reg->selected_days;
+                    $sessionId    = $sessionId ?: $reg->schedule_session_id;
+                }
+            }
 
             if (!empty($scheduleIds)) {
                 $slots = ClassSchedule::with('session')
                     ->whereIn('id', $scheduleIds)
                     ->get()
                     ->map(fn($cs) => ['hari' => $cs->hari, 'session' => $cs->session]);
-            } elseif ($student->selected_days && $student->schedule_session_id) {
-                $slots = collect([['hari' => $student->selected_days, 'session' => $student->scheduleSession]]);
+            } elseif ($selectedDays && $sessionId) {
+                $slots = collect([['hari' => $selectedDays, 'session' => ScheduleSession::find($sessionId)]]);
             }
 
             if ($slots->isEmpty()) {
