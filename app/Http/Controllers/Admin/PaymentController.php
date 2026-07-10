@@ -103,6 +103,7 @@ class PaymentController extends Controller
             'student_id' => 'required|exists:students,id',
             'payment_date' => 'required|date',
             'expired_date' => 'nullable|date',
+            'masa_aktif' => 'nullable|integer|min:0',
             'category_payment' => 'required|in:1,2,3,4',
             'description' => 'required|string',
             'amount' => 'required|numeric|min:0',
@@ -116,15 +117,18 @@ class PaymentController extends Controller
         $count = Payment::whereDate('created_at', $today->toDateString())->count() + 1;
         $noPayment = 'LVR-' . $today->format('ymd') . str_pad($count, 4, '0', STR_PAD_LEFT);
 
-        // Tanggal expired dihitung otomatis dari durasi paket siswa (fallback ke input bila durasi kosong)
+        // Masa aktif: pakai tanggal expired yang diinput admin (sudah terisi otomatis di form,
+        // namun boleh diedit). Bila dikosongkan, hitung otomatis dari durasi paket siswa.
         $student = Student::find($request->student_id);
-        $expiredDate = $this->calcExpiredDate($request->payment_date, (int) ($student->duration ?? 0)) ?? $request->expired_date;
+        $expiredDate = $request->expired_date ?: $this->calcExpiredDate($request->payment_date, (int) ($student->duration ?? 0));
+        $masaAktif   = $this->resolveMasaAktif($request->masa_aktif, $request->payment_date, $expiredDate);
 
         Payment::create([
             'student_id' => $request->student_id,
             'no_payment' => $noPayment,
             'payment_date' => $request->payment_date,
             'expired_date' => $expiredDate,
+            'masa_aktif' => $masaAktif,
             'category_payment' => $request->category_payment,
             'description' => $request->description,
             'amount' => $request->amount,
@@ -160,6 +164,7 @@ class PaymentController extends Controller
             'student_id' => 'required|exists:students,id',
             'payment_date' => 'required|date',
             'expired_date' => 'nullable|date',
+            'masa_aktif' => 'nullable|integer|min:0',
             'category_payment' => 'required|in:1,2,3,4',
             'description' => 'required|string',
             'amount' => 'required|numeric|min:0',
@@ -174,6 +179,7 @@ class PaymentController extends Controller
             'student_id' => $request->student_id,
             'payment_date' => $request->payment_date,
             'expired_date' => $request->expired_date,
+            'masa_aktif' => $this->resolveMasaAktif($request->masa_aktif, $request->payment_date, $request->expired_date),
             'category_payment' => $request->category_payment,
             'description' => $request->description,
             'amount' => $request->amount,
@@ -198,6 +204,23 @@ class PaymentController extends Controller
      *  - bayar tgl 11+   → mulai dari tgl 1 bulan berikutnya
      * Mengembalikan null bila durasi tidak valid (agar bisa fallback ke input manual).
      */
+    /**
+     * Tentukan masa aktif (hari): pakai input bila ada, jika tidak hitung dari selisih
+     * tanggal bayar & tanggal expired. Null bila tak bisa dihitung.
+     */
+    private function resolveMasaAktif($masaAktif, ?string $paymentDate, ?string $expiredDate): ?int
+    {
+        if ($masaAktif !== null && $masaAktif !== '') {
+            return max(0, (int) $masaAktif);
+        }
+
+        if ($paymentDate && $expiredDate) {
+            return \Carbon\Carbon::parse($paymentDate)->diffInDays(\Carbon\Carbon::parse($expiredDate));
+        }
+
+        return null;
+    }
+
     private function calcExpiredDate(?string $paymentDate, int $months): ?string
     {
         if (!$paymentDate || $months < 1) {

@@ -328,7 +328,7 @@
         </div>
         <div class="cell">
           <div class="lbl">Kuota &amp; Masa Aktif</div>
-          <div class="val-wrap"><span class="val">{{ $payment->quota ?? '-' }} Sesi | {{ $payment->expired_date ? \Carbon\Carbon::parse($payment->payment_date)->diffInDays(\Carbon\Carbon::parse($payment->expired_date)) : '-' }} Hari</span></div>
+          <div class="val-wrap"><span class="val">{{ $payment->quota ?? '-' }} Sesi | {{ $payment->masa_aktif ?? ($payment->expired_date ? \Carbon\Carbon::parse($payment->payment_date)->diffInDays(\Carbon\Carbon::parse($payment->expired_date)) : '-') }} Hari</span></div>
           <div style="margin-top:4px;">
             <div class="lbl">Tanggal Expired</div>
             <div class="val-wrap"><span class="val">{{ $payment->expired_date ? \Carbon\Carbon::parse($payment->expired_date)->format('d/m/Y') : '-' }}</span></div>

@@ -15,6 +15,7 @@ class Payment extends Model
         'no_payment',
         'payment_date',
         'expired_date',
+        'masa_aktif',
         'category_payment',
         'description',
         'amount',

@@ -72,14 +72,19 @@
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label">Tanggal Pembayaran <span class="text-danger">*</span></label>
-                            <input type="date" name="payment_date" class="form-control @error('payment_date') is-invalid @enderror" value="{{ old('payment_date', $payment->payment_date) }}" required>
+                            <input type="date" id="payment-date" name="payment_date" class="form-control @error('payment_date') is-invalid @enderror" value="{{ old('payment_date', \Carbon\Carbon::parse($payment->payment_date)->format('Y-m-d')) }}" required>
                             @error('payment_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <label class="form-label">Masa Aktif (Hari)</label>
+                            <input type="number" id="masa-aktif" name="masa_aktif" min="0" class="form-control" value="{{ old('masa_aktif', $payment->masa_aktif) }}" placeholder="cth: 30">
+                            <small class="text-muted">Bisa diubah, expired ikut menyesuaikan.</small>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label">Tanggal Expired</label>
-                            <input type="date" name="expired_date" class="form-control @error('expired_date') is-invalid @enderror" value="{{ old('expired_date', $payment->expired_date) }}">
+                            <input type="date" id="expired-date" name="expired_date" class="form-control @error('expired_date') is-invalid @enderror" value="{{ old('expired_date', $payment->expired_date ? \Carbon\Carbon::parse($payment->expired_date)->format('Y-m-d') : '') }}">
                             @error('expired_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                         <div class="col-md-6">
@@ -125,3 +130,41 @@
     </div>
 </form>
 @endsection
+
+@push('js')
+<script>
+(function () {
+    var paymentDate = document.getElementById('payment-date');
+    var expiredDate = document.getElementById('expired-date');
+    var masaAktif   = document.getElementById('masa-aktif');
+    if (!paymentDate || !expiredDate || !masaAktif) return;
+
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function fmt(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+
+    // Tanggal expired / bayar berubah → hitung Masa Aktif (hari)
+    function syncMasaFromExpired() {
+        if (!paymentDate.value || !expiredDate.value) { masaAktif.value = ''; return; }
+        var p = new Date(paymentDate.value + 'T00:00:00');
+        var e = new Date(expiredDate.value + 'T00:00:00');
+        var days = Math.round((e - p) / 86400000);
+        masaAktif.value = days >= 0 ? days : '';
+    }
+
+    // Masa Aktif diubah → expired = payment + hari
+    function syncExpiredFromMasa() {
+        var days = parseInt(masaAktif.value, 10);
+        if (!paymentDate.value || isNaN(days) || days < 0) return;
+        var e = new Date(paymentDate.value + 'T00:00:00');
+        e.setDate(e.getDate() + days);
+        expiredDate.value = fmt(e);
+    }
+
+    paymentDate.addEventListener('change', syncMasaFromExpired);
+    expiredDate.addEventListener('change', syncMasaFromExpired);
+    masaAktif.addEventListener('input', syncExpiredFromMasa);
+
+    syncMasaFromExpired(); // isi nilai awal dari data yang ada
+})();
+</script>
+@endpush
