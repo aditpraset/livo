@@ -102,6 +102,8 @@ class PaymentController extends Controller
         $request->validate([
             'student_id' => 'required|exists:students,id',
             'payment_date' => 'required|date',
+            'active_date' => 'required|date',
+            'period' => 'required|in:1,2,3',
             'expired_date' => 'nullable|date',
             'masa_aktif' => 'nullable|integer|min:0',
             'category_payment' => 'required|in:1,2,3,4',
@@ -117,16 +119,17 @@ class PaymentController extends Controller
         $count = Payment::whereDate('created_at', $today->toDateString())->count() + 1;
         $noPayment = 'LVR-' . $today->format('ymd') . str_pad($count, 4, '0', STR_PAD_LEFT);
 
-        // Masa aktif: pakai tanggal expired yang diinput admin (sudah terisi otomatis di form,
-        // namun boleh diedit). Bila dikosongkan, hitung otomatis dari durasi paket siswa.
-        $student = Student::find($request->student_id);
-        $expiredDate = $request->expired_date ?: $this->calcExpiredDate($request->payment_date, (int) ($student->duration ?? 0));
-        $masaAktif   = $this->resolveMasaAktif($request->masa_aktif, $request->payment_date, $expiredDate);
+        // Tanggal expired: pakai input admin (sudah terisi otomatis di form, boleh diedit).
+        // Bila dikosongkan, hitung dari tanggal aktif pembelajaran + periode.
+        $expiredDate = $request->expired_date ?: $this->calcExpiredDate($request->active_date, (int) $request->period);
+        $masaAktif   = $this->resolveMasaAktif($request->masa_aktif, $request->active_date, $expiredDate);
 
         Payment::create([
             'student_id' => $request->student_id,
             'no_payment' => $noPayment,
             'payment_date' => $request->payment_date,
+            'active_date' => $request->active_date,
+            'period' => $request->period,
             'expired_date' => $expiredDate,
             'masa_aktif' => $masaAktif,
             'category_payment' => $request->category_payment,
@@ -163,6 +166,8 @@ class PaymentController extends Controller
         $request->validate([
             'student_id' => 'required|exists:students,id',
             'payment_date' => 'required|date',
+            'active_date' => 'required|date',
+            'period' => 'required|in:1,2,3',
             'expired_date' => 'nullable|date',
             'masa_aktif' => 'nullable|integer|min:0',
             'category_payment' => 'required|in:1,2,3,4',
@@ -174,12 +179,17 @@ class PaymentController extends Controller
             'quota' => 'nullable|integer',
         ]);
 
-        // Saat edit, tanggal expired mengikuti pilihan admin (tidak dipaksa dari durasi paket)
+        // Saat edit, tanggal expired mengikuti pilihan admin. Bila dikosongkan,
+        // hitung dari tanggal aktif pembelajaran + periode.
+        $expiredDate = $request->expired_date ?: $this->calcExpiredDate($request->active_date, (int) $request->period);
+
         $payment->update([
             'student_id' => $request->student_id,
             'payment_date' => $request->payment_date,
-            'expired_date' => $request->expired_date,
-            'masa_aktif' => $this->resolveMasaAktif($request->masa_aktif, $request->payment_date, $request->expired_date),
+            'active_date' => $request->active_date,
+            'period' => $request->period,
+            'expired_date' => $expiredDate,
+            'masa_aktif' => $this->resolveMasaAktif($request->masa_aktif, $request->active_date, $expiredDate),
             'category_payment' => $request->category_payment,
             'description' => $request->description,
             'amount' => $request->amount,
@@ -199,40 +209,40 @@ class PaymentController extends Controller
     }
 
     /**
-     * Hitung tanggal expired = kelipatan 30 hari sesuai durasi paket (bulan), dihitung dari tanggal 1:
-     *  - bayar tgl 1–10  → mulai dari tgl 1 bulan ini
-     *  - bayar tgl 11+   → mulai dari tgl 1 bulan berikutnya
-     * Mengembalikan null bila durasi tidak valid (agar bisa fallback ke input manual).
-     */
-    /**
      * Tentukan masa aktif (hari): pakai input bila ada, jika tidak hitung dari selisih
-     * tanggal bayar & tanggal expired. Null bila tak bisa dihitung.
+     * tanggal aktif pembelajaran & tanggal expired. Null bila tak bisa dihitung.
      */
-    private function resolveMasaAktif($masaAktif, ?string $paymentDate, ?string $expiredDate): ?int
+    private function resolveMasaAktif($masaAktif, ?string $activeDate, ?string $expiredDate): ?int
     {
         if ($masaAktif !== null && $masaAktif !== '') {
             return max(0, (int) $masaAktif);
         }
 
-        if ($paymentDate && $expiredDate) {
-            return \Carbon\Carbon::parse($paymentDate)->diffInDays(\Carbon\Carbon::parse($expiredDate));
+        if ($activeDate && $expiredDate) {
+            return \Carbon\Carbon::parse($activeDate)->diffInDays(\Carbon\Carbon::parse($expiredDate));
         }
 
         return null;
     }
 
-    private function calcExpiredDate(?string $paymentDate, int $months): ?string
+    /**
+     * Hitung tanggal expired dari tanggal aktif pembelajaran + periode (1 bulan = 30 hari).
+     * Untuk periode selain 1 bulan, expired ditetapkan di akhir bulan hasil penambahan hari.
+     * Mengembalikan null bila data tidak valid (agar bisa fallback ke input manual).
+     */
+    private function calcExpiredDate(?string $activeDate, int $months): ?string
     {
-        if (!$paymentDate || $months < 1) {
+        if (!$activeDate || $months < 1) {
             return null;
         }
 
-        $pay   = \Carbon\Carbon::parse($paymentDate);
-        $start = $pay->day <= 10
-            ? $pay->copy()->startOfMonth()
-            : $pay->copy()->addMonthNoOverflow()->startOfMonth();
+        $expired = \Carbon\Carbon::parse($activeDate)->addDays($months * 30);
 
-        return $start->addDays($months * 30)->toDateString();
+        if ($months !== 1) {
+            $expired = $expired->endOfMonth();
+        }
+
+        return $expired->toDateString();
     }
 
     /** Unduh template Excel untuk import pembayaran (beserta sheet master & konstanta). */

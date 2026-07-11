@@ -14,6 +14,8 @@ class Payment extends Model
         'package_id',
         'no_payment',
         'payment_date',
+        'active_date',
+        'period',
         'expired_date',
         'masa_aktif',
         'category_payment',

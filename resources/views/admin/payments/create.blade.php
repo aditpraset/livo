@@ -80,14 +80,29 @@
                             @error('payment_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Masa Aktif (Hari)</label>
-                            <input type="number" id="masa-aktif" name="masa_aktif" min="0" class="form-control" value="{{ old('masa_aktif') }}" placeholder="cth: 30">
-                            <small class="text-muted">Terisi otomatis, bisa diubah.</small>
+                            <label class="form-label">Tanggal Aktif Pembelajaran <span class="text-danger">*</span></label>
+                            <input type="date" id="active-date" name="active_date" class="form-control @error('active_date') is-invalid @enderror" value="{{ old('active_date', date('Y-m-d')) }}" required>
+                            @error('active_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                         <div class="col-md-4">
+                            <label class="form-label">Periode <span class="text-danger">*</span></label>
+                            <select name="period" id="period" class="form-select @error('period') is-invalid @enderror" required>
+                                <option value="1" {{ old('period', 1) == 1 ? 'selected' : '' }}>1 Bulan (30 hari)</option>
+                                <option value="2" {{ old('period') == 2 ? 'selected' : '' }}>2 Bulan (60 hari)</option>
+                                <option value="3" {{ old('period') == 3 ? 'selected' : '' }}>3 Bulan (90 hari)</option>
+                            </select>
+                            @error('period') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Masa Aktif (Hari)</label>
+                            <input type="number" id="masa-aktif" name="masa_aktif" min="0" class="form-control" value="{{ old('masa_aktif') }}" placeholder="cth: 30">
+                            <small class="text-muted">Default dari tanggal aktif s/d expired, bisa diubah manual.</small>
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label">Tanggal Expired</label>
                             <input type="date" id="expired-date" name="expired_date" class="form-control @error('expired_date') is-invalid @enderror" value="{{ old('expired_date') }}">
-                            <small class="text-muted">Otomatis / sesuai kebutuhan.</small>
+                            <small class="text-muted d-block">Otomatis mengikuti periode, bisa diubah.</small>
+                            <small id="expired-warning" class="text-warning d-none"><i class="bi bi-exclamation-triangle-fill me-1"></i>Tanggal expired tidak berada di akhir bulan.</small>
                             @error('expired_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                         <div class="col-md-6">
@@ -151,59 +166,70 @@
         } else {
             if (hint) hint.classList.add('d-none');
         }
+        // Durasi paket siswa (1-3 bulan) → set Periode otomatis
+        var opt = this.options[this.selectedIndex];
+        var duration = opt ? parseInt(opt.getAttribute('data-duration'), 10) : NaN;
+        if (periodSelect && duration >= 1 && duration <= 3) {
+            periodSelect.value = String(duration);
+        }
         recalcExpired();
     });
 
-    /* ── Auto-hitung Tanggal Expired (kelipatan 30 hari sesuai durasi paket) ──
-       bayar tgl 1–10 → mulai tgl 1 bulan ini; tgl 11+ → mulai tgl 1 bulan berikutnya */
-    var paymentDate  = document.getElementById('payment-date');
+    /* ── Auto-hitung Tanggal Expired dari Tanggal Aktif Pembelajaran + Periode ──
+       1 bulan = +30 hari; periode selain 1 bulan → expired ditetapkan di akhir bulan hasil penambahan */
+    var activeDate   = document.getElementById('active-date');
+    var periodSelect = document.getElementById('period');
     var expiredDate  = document.getElementById('expired-date');
     var masaAktif    = document.getElementById('masa-aktif');
+    var expiredWarn  = document.getElementById('expired-warning');
 
     function pad(n) { return (n < 10 ? '0' : '') + n; }
     function fmt(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
 
-    // Hitung selisih hari expired - payment → isi Masa Aktif
-    function syncMasaFromExpired() {
-        if (!masaAktif || !paymentDate || !expiredDate) return;
-        if (!paymentDate.value || !expiredDate.value) { masaAktif.value = ''; return; }
-        var p = new Date(paymentDate.value + 'T00:00:00');
+    // Warning bila tanggal expired bukan akhir bulan
+    function checkEndOfMonth() {
+        if (!expiredWarn || !expiredDate) return;
+        if (!expiredDate.value) { expiredWarn.classList.add('d-none'); return; }
         var e = new Date(expiredDate.value + 'T00:00:00');
-        var days = Math.round((e - p) / 86400000);
+        var lastDay = new Date(e.getFullYear(), e.getMonth() + 1, 0).getDate();
+        expiredWarn.classList.toggle('d-none', e.getDate() === lastDay);
+    }
+
+    // Hitung selisih hari expired - tanggal aktif → isi Masa Aktif (default, bisa diubah manual)
+    function syncMasaFromExpired() {
+        if (!masaAktif || !activeDate || !expiredDate) return;
+        if (!activeDate.value || !expiredDate.value) { masaAktif.value = ''; return; }
+        var a = new Date(activeDate.value + 'T00:00:00');
+        var e = new Date(expiredDate.value + 'T00:00:00');
+        var days = Math.round((e - a) / 86400000);
         masaAktif.value = days >= 0 ? days : '';
     }
 
-    // Masa Aktif diubah → expired = payment + hari
-    function syncExpiredFromMasa() {
-        if (!masaAktif || !paymentDate || !expiredDate) return;
-        var days = parseInt(masaAktif.value, 10);
-        if (!paymentDate.value || isNaN(days) || days < 0) return;
-        var e = new Date(paymentDate.value + 'T00:00:00');
-        e.setDate(e.getDate() + days);
-        expiredDate.value = fmt(e);
-    }
-
     function recalcExpired() {
-        if (!paymentDate || !expiredDate) return;
-        var opt = studentSelect.options[studentSelect.selectedIndex];
-        var months = opt ? parseInt(opt.getAttribute('data-duration'), 10) : NaN;
-        if (!paymentDate.value || !months || months < 1) return;
-        var d = new Date(paymentDate.value + 'T00:00:00');
-        // Tanggal mulai = tgl 1 bulan ini / bulan berikutnya
-        var startMonth = d.getDate() <= 10 ? d.getMonth() : d.getMonth() + 1;
-        var start = new Date(d.getFullYear(), startMonth, 1);
-        // Tambah kelipatan 30 hari sesuai durasi
-        start.setDate(start.getDate() + months * 30);
-        expiredDate.value = fmt(start);
+        if (!activeDate || !periodSelect || !expiredDate) return;
+        var months = parseInt(periodSelect.value, 10);
+        if (!activeDate.value || isNaN(months) || months < 1) return;
+        var e = new Date(activeDate.value + 'T00:00:00');
+        e.setDate(e.getDate() + months * 30);
+        if (months !== 1) {
+            e = new Date(e.getFullYear(), e.getMonth() + 1, 0); // akhir bulan
+        }
+        expiredDate.value = fmt(e);
         syncMasaFromExpired();
+        checkEndOfMonth();
     }
 
-    if (paymentDate) paymentDate.addEventListener('change', function () { recalcExpired(); syncMasaFromExpired(); });
-    if (expiredDate) expiredDate.addEventListener('change', syncMasaFromExpired);
-    if (masaAktif)   masaAktif.addEventListener('input', syncExpiredFromMasa);
+    if (activeDate)   activeDate.addEventListener('change', recalcExpired);
+    if (periodSelect) periodSelect.addEventListener('change', recalcExpired);
+    if (expiredDate)  expiredDate.addEventListener('change', function () { syncMasaFromExpired(); checkEndOfMonth(); });
 
-    recalcExpired();
-    syncMasaFromExpired();
+    // Saat load: jangan timpa tanggal expired yang sudah diisi manual (mis. old input setelah error validasi)
+    if (expiredDate && expiredDate.value) {
+        syncMasaFromExpired();
+        checkEndOfMonth();
+    } else {
+        recalcExpired();
+    }
 })();
 </script>
 @endpush
