@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\ClassScheduleController;
@@ -23,20 +22,69 @@ Route::get('/pendaftaran', [HomeController::class, 'registration'])->name('regis
 Route::post('/pendaftaran', [HomeController::class, 'storeRegistration'])->name('registration.store');
 Route::get('/pendaftaran/cek-promo', [HomeController::class, 'checkPromo'])->name('registration.check-promo');
 
-// Auth Routes
-Auth::routes(['register' => false, 'reset' => false, 'verify' => false]);
-
+// Auth Routes (login 2 langkah: email → password / buat password)
 Route::get('/login', function () {
     return redirect()->route('admin.login');
 })->name('login');
 
+// Redirect sesuai role setelah login (dipakai juga oleh middleware guest)
+Route::get('/dashboard', function () {
+    $user = auth()->user();
+    return match (true) {
+        $user->hasRole('admin') => redirect()->route('admin.dashboard'),
+        $user->hasRole('tutor') => redirect()->route('tutor.dashboard'),
+        $user->hasRole('siswa') => redirect()->route('siswa.dashboard'),
+        default => redirect()->route('admin.login'),
+    };
+})->middleware('auth')->name('dashboard');
+
+// ── Area Tutor ──
+Route::prefix('tutor')->name('tutor.')->middleware(['auth', 'role:tutor'])->group(function () {
+    Route::get('/', [\App\Http\Controllers\Tutor\DashboardController::class, 'index'])->name('dashboard');
+
+    // Jadwal mingguan + detail siswa
+    Route::get('/jadwal', [\App\Http\Controllers\Tutor\ScheduleController::class, 'week'])->name('schedules.week');
+    Route::get('/siswa/{student}', [\App\Http\Controllers\Tutor\ScheduleController::class, 'studentDetail'])->name('students.show');
+    Route::get('/data/siswa/{student}/riwayat', [\App\Http\Controllers\Tutor\ScheduleController::class, 'dataStudentHistory'])->name('students.data');
+
+    // Evaluasi yang harus diisi
+    Route::get('/evaluasi', [\App\Http\Controllers\Tutor\EvaluationController::class, 'index'])->name('evaluations.index');
+    Route::get('/data/evaluasi', [\App\Http\Controllers\Tutor\EvaluationController::class, 'data'])->name('evaluations.data');
+    Route::get('/evaluasi/{schedule}', [\App\Http\Controllers\Tutor\EvaluationController::class, 'create'])->name('evaluations.create');
+    Route::post('/evaluasi/{schedule}', [\App\Http\Controllers\Tutor\EvaluationController::class, 'store'])->name('evaluations.store');
+
+    // Profil tutor
+    Route::get('/profil', [\App\Http\Controllers\Tutor\ProfileController::class, 'show'])->name('profile');
+    Route::put('/profil', [\App\Http\Controllers\Tutor\ProfileController::class, 'update'])->name('profile.update');
+
+    // Rekapitulasi
+    Route::get('/rekap-pengajaran', [\App\Http\Controllers\Tutor\ReportController::class, 'rekapPengajaran'])->name('rekap-pengajaran');
+    Route::get('/data/rekap-pengajaran', [\App\Http\Controllers\Tutor\ReportController::class, 'dataRekapPengajaran'])->name('rekap-pengajaran.data');
+    Route::get('/rekap-fee', [\App\Http\Controllers\Tutor\ReportController::class, 'rekapFee'])->name('rekap-fee');
+
+    // Laporan (PDF)
+    Route::get('/laporan', [\App\Http\Controllers\Tutor\ReportController::class, 'index'])->name('reports.index');
+    Route::get('/laporan/slip-gaji', [\App\Http\Controllers\Tutor\ReportController::class, 'slipGaji'])->name('reports.slip-gaji');
+    Route::get('/laporan/summary', [\App\Http\Controllers\Tutor\ReportController::class, 'summaryPengajaran'])->name('reports.summary');
+});
+
+// ── Area Siswa ──
+Route::prefix('siswa')->name('siswa.')->middleware(['auth', 'role:siswa'])->group(function () {
+    Route::get('/', function () {
+        return view('siswa.dashboard');
+    })->name('dashboard');
+});
+
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login/email', [LoginController::class, 'checkEmail'])->name('login.check-email');
     Route::post('/login', [LoginController::class, 'login'])->name('login.submit');
+    Route::post('/login/create-password', [LoginController::class, 'createPassword'])->name('login.create-password');
+    Route::post('/login/reset-email', [LoginController::class, 'resetEmail'])->name('login.reset-email');
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-    // Protected Admin Routes
-    Route::middleware(['auth'])->group(function () {
+    // Protected Admin Routes (hanya role admin)
+    Route::middleware(['auth', 'role:admin'])->group(function () {
         Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
         Route::get('/registrations', [AdminController::class, 'registrations'])->name('registrations');
         

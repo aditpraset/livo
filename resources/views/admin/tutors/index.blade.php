@@ -74,10 +74,17 @@
                                 <div class="invalid-feedback" id="err-email"></div>
                             </div>
                         </div>
-                        <div class="mt-3">
-                            <label class="form-label fw-semibold">No. Rekening</label>
-                            <input type="text" id="field-norek" class="form-control" placeholder="cth: 1234567890 (BCA a.n. Budi)">
-                            <div class="invalid-feedback" id="err-norek"></div>
+                        <div class="mt-3 row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">No. Rekening</label>
+                                <input type="text" id="field-norek" class="form-control" placeholder="cth: 1234567890 (BCA a.n. Budi)">
+                                <div class="invalid-feedback" id="err-norek"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Fee per Sesi (Rp)</label>
+                                <input type="number" id="field-fee" min="0" class="form-control" placeholder="cth: 75000">
+                                <div class="invalid-feedback" id="err-fee"></div>
+                            </div>
                         </div>
                     </div>
                     <div class="col-12">
@@ -132,10 +139,10 @@ $(function () {
     }
 
     function resetModal() {
-        $('#tutor-id, #field-name, #field-phone, #field-email, #field-norek, #field-photo').val('');
+        $('#tutor-id, #field-name, #field-phone, #field-email, #field-norek, #field-fee, #field-photo').val('');
         $('#field-specialization').val([]);
         $('.form-control, .form-select').removeClass('is-invalid');
-        $('#err-name, #err-phone, #err-email, #err-norek, #err-photo, #err-specialization').text('');
+        $('#err-name, #err-phone, #err-email, #err-norek, #err-fee, #err-photo, #err-specialization').text('');
         showPhoto('');
     }
 
@@ -159,6 +166,7 @@ $(function () {
         $('#field-phone').val(btn.data('phone'));
         $('#field-email').val(btn.data('email'));
         $('#field-norek').val(btn.data('norek'));
+        $('#field-fee').val(btn.data('fee'));
         var specs = btn.data('specialization') || [];
         $('#field-specialization').val(specs);
         showPhoto(btn.data('photo'));
@@ -174,6 +182,7 @@ $(function () {
         fd.append('phone', $('#field-phone').val());
         fd.append('email', $('#field-email').val());
         fd.append('no_rekening', $('#field-norek').val());
+        fd.append('fee_per_session', $('#field-fee').val());
         ($('#field-specialization').val() || []).forEach(function (s) {
             fd.append('specialization[]', s);
         });
@@ -197,6 +206,7 @@ $(function () {
                     if (err.phone)          { $('#field-phone').addClass('is-invalid'); $('#err-phone').text(err.phone[0]); }
                     if (err.email)          { $('#field-email').addClass('is-invalid'); $('#err-email').text(err.email[0]); }
                     if (err.no_rekening)    { $('#field-norek').addClass('is-invalid'); $('#err-norek').text(err.no_rekening[0]); }
+                    if (err.fee_per_session){ $('#field-fee').addClass('is-invalid');   $('#err-fee').text(err.fee_per_session[0]); }
                     if (err.photo)          { $('#field-photo').addClass('is-invalid'); $('#err-photo').text(err.photo[0]); }
                     if (err.specialization) { $('#field-specialization').addClass('is-invalid'); $('#err-specialization').text(err.specialization[0]); }
                 } else {

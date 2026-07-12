@@ -41,6 +41,7 @@ class TutorController extends Controller
                             data-phone="' . e($tutor->phone) . '"
                             data-email="' . e($tutor->email ?? '') . '"
                             data-norek="' . e($tutor->no_rekening ?? '') . '"
+                            data-fee="' . e($tutor->fee_per_session !== null ? (0 + $tutor->fee_per_session) : '') . '"
                             data-photo="' . e($tutor->photo ? asset('storage/' . $tutor->photo) : '') . '"
                             data-specialization=\'' . e(json_encode($specs)) . '\'>
                             <i class="bi bi-pencil"></i>
@@ -92,6 +93,7 @@ class TutorController extends Controller
             'phone'            => 'required|string|max:20',
             'email'            => 'nullable|email|max:255',
             'no_rekening'      => 'nullable|string|max:50',
+            'fee_per_session'  => 'nullable|numeric|min:0',
             'photo'            => 'nullable|image|max:5120', // semua tipe foto, maks 5 MB
             'specialization'   => 'required|array|min:1',
             'specialization.*' => 'string|max:100',

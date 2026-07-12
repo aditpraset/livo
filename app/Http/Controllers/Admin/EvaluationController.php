@@ -18,6 +18,8 @@ use Yajra\DataTables\Facades\DataTables;
 
 class EvaluationController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ManagesEvaluations;
+
     public function index()
     {
         $subjects = Subject::orderBy('subject_name')->get(['id', 'subject_name']);
@@ -613,42 +615,6 @@ class EvaluationController extends Controller
     }
 
     /** Pastikan silabus & materi manual saling eksklusif (silabus menang bila keduanya terisi). */
-    private function normalizeMateri(array $data): array
-    {
-        if (!empty($data['syllabus_id'])) {
-            $data['materi_manual'] = null;
-        } elseif (array_key_exists('materi_manual', $data)) {
-            $data['syllabus_id'] = null;
-            $data['materi_manual'] = $data['materi_manual'] ?: null;
-        }
-        return $data;
-    }
-
-    /**
-     * Sinkronkan kuota sesi siswa terhadap evaluasi:
-     * kuota berkurang 1 saat siswa "hadir" atau "alfa" dan dievaluasi, dan
-     * dikembalikan jika status kehadiran diubah menjadi "izin". Penanda
-     * quota_consumed mencegah pemotongan dobel saat evaluasi disimpan berulang.
-     */
-    private function syncQuota(Evaluation $evaluation): void
-    {
-        $student = Schedule::find($evaluation->schedule_id)?->student;
-        if (!$student) {
-            return;
-        }
-
-        // Kuota terpotong untuk kehadiran "hadir" maupun "alfa"; "izin" tidak memotong.
-        $consumes = in_array($evaluation->student_attendance, ['hadir', 'alfa'], true);
-
-        if ($consumes && !$evaluation->quota_consumed && $student->quota_sessions > 0) {
-            $student->decrement('quota_sessions');
-            $evaluation->update(['quota_consumed' => true]);
-        } elseif (!$consumes && $evaluation->quota_consumed) {
-            $student->increment('quota_sessions');
-            $evaluation->update(['quota_consumed' => false]);
-        }
-    }
-
     public function publish(Evaluation $evaluation)
     {
         $evaluation->update(['is_published' => !$evaluation->is_published]);

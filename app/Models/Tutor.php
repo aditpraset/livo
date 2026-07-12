@@ -12,6 +12,7 @@ class Tutor extends Model
         'phone',
         'email',
         'no_rekening',
+        'fee_per_session',
         'specialization',
     ];
 

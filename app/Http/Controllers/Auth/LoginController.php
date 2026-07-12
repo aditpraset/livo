@@ -3,38 +3,24 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Foundation\Auth\AuthenticatesUsers;
+use App\Models\Student;
+use App\Models\Tutor;
+use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
+/**
+ * Login 2 langkah:
+ *  1. User memasukkan email → dicek ke tabel users; bila belum ada, dicari di master
+ *     tutor (role tutor) / master siswa (role siswa) lalu akun dibuat otomatis.
+ *     Role admin TIDAK di-provision otomatis — datanya murni dari tabel users.
+ *  2. Bila user sudah punya password → form password. Bila belum → form buat password.
+ */
 class LoginController extends Controller implements HasMiddleware
 {
-    /*
-    |--------------------------------------------------------------------------
-    | Login Controller
-    |--------------------------------------------------------------------------
-    |
-    | This controller handles authenticating users for the application and
-    | redirecting them to your home screen. The controller uses a trait
-    | to conveniently provide its functionality to your applications.
-    |
-    */
-
-    use AuthenticatesUsers;
-
-    /**
-     * Where to redirect users after login.
-     *
-     * @var string
-     */
-    protected $redirectTo = '/admin';
-
-    /**
-     * Get the middleware that should be assigned to the controller.
-     */
     public static function middleware(): array
     {
         return [
@@ -43,33 +29,183 @@ class LoginController extends Controller implements HasMiddleware
         ];
     }
 
-    /**
-     * Show the application's login form.
-     *
-     * @return \Illuminate\View\View
-     */
-    public function showLoginForm()
+    /** Step 1: form email, atau step 2 bila email sudah tervalidasi di session. */
+    public function showLoginForm(Request $request)
     {
         if (Auth::check()) {
-            return redirect()->route('admin.dashboard');
+            return $this->redirectByRole(Auth::user());
         }
-        return view('admin.auth.login');
+
+        $email = $request->session()->get('login.email');
+        if (!$email) {
+            return view('admin.auth.login', ['step' => 'email']);
+        }
+
+        $user = User::where('email', $email)->first();
+        if (!$user) {
+            $request->session()->forget('login.email');
+            return view('admin.auth.login', ['step' => 'email']);
+        }
+
+        return view('admin.auth.login', [
+            'step' => $user->password ? 'password' : 'create-password',
+            'email' => $email,
+            'name' => $user->name,
+        ]);
     }
 
-    /**
-     * Log the user out of the application.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\RedirectResponse
-     */
+    /** Step 1 (submit): validasi email, provisioning dari master bila perlu. */
+    public function checkEmail(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+        $email = strtolower(trim($request->email));
+
+        $user = User::where('email', $email)->first();
+
+        // Belum ada akun → coba provisioning dari data master (tutor lalu siswa).
+        if (!$user) {
+            $user = $this->provisionFromMaster($email);
+        }
+
+        if (!$user) {
+            return back()->withInput()->withErrors([
+                'email' => 'Email tidak terdaftar. Hubungi admin bila Anda merasa ini keliru.',
+            ]);
+        }
+
+        if ($user->status === 'nonaktif') {
+            return back()->withInput()->withErrors([
+                'email' => 'Akun Anda nonaktif. Hubungi admin untuk mengaktifkan kembali.',
+            ]);
+        }
+
+        // Pastikan role spatie selalu sinkron dengan kolom role.
+        $user->syncRoleFromColumn();
+
+        $request->session()->put('login.email', $user->email);
+
+        return redirect()->route('admin.login');
+    }
+
+    /** Step 2a: login dengan password (akun yang sudah punya password). */
+    public function login(Request $request)
+    {
+        $email = $request->session()->get('login.email');
+        if (!$email) {
+            return redirect()->route('admin.login');
+        }
+
+        $request->validate(['password' => 'required|string']);
+
+        if (!Auth::attempt(['email' => $email, 'password' => $request->password], $request->boolean('remember'))) {
+            return back()->withErrors(['password' => 'Password salah.']);
+        }
+
+        $request->session()->regenerate();
+        $request->session()->forget('login.email');
+
+        return $this->redirectByRole(Auth::user());
+    }
+
+    /** Step 2b: buat password pertama kali (akun hasil provisioning master). */
+    public function createPassword(Request $request)
+    {
+        $email = $request->session()->get('login.email');
+        if (!$email) {
+            return redirect()->route('admin.login');
+        }
+
+        $user = User::where('email', $email)->first();
+        if (!$user) {
+            return redirect()->route('admin.login');
+        }
+
+        // Guard: akun yang sudah punya password tidak boleh menimpa lewat form ini.
+        if ($user->password) {
+            return redirect()->route('admin.login');
+        }
+
+        $request->validate([
+            'password' => 'required|string|min:8|confirmed',
+        ], [
+            'password.min' => 'Password minimal 8 karakter.',
+            'password.confirmed' => 'Konfirmasi password tidak cocok.',
+        ]);
+
+        $user->update([
+            'password' => $request->password,
+            'status' => 'aktif',
+        ]);
+
+        Auth::login($user);
+        $request->session()->regenerate();
+        $request->session()->forget('login.email');
+
+        return $this->redirectByRole($user);
+    }
+
+    /** Kembali ke step email (ganti akun). */
+    public function resetEmail(Request $request)
+    {
+        $request->session()->forget('login.email');
+        return redirect()->route('admin.login');
+    }
+
     public function logout(Request $request)
     {
-        $this->guard()->logout();
+        Auth::logout();
 
         $request->session()->invalidate();
-
         $request->session()->regenerateToken();
 
         return redirect()->route('admin.login');
+    }
+
+    /**
+     * Buat akun user dari data master berdasarkan email.
+     * Tutor → role tutor; Siswa → role siswa. Admin tidak pernah dibuat dari sini.
+     */
+    private function provisionFromMaster(string $email): ?User
+    {
+        $tutor = Tutor::where('email', $email)->first();
+        if ($tutor) {
+            $user = User::create([
+                'name' => $tutor->name,
+                'email' => $email,
+                'password' => null,
+                'role' => 'tutor',
+                'status' => 'pending',
+                'tutor_id' => $tutor->id,
+            ]);
+            $user->syncRoleFromColumn();
+            return $user;
+        }
+
+        $student = Student::where('email', $email)->first();
+        if ($student) {
+            $user = User::create([
+                'name' => $student->full_name,
+                'email' => $email,
+                'password' => null,
+                'role' => 'siswa',
+                'status' => 'pending',
+                'student_id' => $student->id,
+            ]);
+            $user->syncRoleFromColumn();
+            return $user;
+        }
+
+        return null;
+    }
+
+    /** Arahkan user sesuai role setelah login. */
+    private function redirectByRole(User $user)
+    {
+        return match (true) {
+            $user->hasRole('admin') => redirect()->route('admin.dashboard'),
+            $user->hasRole('tutor') => redirect()->route('tutor.dashboard'),
+            $user->hasRole('siswa') => redirect()->route('siswa.dashboard'),
+            default => redirect()->route('admin.login'),
+        };
     }
 }
