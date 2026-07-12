@@ -173,6 +173,38 @@ class TutorAreaTest extends TestCase
         $this->assertSame('089999', $this->tutor->fresh()->phone);
     }
 
+    public function test_profile_photo_upload_and_replace(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        // Upload foto pertama
+        $this->actingAs($this->user)->put(route('tutor.profile.update'), [
+            'phone' => '0812',
+            'photo' => \Illuminate\Http\UploadedFile::fake()->image('foto.jpg', 300, 300),
+        ])->assertRedirect(route('tutor.profile'));
+
+        $firstPhoto = $this->tutor->fresh()->photo;
+        $this->assertNotNull($firstPhoto);
+        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($firstPhoto);
+
+        // Ganti foto → file lama dihapus, path baru tersimpan
+        $this->actingAs($this->user)->put(route('tutor.profile.update'), [
+            'phone' => '0812',
+            'photo' => \Illuminate\Http\UploadedFile::fake()->image('baru.png', 300, 300),
+        ])->assertRedirect(route('tutor.profile'));
+
+        $secondPhoto = $this->tutor->fresh()->photo;
+        $this->assertNotSame($firstPhoto, $secondPhoto);
+        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($secondPhoto);
+        \Illuminate\Support\Facades\Storage::disk('public')->assertMissing($firstPhoto);
+
+        // File non-gambar ditolak validasi
+        $this->actingAs($this->user)->put(route('tutor.profile.update'), [
+            'phone' => '0812',
+            'photo' => \Illuminate\Http\UploadedFile::fake()->create('dokumen.pdf', 100, 'application/pdf'),
+        ])->assertSessionHasErrors('photo');
+    }
+
     public function test_rekap_pengajaran_and_fee(): void
     {
         $done = $this->makeSchedule();

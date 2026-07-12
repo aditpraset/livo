@@ -12,13 +12,15 @@
     <div class="col-md-4">
         <div class="card">
             <div class="card-body text-center">
-                @if($tutor->photo)
-                    <img src="{{ asset('storage/' . $tutor->photo) }}" class="rounded-circle mb-3" style="width:120px;height:120px;object-fit:cover;">
-                @else
-                    <span class="rounded-circle bg-secondary-subtle text-secondary d-inline-flex align-items-center justify-content-center mb-3" style="width:120px;height:120px;">
-                        <i class="bi bi-person" style="font-size:3rem;"></i>
-                    </span>
-                @endif
+                <div id="photo-box">
+                    @if($tutor->photo)
+                        <img src="{{ asset('storage/' . $tutor->photo) }}" class="rounded-circle mb-3" style="width:120px;height:120px;object-fit:cover;">
+                    @else
+                        <span class="rounded-circle bg-secondary-subtle text-secondary d-inline-flex align-items-center justify-content-center mb-3" style="width:120px;height:120px;">
+                            <i class="bi bi-person" style="font-size:3rem;"></i>
+                        </span>
+                    @endif
+                </div>
                 <h3 class="mb-1">{{ $tutor->name }}</h3>
                 <p class="text-muted mb-2">{{ $tutor->email ?: '-' }}</p>
                 <div>
@@ -62,9 +64,9 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Foto Profil</label>
-                            <input type="file" name="photo" accept="image/*" class="form-control @error('photo') is-invalid @enderror">
+                            <input type="file" id="photo-input" name="photo" accept="image/*" class="form-control @error('photo') is-invalid @enderror">
                             @error('photo') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            <small class="text-muted">Maks 5 MB.</small>
+                            <small class="text-muted">Maks 5 MB. Preview tampil di kiri, tersimpan setelah klik Simpan.</small>
                         </div>
                     </div>
                     <div class="mt-4">
@@ -76,3 +78,29 @@
     </div>
 </div>
 @endsection
+
+@push('js')
+<script>
+(function () {
+    var input = document.getElementById('photo-input');
+    var box = document.getElementById('photo-box');
+    if (!input || !box) return;
+
+    input.addEventListener('change', function () {
+        var file = this.files && this.files[0];
+        if (!file || !file.type.startsWith('image/')) return;
+        if (file.size > 5 * 1024 * 1024) {
+            Swal.fire('Ukuran terlalu besar', 'Maksimal 5 MB.', 'warning');
+            this.value = '';
+            return;
+        }
+        box.innerHTML = '';
+        var img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.className = 'rounded-circle mb-3';
+        img.style.cssText = 'width:120px;height:120px;object-fit:cover;';
+        box.appendChild(img);
+    });
+})();
+</script>
+@endpush
