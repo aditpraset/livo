@@ -2,7 +2,7 @@
 
 Dokumen ini menjelaskan alur kerja dan modul-modul fungsional yang ada pada sistem LIVO (bimbingan belajar): dari pendaftaran siswa di website publik, pengelolaan data oleh admin, penjadwalan & evaluasi, hingga portal khusus tutor.
 
-**Stack:** Laravel 13 (PHP 8.3) · Blade + Tabler UI · Yajra DataTables (server-side) · Spatie Laravel Permission (role) · DomPDF (cetak PDF) · PhpSpreadsheet (import/export Excel)
+**Stack:** Laravel 13 (PHP 8.3) · Blade + Tabler UI · Yajra DataTables (server-side) · Spatie Laravel Permission (role) · Laravel Sanctum (token API) · DomPDF (cetak PDF) · PhpSpreadsheet (import/export Excel)
 
 ---
 
@@ -21,6 +21,7 @@ Dokumen ini menjelaskan alur kerja dan modul-modul fungsional yang ada pada sist
 11. [Modul: Portal Siswa](#11-modul-portal-siswa)
 12. [Referensi Skema Data](#12-referensi-skema-data)
 13. [Matriks Akses per Role](#13-matriks-akses-per-role)
+14. [API Tutor (Sanctum)](#14-api-tutor-sanctum)
 
 ---
 
@@ -317,3 +318,54 @@ pricings: unique(package_id, program_id, grade_id, duration) → price
 | Dashboard siswa | ❌ | ❌ | ✅ (placeholder) |
 
 Proteksi akses ditegakkan berlapis: middleware `role:*` di routing, dan pengecekan kepemilikan data (mis. tutor hanya bisa membuka siswa/jadwal miliknya sendiri) di level controller — pelanggaran menghasilkan `403 Forbidden`.
+
+---
+
+## 14. API Tutor (Sanctum)
+
+Seluruh fungsi Portal Tutor (bagian 10) juga tersedia sebagai **REST API berformat JSON** memakai **Laravel Sanctum** (token *personal access token*, stateless — bukan cookie SPA), untuk dikonsumsi aplikasi terpisah (mis. aplikasi mobile). Prefix seluruh endpoint: **`/api/tutor`**.
+
+> Referensi lengkap tiap endpoint (payload, contoh response, format error) ada di dokumen terpisah: **[API-TUTOR.md](API-TUTOR.md)**.
+
+Logika inti (provisioning akun, resolusi profil tutor, kuota/materi evaluasi, statistik rekap) **dipakai bersama** dengan controller web lewat trait di `app/Http/Controllers/Concerns/` (`ProvisionsUserFromMaster`, `ResolvesTutor`, `ManagesEvaluations`, `ComputesTutorTeachingStats`) — perilaku API dan web dijamin konsisten karena berasal dari kode yang sama, bukan duplikasi.
+
+### 14.1 Autentikasi (publik)
+
+Meniru alur 2 langkah di bagian 1, versi stateless bertoken:
+
+| Method & Path | Fungsi |
+|---|---|
+| `POST /api/tutor/auth/check-email` | Kirim `{ email }`. Jika belum ada akun, sistem mencoba provisioning dari master Tutor (sama seperti web). Balasan: `{ email, name, has_password }` — client memakai `has_password` untuk menampilkan form password atau form buat password. Email yang tidak dikenal / bukan role tutor → `422` dengan pesan validasi. |
+| `POST /api/tutor/auth/login` | `{ email, password, device_name? }` → bila valid, **menerbitkan token** (`token`, `token_type`, `user`, `tutor`). Password salah / bukan tutor / akun nonaktif → `422`. |
+| `POST /api/tutor/auth/create-password` | `{ email, password, password_confirmation, device_name? }` — hanya untuk akun yang **belum** punya password (hasil provisioning). Berhasil → status akun jadi `aktif` dan langsung menerbitkan token. Akun yang sudah punya password ditolak (`422`) — arahkan ke `/login`. |
+
+Seluruh request/response berformat JSON (`Accept: application/json`). Token dikirim balik sebagai `Bearer` token untuk dipakai di header `Authorization` pada seluruh endpoint terproteksi berikut.
+
+### 14.2 Endpoint terproteksi (`auth:sanctum` + `role:tutor`)
+
+Header wajib: `Authorization: Bearer <token>`. Token milik akun tutor yang **tidak tertaut** ke master Tutor tetap mendapat `403` (sama seperti web). Token milik role lain mendapat `403` dari middleware `role:tutor`; tanpa token/token tidak valid → `401`.
+
+| Method & Path | Fungsi | Setara halaman web |
+|---|---|---|
+| `GET /auth/me` | Info akun + profil tutor yang sedang login | — (bootstrap client) |
+| `POST /auth/logout` | Cabut token yang sedang dipakai (logout perangkat ini saja) | — |
+| `GET /dashboard` | Statistik akumulasi sesi & siswa, review penilaian, 8 evaluasi terbaru | Dashboard |
+| `GET /schedules/week?week=YYYY-MM-DD` | Jadwal satu minggu, dikelompokkan per tanggal | Jadwal Mingguan |
+| `GET /students/{id}` | Profil siswa + statistik bersama tutor ini (`403` bila bukan siswa tutor tsb.) | Detail Siswa |
+| `GET /students/{id}/history?page=&per_page=` | Riwayat sesi siswa, dipaginasi | Riwayat sesi (tabel) |
+| `GET /evaluations?page=&per_page=` | Daftar sesi yang evaluasinya belum diisi, dipaginasi | Evaluasi Siswa (daftar) |
+| `GET /evaluations/{schedule}` | Detail sesi + opsi silabus mapel terkait, untuk mengisi form | Form Isi Evaluasi |
+| `POST /evaluations/{schedule}` | Simpan evaluasi (materi, kehadiran, nilai, catatan) — memotong/mengembalikan kuota sesi siswa secara otomatis, sesi lewat otomatis ditandai selesai | Submit Isi Evaluasi |
+| `GET /profile` | Data profil tutor | Profil Saya |
+| `POST /profile` | Perbarui kontak/no. rekening/foto (`multipart/form-data`; `POST` dipakai karena upload file, bukan `PUT`) | Update Profil |
+| `GET /rekap-pengajaran?month=YYYY-MM&page=` | Statistik + daftar sesi selesai bulan tsb., dipaginasi | Rekap Pengajaran |
+| `GET /rekap-fee?year=YYYY` | 12 baris bulanan: jumlah sesi × fee per sesi, plus total tahunan | Rekap Fee |
+| `GET /reports/slip-gaji?month=YYYY-MM` | Unduh **PDF** slip gaji bulan tsb. | Laporan → Slip Gaji |
+| `GET /reports/summary?month=YYYY-MM` | Unduh **PDF** summary pengajaran bulan tsb. | Laporan → Summary |
+
+### 14.3 Catatan implementasi
+
+- Tabel data (evaluasi pending, riwayat siswa, rekap pengajaran) memakai **pagination JSON standar Laravel** (`?page=`, `?per_page=`), bukan format Yajra DataTables yang dipakai di web — lebih sesuai untuk konsumsi client non-Blade.
+- Endpoint laporan (slip gaji & summary) tetap mengembalikan **berkas PDF biner** (bukan JSON) memakai template Blade yang sama dengan web, agar hasil cetak konsisten.
+- Migrasi `personal_access_tokens` (bawaan Sanctum) menyimpan token; tidak ada *token expiration* default — cabut token via `POST /auth/logout` saat selesai dipakai.
+- Endpoint ini **khusus role tutor**. Pola yang sama (trait `ResolvesTutor` → `ResolvesSiswa`, dst.) dapat direplikasi untuk API role admin/siswa saat modul tersebut dikembangkan.

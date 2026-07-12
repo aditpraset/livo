@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tutor;
 
+use App\Http\Controllers\Concerns\ComputesTutorTeachingStats;
 use App\Models\Schedule;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -9,6 +10,8 @@ use Illuminate\Http\Request;
 
 class ReportController extends BaseTutorController
 {
+    use ComputesTutorTeachingStats;
+
     /** Rekapitulasi hasil pengajaran per bulan. */
     public function rekapPengajaran(Request $request)
     {
@@ -135,43 +138,4 @@ class ReportController extends BaseTutorController
         return $pdf->download('summary-pengajaran-' . $month->format('Y-m') . '.pdf');
     }
 
-    /** Bulan dari query ?month=YYYY-MM (default bulan berjalan). */
-    private function resolveMonth(Request $request): Carbon
-    {
-        try {
-            return $request->filled('month')
-                ? Carbon::createFromFormat('Y-m', $request->month)->startOfMonth()
-                : now()->startOfMonth();
-        } catch (\Throwable) {
-            return now()->startOfMonth();
-        }
-    }
-
-    /** Sesi selesai (beserta evaluasi) dalam satu bulan + statistiknya. */
-    private function teachingData(int $tutorId, Carbon $month): array
-    {
-        $schedules = Schedule::with(['student', 'subject', 'evaluation.syllabus'])
-            ->where('tutor_id', $tutorId)
-            ->where('status_schedule', 'done')
-            ->whereYear('class_date', $month->year)
-            ->whereMonth('class_date', $month->month)
-            ->orderBy('class_date')->orderBy('start_time')
-            ->get();
-
-        $evaluated = $schedules->filter(fn ($s) => $s->evaluation);
-        $postTests = $evaluated->filter(fn ($s) => $s->evaluation->post_test !== null)
-            ->map(fn ($s) => $s->evaluation->post_test);
-
-        $stats = [
-            'done' => $schedules->count(),
-            'students' => $schedules->pluck('student_id')->unique()->count(),
-            'evaluated' => $evaluated->count(),
-            'avg_post_test' => $postTests->count() ? round($postTests->avg(), 1) : null,
-            'hadir' => $evaluated->filter(fn ($s) => $s->evaluation->student_attendance === 'hadir')->count(),
-            'izin' => $evaluated->filter(fn ($s) => $s->evaluation->student_attendance === 'izin')->count(),
-            'alfa' => $evaluated->filter(fn ($s) => $s->evaluation->student_attendance === 'alfa')->count(),
-        ];
-
-        return [$schedules, $stats];
-    }
 }

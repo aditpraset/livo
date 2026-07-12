@@ -2,15 +2,13 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Http\Controllers\Concerns\ProvisionsUserFromMaster;
 use App\Http\Controllers\Controller;
-use App\Models\Student;
-use App\Models\Tutor;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 
 /**
  * Login 2 langkah:
@@ -21,6 +19,8 @@ use Illuminate\Support\Facades\Hash;
  */
 class LoginController extends Controller implements HasMiddleware
 {
+    use ProvisionsUserFromMaster;
+
     public static function middleware(): array
     {
         return [
@@ -159,43 +159,6 @@ class LoginController extends Controller implements HasMiddleware
         $request->session()->regenerateToken();
 
         return redirect()->route('admin.login');
-    }
-
-    /**
-     * Buat akun user dari data master berdasarkan email.
-     * Tutor → role tutor; Siswa → role siswa. Admin tidak pernah dibuat dari sini.
-     */
-    private function provisionFromMaster(string $email): ?User
-    {
-        $tutor = Tutor::where('email', $email)->first();
-        if ($tutor) {
-            $user = User::create([
-                'name' => $tutor->name,
-                'email' => $email,
-                'password' => null,
-                'role' => 'tutor',
-                'status' => 'pending',
-                'tutor_id' => $tutor->id,
-            ]);
-            $user->syncRoleFromColumn();
-            return $user;
-        }
-
-        $student = Student::where('email', $email)->first();
-        if ($student) {
-            $user = User::create([
-                'name' => $student->full_name,
-                'email' => $email,
-                'password' => null,
-                'role' => 'siswa',
-                'status' => 'pending',
-                'student_id' => $student->id,
-            ]);
-            $user->syncRoleFromColumn();
-            return $user;
-        }
-
-        return null;
     }
 
     /** Arahkan user sesuai role setelah login. */
