@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tutor;
 
 use App\Models\Evaluation;
 use App\Models\Schedule;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends BaseTutorController
 {
@@ -14,12 +15,16 @@ class DashboardController extends BaseTutorController
 
         $base = Schedule::where('tutor_id', $tutor->id);
 
+        // Satu "sesi" = satu slot mengajar (tanggal + jam), bukan per siswa.
+        // Beberapa siswa pada slot yang sama dihitung sebagai satu sesi.
+        $sessionGroup = DB::raw('DISTINCT class_date, start_time, end_time');
+
         $stats = [
-            'total_sessions' => (clone $base)->where('status_schedule', 'done')->count(),
+            'total_sessions' => (clone $base)->where('status_schedule', 'done')->count($sessionGroup),
             'month_sessions' => (clone $base)->where('status_schedule', 'done')
-                ->whereYear('class_date', $now->year)->whereMonth('class_date', $now->month)->count(),
+                ->whereYear('class_date', $now->year)->whereMonth('class_date', $now->month)->count($sessionGroup),
             'upcoming_sessions' => (clone $base)->where('status_schedule', 'scheduled')
-                ->whereDate('class_date', '>=', $now->toDateString())->count(),
+                ->whereDate('class_date', '>=', $now->toDateString())->count($sessionGroup),
             'total_students' => (clone $base)->distinct('student_id')->count('student_id'),
             'month_students' => (clone $base)->whereYear('class_date', $now->year)
                 ->whereMonth('class_date', $now->month)->distinct('student_id')->count('student_id'),

@@ -198,6 +198,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // ── Penjadwalan ───────────────────────────────────────────────
         Route::get('/schedules', [ScheduleController::class, 'index'])->name('schedules.index');
         Route::get('/data/schedules', [ScheduleController::class, 'data'])->name('schedules.data');
+        Route::get('/data/schedules-grouped', [ScheduleController::class, 'grouped'])->name('schedules.grouped');
+        Route::get('/schedules/group-students', [ScheduleController::class, 'groupStudents'])->name('schedules.group-students');
         Route::get('/schedules/evaluation-template', [ScheduleController::class, 'evaluationTemplate'])->name('schedules.evaluation-template');
         Route::post('/schedules/import-evaluation', [ScheduleController::class, 'importEvaluation'])->name('schedules.import-evaluation');
         Route::get('/schedules/events', [ScheduleController::class, 'events'])->name('schedules.events');

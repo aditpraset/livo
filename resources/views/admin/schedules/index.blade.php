@@ -163,7 +163,45 @@
 @endsection
 
 @section('content')
-<div class="gcal-card">
+
+{{-- ── Pemilih tampilan: Kalender / Grup Sesi ── --}}
+<div class="btn-group mb-3" role="group" id="view-mode-toggle">
+    <button type="button" class="btn btn-primary" data-mode="calendar"><i class="bi bi-calendar3 me-1"></i>Kalender</button>
+    <button type="button" class="btn btn-outline-primary" data-mode="grouped"><i class="bi bi-collection me-1"></i>Grup Sesi</button>
+</div>
+
+{{-- ── Tampilan Grup per Sesi ── --}}
+<div class="gcal-card d-none mb-4" id="grouped-view">
+    <div class="p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <h5 class="mb-0">Jadwal per Sesi</h5>
+                <small class="text-muted">Dikelompokkan per hari &amp; sesi. Beberapa siswa dalam satu sesi tampil sebagai satu baris.</small>
+            </div>
+            <select id="grouped-filter-tutor" class="form-select form-select-sm" style="width:200px">
+                <option value="">Semua Tutor</option>
+                @foreach($tutors as $t)
+                    <option value="{{ $t->id }}">{{ $t->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="table-responsive">
+            <table id="grouped-table" class="table table-hover align-middle w-100">
+                <thead>
+                    <tr>
+                        <th>Hari</th>
+                        <th>Sesi</th>
+                        <th>Kelas</th>
+                        <th>Tutor</th>
+                        <th class="text-center">Aksi</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="gcal-card" id="calendar-view">
 
     {{-- ── Top bar: prev/next · today · title · view switcher ── --}}
     <div class="gcal-topbar">
@@ -209,6 +247,37 @@
     {{-- ── Calendar ── --}}
     <div id="calendar"></div>
 
+</div>
+
+{{-- ========== MODAL: Daftar Siswa per Sesi ========== --}}
+<div class="modal fade" id="modal-group-students" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-people me-2 text-primary"></i>Daftar Siswa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-2" id="group-students-label">—</p>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:36px">No.</th>
+                                <th>Nama Siswa</th>
+                                <th>NIS</th>
+                                <th>Kelas</th>
+                                <th>Mata Pelajaran</th>
+                                <th>Status</th>
+                                <th class="text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="group-students-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 {{-- ========== MODAL: Tambah / Edit Jadwal ========== --}}
@@ -523,6 +592,7 @@ $(function () {
                     actionsHtml += '<button class="btn btn-sm btn-outline-secondary" id="swal-cancel-sched"><i class="bi bi-x-circle me-1"></i>Batalkan</button>';
                 }
                 if (p.status === 'done') {
+                    actionsHtml += '<button class="btn btn-sm btn-warning" id="swal-edit"><i class="bi bi-pencil me-1"></i>Edit Jadwal</button>';
                     var evalLabel = p.has_eval ? 'Edit Evaluasi' : 'Isi Evaluasi';
                     actionsHtml += '<button class="btn btn-sm btn-info text-white" id="swal-eval"><i class="bi bi-clipboard2-check me-1"></i>' + evalLabel + '</button>';
                 }
@@ -822,6 +892,7 @@ $(function () {
             success: function (res) {
                 $('#modal-schedule').modal('hide');
                 calendar.refetchEvents();
+                if (groupedTable) groupedTable.ajax.reload(null, false);
                 Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2000, showConfirmButton: false });
             },
             error: function (xhr) {
@@ -1003,6 +1074,82 @@ $(function () {
                 $btn.prop('disabled', false).html('<i class="bi bi-upload me-1"></i> Upload');
             }
         });
+    });
+
+    /* ================================================================
+       Tampilan Grup per Sesi
+    ================================================================ */
+    var groupedTable = null;
+    function initGroupedTable() {
+        if (groupedTable) return;
+        groupedTable = $('#grouped-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: {
+                url: "{{ route('admin.schedules.grouped') }}",
+                data: function (d) { d.filter_tutor = $('#grouped-filter-tutor').val(); }
+            },
+            columns: [
+                { data: 'hari' },
+                { data: 'sesi' },
+                { data: 'kelas' },
+                { data: 'tutor' },
+                { data: 'action', orderable: false, searchable: false, className: 'text-center' }
+            ],
+            order: []
+        });
+    }
+
+    $('#grouped-filter-tutor').on('change', function () { if (groupedTable) groupedTable.ajax.reload(); });
+
+    // Toggle Kalender / Grup Sesi
+    $('#view-mode-toggle button').on('click', function () {
+        var mode = $(this).data('mode');
+        $('#view-mode-toggle button').removeClass('btn-primary').addClass('btn-outline-primary');
+        $(this).removeClass('btn-outline-primary').addClass('btn-primary');
+        if (mode === 'grouped') {
+            $('#calendar-view').addClass('d-none');
+            $('#grouped-view').removeClass('d-none');
+            initGroupedTable();
+            if (groupedTable) groupedTable.columns.adjust();
+        } else {
+            $('#grouped-view').addClass('d-none');
+            $('#calendar-view').removeClass('d-none');
+            if (calendar) calendar.updateSize();
+        }
+    });
+
+    // Lihat daftar siswa pada satu grup sesi
+    $(document).on('click', '.btn-group-students', function () {
+        var $b = $(this);
+        $('#group-students-label').text($b.data('label'));
+        var body = $('#group-students-body').html('<tr><td colspan="7" class="text-center text-muted py-3">Memuat...</td></tr>');
+        $('#modal-group-students').modal('show');
+        $.get("{{ route('admin.schedules.group-students') }}", {
+            date: $b.data('date'), start: $b.data('start'), end: $b.data('end'), tutor_id: $b.data('tutor')
+        }, function (rows) {
+            if (!rows.length) { body.html('<tr><td colspan="7" class="text-center text-muted py-3">Tidak ada siswa.</td></tr>'); return; }
+            var badge = { done: 'bg-success', scheduled: 'bg-primary', canceled: 'bg-secondary' };
+            var label = { done: 'Selesai', scheduled: 'Dijadwalkan', canceled: 'Dibatalkan' };
+            var html = '';
+            rows.forEach(function (r, i) {
+                html += '<tr><td>' + (i + 1) + '</td><td>' + r.name + '</td><td>' + r.nis + '</td><td>' + r.grade +
+                    '</td><td>' + r.subject + '</td><td><span class="badge ' + (badge[r.status] || 'bg-light text-dark') +
+                    '">' + (label[r.status] || r.status) + '</span></td>' +
+                    '<td class="text-center"><button class="btn btn-sm btn-outline-warning btn-edit-student-schedule" data-id="' + r.id +
+                    '"><i class="bi bi-pencil me-1"></i>Edit Jadwal</button></td></tr>';
+            });
+            body.html(html);
+        }).fail(function () {
+            body.html('<tr><td colspan="7" class="text-center text-danger py-3">Gagal memuat data.</td></tr>');
+        });
+    });
+
+    // Edit jadwal seorang siswa dari modal daftar siswa (berlaku juga untuk status Selesai)
+    $(document).on('click', '.btn-edit-student-schedule', function () {
+        var id = $(this).data('id');
+        $('#modal-group-students').modal('hide');
+        doEdit(id);
     });
 
 });

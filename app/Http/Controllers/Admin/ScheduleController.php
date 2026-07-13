@@ -79,6 +79,76 @@ class ScheduleController extends Controller
             ->make(true);
     }
 
+    /**
+     * Data jadwal dikelompokkan per sesi (tanggal + jam + tutor).
+     * Beberapa siswa pada slot yang sama tampil sebagai satu baris.
+     */
+    public function grouped(Request $request)
+    {
+        // Peta nama sesi berdasarkan rentang jam (HH:MM-HH:MM)
+        $sessionNames = ScheduleSession::get()->mapWithKeys(fn($s) => [
+            substr($s->time_start, 0, 5) . '-' . substr($s->time_end, 0, 5) => $s->name,
+        ]);
+
+        $groups = Schedule::with(['tutor', 'subject', 'student'])
+            ->when($request->filter_tutor, fn($q) => $q->where('tutor_id', $request->filter_tutor))
+            ->orderByDesc('class_date')->orderBy('start_time')
+            ->get()
+            ->groupBy(fn($s) => \Carbon\Carbon::parse($s->class_date)->toDateString() . '|' . $s->start_time . '|' . $s->end_time . '|' . $s->tutor_id)
+            ->map(function ($g) use ($sessionNames) {
+                $first = $g->first();
+                $date  = \Carbon\Carbon::parse($first->class_date);
+                $range = substr($first->start_time, 0, 5) . '-' . substr($first->end_time, 0, 5);
+
+                return [
+                    'class_date'  => $date->toDateString(),
+                    'hari'        => $date->locale('id')->translatedFormat('l, d M Y'),
+                    'sesi'        => ($sessionNames[$range] ?? 'Sesi') . ' (' . str_replace('-', ' - ', $range) . ')',
+                    'kelas'       => $g->pluck('student.grade')->filter()->unique()->values()->implode(', ') ?: '-',
+                    'mapel'       => $g->pluck('subject.subject_name')->filter()->unique()->values()->implode(', ') ?: '-',
+                    'tutor'       => $first->tutor->name ?? '-',
+                    'jumlah'      => $g->pluck('student_id')->unique()->count(),
+                    'start_time'  => substr($first->start_time, 0, 5),
+                    'end_time'    => substr($first->end_time, 0, 5),
+                    'tutor_id'    => $first->tutor_id,
+                ];
+            })->values();
+
+        return DataTables::of($groups)
+            ->addColumn('action', function ($row) {
+                return '<button class="btn btn-sm btn-outline-primary btn-group-students" '
+                    . 'data-date="' . $row['class_date'] . '" '
+                    . 'data-start="' . $row['start_time'] . '" '
+                    . 'data-end="' . $row['end_time'] . '" '
+                    . 'data-tutor="' . $row['tutor_id'] . '" '
+                    . 'data-label="' . e($row['hari'] . ' · ' . $row['sesi']) . '">'
+                    . '<i class="bi bi-people me-1"></i>Lihat Siswa (' . $row['jumlah'] . ')</button>';
+            })
+            ->rawColumns(['action'])
+            ->make(true);
+    }
+
+    /** Daftar siswa pada satu grup sesi (tanggal + jam + tutor). */
+    public function groupStudents(Request $request)
+    {
+        $students = Schedule::with(['student', 'subject'])
+            ->whereDate('class_date', $request->date)
+            ->whereRaw('LEFT(start_time,5) = ?', [$request->start])
+            ->whereRaw('LEFT(end_time,5) = ?', [$request->end])
+            ->where('tutor_id', $request->tutor_id)
+            ->get()
+            ->map(fn($s) => [
+                'id'      => $s->id,
+                'name'    => $s->student->full_name ?? '-',
+                'nis'     => $s->student->nis ?? '-',
+                'grade'   => $s->student->grade ?? '-',
+                'subject' => $s->subject->subject_name ?? '-',
+                'status'  => $s->status_schedule,
+            ])->values();
+
+        return response()->json($students);
+    }
+
     public function events(Request $request)
     {
         $events = Schedule::with(['student', 'tutor', 'subject', 'evaluation'])
