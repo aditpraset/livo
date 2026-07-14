@@ -75,9 +75,76 @@ class PaymentController extends Controller
             ->make(true);
     }
 
+    /**
+     * Halaman pengingat SPP: siswa aktif yang masa aktif SPP-nya sudah lewat
+     * atau akan habis dalam 7 hari ke depan.
+     */
+    public function reminders()
+    {
+        return view('admin.payments.reminders');
+    }
+
+    /** Data pengingat SPP (server-side DataTable). */
+    public function dataReminders()
+    {
+        $today     = now()->startOfDay();
+        $threshold = now()->copy()->addDays(7)->endOfDay();
+
+        // Tanggal expired SPP terakhir (paling jauh) per siswa; kategori 2=SPP, 4=Registrasi & SPP
+        $lastExpired = Payment::whereIn('category_payment', [2, 4])
+            ->whereNotNull('expired_date')
+            ->selectRaw('student_id, MAX(expired_date) as last_expired')
+            ->groupBy('student_id')
+            ->pluck('last_expired', 'student_id');
+
+        $rows = Student::where('status', 1)->orderBy('full_name')->get()
+            ->filter(function ($s) use ($lastExpired, $threshold) {
+                $exp = $lastExpired[$s->id] ?? null;
+                return $exp && \Carbon\Carbon::parse($exp)->lte($threshold);
+            })
+            ->map(function ($s) use ($lastExpired, $today) {
+                $exp     = \Carbon\Carbon::parse($lastExpired[$s->id])->startOfDay();
+                $selisih = $today->diffInDays($exp, false); // negatif bila sudah lewat
+                $lewat   = $selisih < 0;
+
+                return [
+                    'id'           => $s->id,
+                    'nis'          => $s->nis ?? '-',
+                    'full_name'    => $s->full_name,
+                    'grade'        => $s->grade ?? '-',
+                    'package'      => $s->package ?? '-',
+                    'whatsapp'     => $s->whatsapp ?: $s->phone,
+                    'expired_date' => $exp->format('d M Y'),
+                    'expired_sort' => $exp->toDateString(),
+                    'lewat'        => $lewat,
+                    'selisih'      => abs($selisih),
+                ];
+            })
+            ->sortBy('expired_sort')->values();
+
+        return DataTables::of($rows)
+            ->addColumn('sisa', function ($r) {
+                return $r['lewat']
+                    ? '<span class="badge bg-danger">Lewat ' . $r['selisih'] . ' hari</span>'
+                    : '<span class="badge bg-warning text-dark">' . $r['selisih'] . ' hari lagi</span>';
+            })
+            ->addColumn('action', function ($r) {
+                $btn = '<a href="' . route('admin.payments.create', ['student_id' => $r['id']]) . '" class="btn btn-sm btn-primary" title="Tambah Pembayaran SPP"><i class="bi bi-cash-coin me-1"></i>Bayar</a>';
+                if ($r['whatsapp']) {
+                    $wa = preg_replace('/[^0-9]/', '', $r['whatsapp']);
+                    $wa = str_starts_with($wa, '0') ? '62' . substr($wa, 1) : $wa;
+                    $btn = '<a href="https://wa.me/' . $wa . '" target="_blank" class="btn btn-sm btn-outline-success me-1" title="Ingatkan via WhatsApp"><i class="bi bi-whatsapp"></i></a>' . $btn;
+                }
+                return '<div class="d-inline-flex">' . $btn . '</div>';
+            })
+            ->rawColumns(['sisa', 'action'])
+            ->make(true);
+    }
+
     public function create()
     {
         $students = Student::where('status', 1)->orderBy('full_name')->get();
+        $prefillStudentId = request('student_id');
 
         // Peta harga master per kombinasi paket-program-jenjang-durasi (sekali query)
         $priceMap = \App\Models\Pricing::all()->keyBy(
@@ -94,7 +161,7 @@ class PaymentController extends Controller
         $count = Payment::whereDate('created_at', $today->toDateString())->count() + 1;
         $noPayment = 'LVR-' . $today->format('ymd') . str_pad($count, 4, '0', STR_PAD_LEFT);
 
-        return view('admin.payments.create', compact('students', 'noPayment', 'studentPrices'));
+        return view('admin.payments.create', compact('students', 'noPayment', 'studentPrices', 'prefillStudentId'));
     }
 
     public function store(Request $request)

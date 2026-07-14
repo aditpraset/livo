@@ -35,7 +35,7 @@
                             <select name="student_id" class="form-select @error('student_id') is-invalid @enderror" required>
                                 <option value="">-- Pilih Siswa --</option>
                                 @foreach($students as $student)
-                                    <option value="{{ $student->id }}" data-duration="{{ $student->duration ?? '' }}" {{ old('student_id') == $student->id ? 'selected' : '' }}>
+                                    <option value="{{ $student->id }}" data-duration="{{ $student->duration ?? '' }}" {{ old('student_id', $prefillStudentId ?? '') == $student->id ? 'selected' : '' }}>
                                         {{ $student->full_name }} {{ $student->nis ? '(' . $student->nis . ')' : '' }}
                                     </option>
                                 @endforeach

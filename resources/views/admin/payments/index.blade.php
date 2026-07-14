@@ -11,6 +11,9 @@
                 <p class="text-muted mb-0">Kelola semua data pembayaran siswa LIVO.</p>
             </div>
             <div class="d-flex gap-2">
+                <a href="{{ route('admin.payments.reminders') }}" class="btn btn-outline-warning">
+                    <i class="bi bi-bell me-1"></i> Pengingat SPP
+                </a>
                 <a href="{{ route('admin.payments.template') }}" class="btn btn-outline-secondary">
                     <i class="bi bi-download me-1"></i> Download Template
                 </a>
