@@ -2,6 +2,15 @@
 
 @section('title', 'Isi Evaluasi - LIVO Tutor')
 
+@push('css')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css">
+<style>
+    .select2-container--bootstrap-5 .select2-selection { min-height: calc(1.5em + 0.75rem + 2px); }
+    .select2-container .select2-dropdown { z-index: 1100; }
+</style>
+@endpush
+
 @section('content')
 @php($ev = $schedule->evaluation)
 <div class="mb-4">
@@ -13,7 +22,7 @@
     </p>
 </div>
 
-<form action="{{ route('tutor.evaluations.store', $schedule->id) }}" method="POST">
+<form action="{{ route('tutor.evaluations.store', $schedule->id) }}" method="POST" id="eval-form">
     @csrf
     <div class="row g-4">
         <div class="col-md-8">
@@ -98,3 +107,26 @@
     </div>
 </form>
 @endsection
+
+@push('js')
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(function () {
+    // Silabus: dropdown dengan fitur pencarian (Select2)
+    $('#syllabus-select').select2({
+        theme: 'bootstrap-5',
+        width: '100%',
+        placeholder: '-- Pilih dari silabus (opsional) --',
+        allowClear: true
+    });
+
+    // Cegah Enter menekan submit form secara tidak sengaja.
+    // Textarea tetap boleh Enter untuk baris baru.
+    $('#eval-form').on('keydown', 'input, select', function (e) {
+        if (e.key === 'Enter' || e.keyCode === 13) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+@endpush
