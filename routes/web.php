@@ -113,6 +113,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/data/payments', [PaymentController::class, 'dataPayments'])->name('data.payments');
         Route::get('/payments-reminders', [PaymentController::class, 'reminders'])->name('payments.reminders');
         Route::get('/data/payments-reminders', [PaymentController::class, 'dataReminders'])->name('data.payments-reminders');
+        Route::get('/payments-reminders/{student}/print', [PaymentController::class, 'printReminder'])->name('payments.reminders.print');
         Route::get('/payments/create', [PaymentController::class, 'create'])->name('payments.create');
         Route::get('/payments/template', [PaymentController::class, 'template'])->name('payments.template');
         Route::post('/payments/import', [PaymentController::class, 'import'])->name('payments.import');

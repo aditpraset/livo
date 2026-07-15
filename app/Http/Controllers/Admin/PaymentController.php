@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Models\Program;
 use App\Models\Student;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -129,7 +130,8 @@ class PaymentController extends Controller
                     : '<span class="badge bg-warning text-dark">' . $r['selisih'] . ' hari lagi</span>';
             })
             ->addColumn('action', function ($r) {
-                $btn = '<a href="' . route('admin.payments.create', ['student_id' => $r['id']]) . '" class="btn btn-sm btn-primary" title="Tambah Pembayaran SPP"><i class="bi bi-cash-coin me-1"></i>Bayar</a>';
+                $btn = '<a href="' . route('admin.payments.create', ['student_id' => $r['id']]) . '" class="btn btn-sm btn-primary me-1" title="Tambah Pembayaran SPP"><i class="bi bi-cash-coin me-1"></i>Bayar</a>';
+                $btn .= '<a href="' . route('admin.payments.reminders.print', $r['id']) . '" target="_blank" class="btn btn-sm btn-outline-danger me-1" title="Cetak Reminder Payment (PDF)"><i class="bi bi-printer"></i></a>';
                 if ($r['whatsapp']) {
                     $wa = preg_replace('/[^0-9]/', '', $r['whatsapp']);
                     $wa = str_starts_with($wa, '0') ? '62' . substr($wa, 1) : $wa;
@@ -139,6 +141,61 @@ class PaymentController extends Controller
             })
             ->rawColumns(['sisa', 'action'])
             ->make(true);
+    }
+
+    /** Cetak PDF Reminder Payment untuk satu siswa (format sesuai dokumen referensi). */
+    public function printReminder(Student $student)
+    {
+        // Pembayaran SPP terakhir (kategori 2=SPP, 4=Registrasi & SPP) untuk ambil masa aktif/expired/kuota.
+        $lastPayment = Payment::where('student_id', $student->id)
+            ->whereIn('category_payment', [2, 4])
+            ->whereNotNull('expired_date')
+            ->orderByDesc('expired_date')
+            ->first();
+
+        $periodLabel = $lastPayment && $lastPayment->period
+            ? $lastPayment->period . ' Bulan'
+            : ($student->duration ? $student->duration . ' Bulan' : '-');
+
+        $program = $student->program_id ? Program::find($student->program_id) : null;
+
+        // Periode bergabung: X Tahun Y Bulan Z Hari sejak tanggal mulai belajar
+        $joined = $student->registration_date ? \Carbon\Carbon::parse($student->registration_date) : null;
+        $joinedLabel = '-';
+        if ($joined) {
+            $diff = $joined->diff(now());
+            $parts = [];
+            if ($diff->y > 0) $parts[] = $diff->y . ' Tahun';
+            if ($diff->m > 0) $parts[] = $diff->m . ' Bulan';
+            $parts[] = $diff->d . ' Hari';
+            $joinedLabel = implode(' ', $parts);
+        }
+
+        $quotaPurchased = $lastPayment->quota ?? null;
+        $quotaRemaining = (int) ($student->quota_sessions ?? 0);
+        $quotaUsed = $quotaPurchased !== null ? max(0, $quotaPurchased - $quotaRemaining) : null;
+
+        $logoPath = public_path('frontend/images/logo.jpeg');
+        $logo = file_exists($logoPath) ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath)) : null;
+
+        $data = [
+            'student'         => $student,
+            'periode'         => now()->locale('id')->translatedFormat('F Y'),
+            'kbm_process'     => $student->kbm_process ?: '-',
+            'program_name'    => $program->program_name ?? '-',
+            'quota_purchased' => $quotaPurchased ?? '-',
+            'period_label'    => $periodLabel,
+            'quota_used'      => $quotaUsed ?? '-',
+            'joined_label'    => $joinedLabel,
+            'masa_aktif'      => $lastPayment->masa_aktif ?? '-',
+            'expired_date'    => $lastPayment && $lastPayment->expired_date ? \Carbon\Carbon::parse($lastPayment->expired_date)->format('d/m/Y') : '-',
+            'quota_remaining' => $quotaRemaining,
+            'logo'            => $logo,
+        ];
+
+        $pdf = Pdf::loadView('admin.payments.reminder-pdf', $data)->setPaper('a4', 'portrait');
+
+        return $pdf->stream('reminder-payment-' . str()->slug($student->full_name) . '.pdf');
     }
 
     public function create()
