@@ -187,6 +187,9 @@
                                 <option value="SMP Kelas 7">SMP Kelas 7</option>
                                 <option value="SMP Kelas 8">SMP Kelas 8</option>
                                 <option value="SMP Kelas 9">SMP Kelas 9</option>
+                                <option value="SMA Kelas 10">SMA Kelas 10</option>
+                                <option value="SMA Kelas 11">SMA Kelas 11</option>
+                                <option value="SMA Kelas 12">SMA Kelas 12</option>
                             </select>
                         </div>
                         <div class="col-md-6">
