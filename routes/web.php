@@ -42,10 +42,14 @@ Route::get('/dashboard', function () {
 Route::prefix('tutor')->name('tutor.')->middleware(['auth', 'role:tutor'])->group(function () {
     Route::get('/', [\App\Http\Controllers\Tutor\DashboardController::class, 'index'])->name('dashboard');
 
-    // Jadwal mingguan + detail siswa
+    // Jadwal mingguan
     Route::get('/jadwal', [\App\Http\Controllers\Tutor\ScheduleController::class, 'week'])->name('schedules.week');
-    Route::get('/siswa/{student}', [\App\Http\Controllers\Tutor\ScheduleController::class, 'studentDetail'])->name('students.show');
-    Route::get('/data/siswa/{student}/riwayat', [\App\Http\Controllers\Tutor\ScheduleController::class, 'dataStudentHistory'])->name('students.data');
+
+    // Data siswa aktif + history evaluasi
+    Route::get('/siswa', [\App\Http\Controllers\Tutor\StudentController::class, 'index'])->name('students.index');
+    Route::get('/data/siswa', [\App\Http\Controllers\Tutor\StudentController::class, 'data'])->name('students.data-list');
+    Route::get('/siswa/{student}', [\App\Http\Controllers\Tutor\StudentController::class, 'history'])->name('students.show');
+    Route::get('/data/siswa/{student}/riwayat', [\App\Http\Controllers\Tutor\StudentController::class, 'dataHistory'])->name('students.data');
 
     // Evaluasi yang harus diisi
     Route::get('/evaluasi', [\App\Http\Controllers\Tutor\EvaluationController::class, 'index'])->name('evaluations.index');

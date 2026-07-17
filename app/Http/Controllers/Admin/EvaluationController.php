@@ -82,9 +82,10 @@ class EvaluationController extends Controller
             ->addColumn('post_test', fn($s) => $s->evaluation && $s->evaluation->post_test !== null
                 ? '<span class="badge bg-light text-dark border fs-6">' . $s->evaluation->post_test . '</span>'
                 : '<span class="text-muted">—</span>')
-            ->addColumn('action', fn($s) => '<a href="' . route('admin.evaluations.student', $s->student_id) . '" class="btn btn-sm btn-outline-primary" title="Lihat Laporan Siswa">
-                            <i class="bi bi-clipboard2-data"></i>
-                        </a>')
+            ->addColumn('action', fn($s) => '<div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-warning btn-edit-eval" data-id="' . $s->id . '" title="Edit Evaluasi"><i class="bi bi-pencil"></i></button>
+                            <a href="' . route('admin.evaluations.student', $s->student_id) . '" class="btn btn-outline-primary" title="Lihat Laporan Siswa"><i class="bi bi-clipboard2-data"></i></a>
+                        </div>')
             ->rawColumns(['class_date', 'student_name', 'grade', 'materi', 'attendance', 'post_test', 'action'])
             ->make(true);
     }

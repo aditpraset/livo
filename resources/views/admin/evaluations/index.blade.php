@@ -87,6 +87,80 @@
     </div>
 </div>
 
+{{-- Modal Edit Evaluasi --}}
+<div class="modal fade" id="modal-evaluation" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning bg-opacity-10">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Edit Evaluasi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="eval-schedule-id">
+                <div class="alert alert-light border mb-3" id="eval-info"></div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Kehadiran Siswa <span class="text-danger">*</span></label>
+                    <div class="d-flex gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="student_attendance" id="att-hadir" value="hadir">
+                            <label class="form-check-label" for="att-hadir"><span class="badge bg-success">Hadir</span></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="student_attendance" id="att-izin" value="izin">
+                            <label class="form-check-label" for="att-izin"><span class="badge bg-warning text-dark">Izin</span></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="student_attendance" id="att-alfa" value="alfa">
+                            <label class="form-check-label" for="att-alfa"><span class="badge bg-danger">Alfa</span></label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Sub Pokok Bahasan</label>
+                    <select id="eval-syllabus" class="form-select no-select2">
+                        <option value="">— Pilih materi sesuai silabus mapel —</option>
+                        <option value="__other__">Lainnya (isi manual)</option>
+                    </select>
+                    <small class="text-muted" id="eval-syllabus-empty" style="display:none;">
+                        Belum ada silabus untuk mata pelajaran ini di kelas siswa.
+                    </small>
+                    <input type="text" id="eval-materi-manual" class="form-control mt-2" style="display:none;"
+                        placeholder="Tulis materi / sub pokok bahasan secara manual">
+                </div>
+                <input type="hidden" id="eval-pemahaman">
+                <div class="row g-3 mb-3">
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Nilai (1–100)</label>
+                        <input type="number" id="eval-posttest" class="form-control" min="1" max="100" placeholder="1–100">
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Kemampuan Analisa (1–100)</label>
+                        <input type="number" id="eval-analisa" class="form-control" min="1" max="100" placeholder="1–100">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Kemampuan Hafalan (1–100)</label>
+                        <input type="number" id="eval-hafalan" class="form-control" min="1" max="100" placeholder="1–100">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Kepercayaan Diri (1–100)</label>
+                        <input type="number" id="eval-kepercayaan" class="form-control" min="1" max="100" placeholder="1–100">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Catatan Tutor</label>
+                    <textarea id="eval-notes" class="form-control" rows="3" placeholder="Perkembangan belajar siswa, materi yang dipelajari, dll."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-warning" id="btn-save-eval">Simpan Perubahan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- Modal Upload Jadwal & Evaluasi --}}
 <div class="modal fade" id="modal-import-eval" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -221,6 +295,90 @@ $(function () {
             },
             complete: function () {
                 $btn.prop('disabled', false).html('<i class="bi bi-upload me-1"></i> Upload');
+            }
+        });
+    });
+
+    /* ── Edit Evaluasi ── */
+    $('#eval-syllabus').on('change', function () {
+        $('#eval-materi-manual').toggle($(this).val() === '__other__');
+    });
+
+    $('#evaluations-table').on('click', '.btn-edit-eval', function () {
+        var id = $(this).data('id');
+        $.get('/admin/schedules/' + id, function (data) {
+            var dateStr = new Date(data.class_date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            $('#eval-schedule-id').val(data.id);
+            $('#eval-info').html(
+                '<div class="row g-2 small">' +
+                '<div class="col-6"><b>Siswa:</b> ' + (data.student?.full_name ?? '-') + '</div>' +
+                '<div class="col-6"><b>Tutor:</b> ' + (data.tutor?.name ?? '-') + '</div>' +
+                '<div class="col-6"><b>Mapel:</b> ' + (data.subject?.subject_name ?? '-') + '</div>' +
+                '<div class="col-6"><b>Tanggal:</b> ' + dateStr + '</div>' +
+                '</div>'
+            );
+
+            // Isi dropdown Sub Pokok Bahasan sesuai silabus mata pelajaran
+            var $syl = $('#eval-syllabus');
+            $syl.find('option').not('[value=""]').not('[value="__other__"]').remove();
+            var syllabi = (data.subject && data.subject.syllabi) ? data.subject.syllabi : [];
+            syllabi.forEach(function (s) {
+                var label = s.pokok_bahasan + (s.sub_pokok_bahasan ? ' — ' + s.sub_pokok_bahasan : '');
+                $syl.find('option[value="__other__"]').before('<option value="' + s.id + '">' + label + '</option>');
+            });
+            $('#eval-syllabus-empty').toggle(syllabi.length === 0);
+
+            $('input[name="student_attendance"]').prop('checked', false);
+            $('#eval-syllabus, #eval-posttest, #eval-pemahaman, #eval-analisa, #eval-hafalan, #eval-kepercayaan, #eval-notes').val('');
+            $('#eval-materi-manual').val('').hide();
+            if (data.evaluation) {
+                $('input[name="student_attendance"][value="' + data.evaluation.student_attendance + '"]').prop('checked', true);
+                if (data.evaluation.syllabus_id) {
+                    $('#eval-syllabus').val(String(data.evaluation.syllabus_id));
+                } else if (data.evaluation.materi_manual) {
+                    $('#eval-syllabus').val('__other__');
+                    $('#eval-materi-manual').val(data.evaluation.materi_manual).show();
+                }
+                $('#eval-posttest').val(data.evaluation.post_test ?? '');
+                $('#eval-pemahaman').val(data.evaluation.pemahaman ?? '');
+                $('#eval-analisa').val(data.evaluation.kemampuan_analisa ?? '');
+                $('#eval-hafalan').val(data.evaluation.kemampuan_hafalan ?? '');
+                $('#eval-kepercayaan').val(data.evaluation.kepercayaan_diri ?? '');
+                $('#eval-notes').val(data.evaluation.tutor_notes ?? '');
+            }
+            $('#modal-evaluation').modal('show');
+        });
+    });
+
+    $('#btn-save-eval').on('click', function () {
+        var attendance = $('input[name="student_attendance"]:checked').val();
+        if (!attendance) { Swal.fire('Perhatian', 'Kehadiran siswa harus dipilih.', 'warning'); return; }
+
+        var sylVal  = $('#eval-syllabus').val();
+        var isOther = sylVal === '__other__';
+
+        $.ajax({
+            url: '{{ route("admin.evaluations.store") }}', type: 'POST',
+            data: {
+                schedule_id:        $('#eval-schedule-id').val(),
+                syllabus_id:        isOther ? null : (sylVal || null),
+                materi_manual:      isOther ? ($('#eval-materi-manual').val() || null) : null,
+                student_attendance: attendance,
+                post_test:          $('#eval-posttest').val() || null,
+                pemahaman:          $('#eval-pemahaman').val() || null,
+                kemampuan_analisa:  $('#eval-analisa').val() || null,
+                kemampuan_hafalan:  $('#eval-hafalan').val() || null,
+                kepercayaan_diri:   $('#eval-kepercayaan').val() || null,
+                tutor_notes:        $('#eval-notes').val(),
+                _token:             '{{ csrf_token() }}'
+            },
+            success: function (res) {
+                $('#modal-evaluation').modal('hide');
+                table.ajax.reload(null, false);
+                Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2000, showConfirmButton: false });
+            },
+            error: function (xhr) {
+                Swal.fire('Gagal', xhr.responseJSON?.message ?? 'Terjadi kesalahan.', 'error');
             }
         });
     });

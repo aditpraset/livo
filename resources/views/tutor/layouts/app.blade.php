@@ -56,6 +56,12 @@
                   <span class="nav-link-title"> Jadwal Mingguan </span>
                 </a>
               </li>
+              <li class="nav-item {{ request()->routeIs('tutor.students*') ? 'active' : '' }}">
+                <a class="nav-link" href="{{ route('tutor.students.index') }}">
+                  <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="bi bi-people fs-2"></i></span>
+                  <span class="nav-link-title"> Data Siswa </span>
+                </a>
+              </li>
               <li class="nav-item {{ request()->routeIs('tutor.evaluations*') ? 'active' : '' }}">
                 <a class="nav-link" href="{{ route('tutor.evaluations.index') }}">
                   <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="bi bi-clipboard-check fs-2"></i></span>

@@ -20,22 +20,30 @@ class EvaluationController extends BaseTutorController
         return view('tutor.evaluations.index', compact('tutor'));
     }
 
-    /** Data server-side untuk tabel evaluasi pending. */
-    public function data()
+    /** Data server-side untuk tabel evaluasi (mode: pending = belum diisi, done = sudah diisi & bisa diedit). */
+    public function data(Request $request)
     {
         $tutor = $this->tutor();
+        $mode  = $request->input('mode', 'pending');
 
-        $query = Schedule::with(['student', 'subject'])
-            ->where('tutor_id', $tutor->id)
-            ->whereDoesntHave('evaluation')
-            ->where(function ($q) {
-                $q->where('status_schedule', 'done')
-                    ->orWhere(function ($q) {
-                        $q->where('status_schedule', 'scheduled')
-                            ->whereDate('class_date', '<', now()->toDateString());
-                    });
-            })
-            ->orderBy('class_date')->orderBy('start_time');
+        $query = Schedule::with(['student', 'subject', 'evaluation'])
+            ->where('tutor_id', $tutor->id);
+
+        if ($mode === 'done') {
+            // Sesi yang sudah dievaluasi — evaluasinya masih bisa diedit kembali
+            $query->whereHas('evaluation')
+                ->orderByDesc('class_date')->orderByDesc('start_time');
+        } else {
+            $query->whereDoesntHave('evaluation')
+                ->where(function ($q) {
+                    $q->where('status_schedule', 'done')
+                        ->orWhere(function ($q) {
+                            $q->where('status_schedule', 'scheduled')
+                                ->whereDate('class_date', '<', now()->toDateString());
+                        });
+                })
+                ->orderBy('class_date')->orderBy('start_time');
+        }
 
         return DataTables::of($query)
             ->addIndexColumn()
@@ -45,10 +53,23 @@ class EvaluationController extends BaseTutorController
                 . '<small class="text-muted">' . e($s->student->grade ?? '') . '</small>')
             ->addColumn('subject_name', fn ($s) => e($s->subject->subject_name ?? '-'))
             ->editColumn('room', fn ($s) => e($s->room ?: '-'))
-            ->editColumn('status_schedule', fn ($s) => $s->status_schedule === 'done'
-                ? '<span class="badge bg-success">Selesai</span>'
-                : '<span class="badge bg-warning">Lewat, belum ditandai</span>')
-            ->addColumn('action', fn ($s) => '<a href="' . route('tutor.evaluations.create', $s->id) . '" class="btn btn-sm btn-primary">
+            ->editColumn('status_schedule', function ($s) use ($mode) {
+                if ($mode === 'done') {
+                    $att = $s->evaluation->student_attendance ?? null;
+                    $badge = match ($att) {
+                        'hadir' => 'bg-success', 'izin' => 'bg-warning text-dark', 'alfa' => 'bg-danger', default => 'bg-secondary',
+                    };
+                    return $att ? '<span class="badge ' . $badge . '">' . ucfirst($att) . '</span>' : '<span class="text-muted">—</span>';
+                }
+                return $s->status_schedule === 'done'
+                    ? '<span class="badge bg-success">Selesai</span>'
+                    : '<span class="badge bg-warning">Lewat, belum ditandai</span>';
+            })
+            ->addColumn('action', fn ($s) => $s->evaluation
+                ? '<a href="' . route('tutor.evaluations.create', $s->id) . '" class="btn btn-sm btn-outline-warning">
+                    <i class="bi bi-pencil me-1"></i> Edit Evaluasi
+                </a>'
+                : '<a href="' . route('tutor.evaluations.create', $s->id) . '" class="btn btn-sm btn-primary">
                     <i class="bi bi-pencil-square me-1"></i> Isi Evaluasi
                 </a>')
             ->rawColumns(['class_date', 'student_name', 'status_schedule', 'action'])

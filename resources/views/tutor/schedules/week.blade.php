@@ -29,7 +29,7 @@
                     <h3 class="card-title mb-0 {{ $isToday ? 'text-primary' : '' }}">
                         {{ $day->translatedFormat('l, d M Y') }}
                         @if($isToday)<span class="badge bg-primary ms-2">Hari Ini</span>@endif
-                        <span class="text-muted small ms-2">{{ $items->count() }} sesi</span>
+                        <span class="text-muted small ms-2">{{ $sesiPerDay->get($day->toDateString(), 0) }} sesi · {{ $items->count() }} siswa</span>
                     </h3>
                 </div>
                 @if($items->isEmpty())
@@ -69,7 +69,7 @@
                                         </td>
                                         <td class="text-end">
                                             @if($s->student)
-                                                <a href="{{ route('tutor.students.show', $s->student_id) }}" class="btn btn-sm btn-outline-primary" title="Detail Siswa">
+                                                <a href="{{ route('tutor.students.show', $s->student_id) }}" class="btn btn-sm btn-outline-primary" title="History Evaluasi">
                                                     <i class="bi bi-person-lines-fill"></i>
                                                 </a>
                                             @endif

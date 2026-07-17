@@ -15,7 +15,7 @@
 @php($ev = $schedule->evaluation)
 <div class="mb-4">
     <a href="{{ route('tutor.evaluations.index') }}" class="btn btn-link link-secondary ps-0"><i class="bi bi-arrow-left me-1"></i> Kembali ke Daftar</a>
-    <h1 class="fs-3 mb-1 mt-2">Isi Evaluasi Sesi</h1>
+    <h1 class="fs-3 mb-1 mt-2">{{ $ev ? 'Edit Evaluasi Sesi' : 'Isi Evaluasi Sesi' }}</h1>
     <p class="text-muted mb-0">
         {{ $schedule->student->full_name ?? '-' }} · {{ $schedule->subject->subject_name ?? '-' }} ·
         {{ $schedule->class_date->translatedFormat('d M Y') }} ({{ substr($schedule->start_time, 0, 5) }}–{{ substr($schedule->end_time, 0, 5) }})
