@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClassSchedule;
+use App\Models\Package;
 use App\Models\Program;
 use App\Models\ScheduleSession;
 use Illuminate\Http\Request;
@@ -25,6 +26,7 @@ class ClassScheduleController extends Controller
         return view('admin.class_schedules.index', [
             'sessions'  => ScheduleSession::orderBy('time_start')->get(['id', 'name', 'time_start', 'time_end']),
             'programs'  => Program::orderBy('program_name')->get(['id', 'program_name']),
+            'packages'  => Package::orderBy('package_name')->get(['id', 'package_name']),
             'hariList'  => self::HARI,
             'kelasList' => self::KELAS,
         ]);
@@ -32,12 +34,13 @@ class ClassScheduleController extends Controller
 
     public function data()
     {
-        $query = ClassSchedule::with(['session', 'program'])->latest();
+        $query = ClassSchedule::with(['session', 'program', 'package'])->latest();
 
         return DataTables::of($query)
             ->addIndexColumn()
             ->addColumn('session_name', fn($c) => $c->session?->name ?? '-')
             ->addColumn('program_name', fn($c) => $c->program?->program_name ?? '-')
+            ->addColumn('package_name', fn($c) => $c->package?->package_name ?? '-')
             ->addColumn('action', function ($c) {
                 return '
                     <div class="btn-group btn-group-sm">
@@ -45,6 +48,7 @@ class ClassScheduleController extends Controller
                             data-id="' . $c->id . '"
                             data-session="' . $c->session_id . '"
                             data-program="' . $c->program_id . '"
+                            data-package="' . $c->package_id . '"
                             data-hari="' . e($c->hari) . '"
                             data-kelas="' . e($c->kelas) . '">
                             <i class="bi bi-pencil"></i>
@@ -89,6 +93,7 @@ class ClassScheduleController extends Controller
         return $request->validate([
             'session_id' => 'required|exists:schedule_sessions,id',
             'program_id' => 'required|exists:programs,id',
+            'package_id' => 'required|exists:packages,id',
             'hari'       => 'required|string|in:' . implode(',', self::HARI),
             'kelas'      => 'required|string|in:' . implode(',', self::KELAS),
         ], [

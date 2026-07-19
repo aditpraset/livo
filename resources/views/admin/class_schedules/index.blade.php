@@ -22,6 +22,7 @@
                 <tr>
                     <th width="50">#</th>
                     <th>Kelas</th>
+                    <th>Paket</th>
                     <th>Program</th>
                     <th>Sesi</th>
                     <th>Hari</th>
@@ -52,6 +53,16 @@
                         @endforeach
                     </select>
                     <div class="invalid-feedback" id="err-kelas"></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Paket <span class="text-danger">*</span></label>
+                    <select id="sch-package" class="form-select">
+                        <option value="">— Pilih Paket —</option>
+                        @foreach ($packages as $package)
+                            <option value="{{ $package->id }}">{{ $package->package_name }}</option>
+                        @endforeach
+                    </select>
+                    <div class="invalid-feedback" id="err-package"></div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Program <span class="text-danger">*</span></label>
@@ -105,6 +116,7 @@ $(function () {
         columns: [
             { data: 'DT_RowIndex', orderable: false, searchable: false },
             { data: 'kelas' },
+            { data: 'package_name' },
             { data: 'program_name' },
             { data: 'session_name' },
             { data: 'hari' },
@@ -115,9 +127,9 @@ $(function () {
 
     function resetModal() {
         $('#sch-id, #sch-kelas').val('');
-        $('#sch-program, #sch-session, #sch-hari').val('');
-        $('#sch-kelas, #sch-program, #sch-session, #sch-hari').removeClass('is-invalid');
-        $('#err-kelas, #err-program, #err-session, #err-hari').text('');
+        $('#sch-package, #sch-program, #sch-session, #sch-hari').val('');
+        $('#sch-kelas, #sch-package, #sch-program, #sch-session, #sch-hari').removeClass('is-invalid');
+        $('#err-kelas, #err-package, #err-program, #err-session, #err-hari').text('');
     }
 
     $('#btn-add').on('click', function () {
@@ -132,6 +144,7 @@ $(function () {
         $('#modal-title').text('Edit Jadwal');
         $('#sch-id').val(btn.data('id'));
         $('#sch-kelas').val(btn.data('kelas'));
+        $('#sch-package').val(btn.data('package'));
         $('#sch-program').val(btn.data('program'));
         $('#sch-session').val(btn.data('session'));
         $('#sch-hari').val(String(btn.data('hari')));
@@ -147,6 +160,7 @@ $(function () {
             url: url, type: type,
             data: {
                 kelas:      $('#sch-kelas').val(),
+                package_id: $('#sch-package').val(),
                 program_id: $('#sch-program').val(),
                 session_id: $('#sch-session').val(),
                 hari:       $('#sch-hari').val(),
@@ -161,6 +175,7 @@ $(function () {
                 if (xhr.status === 422) {
                     var err = xhr.responseJSON.errors ?? {};
                     if (err.kelas)      { $('#sch-kelas').addClass('is-invalid');   $('#err-kelas').text(err.kelas[0]); }
+                    if (err.package_id) { $('#sch-package').addClass('is-invalid'); $('#err-package').text(err.package_id[0]); }
                     if (err.program_id) { $('#sch-program').addClass('is-invalid'); $('#err-program').text(err.program_id[0]); }
                     if (err.session_id) { $('#sch-session').addClass('is-invalid'); $('#err-session').text(err.session_id[0]); }
                     if (err.hari)       { $('#sch-hari').addClass('is-invalid'); $('#err-hari').text(err.hari[0]); }

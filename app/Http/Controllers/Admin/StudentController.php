@@ -81,11 +81,14 @@ class StudentController extends Controller
         $grades   = Grade::orderBy('grade_name')->get(['id', 'grade_name']);
         $packages = Package::orderBy('package_name')->get(['id', 'package_name']);
 
-        // Master jadwal kelas → filter jadwal (hari + sesi) berdasarkan kelas, sama seperti pendaftaran
+        // Master jadwal kelas → filter jadwal (hari + sesi) berdasarkan kombinasi
+        // kelas, paket, dan program, sama seperti pendaftaran
         $classSchedules = ClassSchedule::with('session')->get()->map(function ($c) {
             return [
                 'id'           => $c->id,
                 'kelas'        => $c->kelas,
+                'package_id'   => $c->package_id,
+                'program_id'   => $c->program_id,
                 'hari_label'   => $c->hari,
                 'session_id'   => $c->session_id,
                 'session_name' => $c->session?->name,
@@ -240,9 +243,9 @@ class StudentController extends Controller
         $addMaster('Master Mapel', ['ID', 'Nama Mata Pelajaran'],
             Subject::orderBy('id')->get()->map(fn($s) => [$s->id, $s->subject_name])->toArray());
 
-        $addMaster('Master Jadwal', ['ID', 'Kelas', 'Hari', 'Sesi', 'Program'],
-            ClassSchedule::with(['session', 'program'])->orderBy('id')->get()
-                ->map(fn($c) => [$c->id, $c->kelas, $c->hari, $c->session->name ?? '-', $c->program->program_name ?? '-'])->toArray());
+        $addMaster('Master Jadwal', ['ID', 'Kelas', 'Hari', 'Sesi', 'Program', 'Paket'],
+            ClassSchedule::with(['session', 'program', 'package'])->orderBy('id')->get()
+                ->map(fn($c) => [$c->id, $c->kelas, $c->hari, $c->session->name ?? '-', $c->program->program_name ?? '-', $c->package->package_name ?? '-'])->toArray());
 
         $addMaster('Master Sesi', ['ID', 'Nama Sesi', 'Mulai', 'Selesai'],
             ScheduleSession::orderBy('id')->get()->map(fn($s) => [$s->id, $s->name, substr($s->time_start, 0, 5), substr($s->time_end, 0, 5)])->toArray());
@@ -455,26 +458,22 @@ class StudentController extends Controller
 
     public function edit(Student $student)
     {
+        $programs = Program::orderBy('program_name')->get(['id', 'program_name', 'duration']);
+        $packages = Package::orderBy('package_name')->get(['id', 'package_name']);
+
         // Maksimum jadwal = frekuensi (x/minggu) dari program yang dipilih siswa
         $program  = $student->program_id ? Program::find($student->program_id) : null;
         $maxSlots = (int) ($program->duration ?? 0);
 
-        // Jadwal yang tersedia disaring sesuai kelas siswa (class_type, fallback grade)
-        $kelas = $student->class_type ?: $student->grade;
         $selectedScheduleIds = $student->class_schedule_ids ?? [];
 
-        // Sertakan juga jadwal yang sudah dipilih saat pendaftaran agar selalu tampil
-        // sebagai opsi (meski kelasnya berbeda dengan filter), supaya tidak hilang saat disimpan.
-        $classSchedules = ClassSchedule::with('session')
-            ->where(function ($q) use ($kelas, $selectedScheduleIds) {
-                $q->when($kelas, fn($qq) => $qq->where('kelas', $kelas));
-                if (!empty($selectedScheduleIds)) {
-                    $q->orWhereIn('id', $selectedScheduleIds);
-                }
-            })
-            ->get();
+        // Seluruh master jadwal — disaring ulang di sisi client sesuai kombinasi Kelas,
+        // Paket, dan Program Belajar yang dipilih admin (termasuk saat diubah tanpa reload).
+        $classSchedules = ClassSchedule::with('session')->get();
 
-        return view('admin.students.edit', compact('student', 'program', 'maxSlots', 'classSchedules', 'selectedScheduleIds'));
+        return view('admin.students.edit', compact(
+            'student', 'program', 'maxSlots', 'programs', 'packages', 'classSchedules', 'selectedScheduleIds'
+        ));
     }
 
     public function update(Request $request, Student $student)
@@ -486,13 +485,20 @@ class StudentController extends Controller
             'email' => 'nullable|email',
             'phone' => 'nullable|string',
             'whatsapp' => 'nullable|string',
+            'grade' => 'required|string|in:' . implode(',', ClassScheduleController::KELAS),
+            'package_id' => 'required|exists:packages,id',
+            'program_id' => 'required|exists:programs,id',
             'photo' => 'nullable|image|max:5120', // semua tipe foto, maks 5 MB
             'quota_sessions' => 'nullable|integer|min:0',
             'class_schedule_ids' => 'nullable|array',
             'class_schedule_ids.*' => 'nullable|exists:class_schedules,id',
-        ]);
+        ], [], ['grade' => 'Kelas', 'package_id' => 'Paket', 'program_id' => 'Program Belajar']);
 
         $data = $request->except(['photo', 'class_schedule_ids']);
+
+        // Selaraskan class_type dengan grade (satu-satunya field "kelas" yang diedit di form
+        // ini) agar tidak basi — class_type basi menyebabkan pencocokan master jadwal keliru.
+        $data['class_type'] = $data['grade'] ?? $student->class_type;
 
         if ($request->hasFile('photo')) {
             if ($student->photo) {

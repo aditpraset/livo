@@ -218,7 +218,7 @@
                     <div id="schedule-hint" class="small text-muted mb-2" style="display:none;"></div>
                     <div id="schedule-container" class="row g-3">
                         <div class="col-12">
-                            <p class="text-muted small mb-0">Pilih Kelas & Program terlebih dahulu.</p>
+                            <p class="text-muted small mb-0">Pilih Kelas, Paket, & Program terlebih dahulu.</p>
                         </div>
                     </div>
                 </div>
@@ -289,6 +289,7 @@
     var oldSchedules   = @json(old('class_schedule_ids', []));
 
     var programSelect = document.getElementById('reg-program');
+    var packageSelect = document.getElementById('reg-package'); // dropdown "Paket" → filter jadwal
     var classSelect   = document.getElementById('reg-kelas');   // dropdown "Kelas" (teks) → filter jadwal
     var gradeSelect   = document.getElementById('reg-grade');   // dropdown "Jenjang" (master) → filter mapel
     var scheduleBox   = document.getElementById('schedule-container');
@@ -324,8 +325,13 @@
     }
 
     /* ---- Jadwal: jumlah pilihan mengikuti durasi (x per minggu) program ---- */
-    function scheduleOptionsHtml(selectedKelas, selectedId) {
-        var list = classSchedules.filter(function (s) { return s.kelas === selectedKelas; });
+    /* Jadwal difilter berdasarkan kombinasi Kelas + Paket + Program yang dipilih. */
+    function scheduleOptionsHtml(selectedKelas, packageId, programId, selectedId) {
+        var list = classSchedules.filter(function (s) {
+            return s.kelas === selectedKelas
+                && String(s.package_id) === String(packageId)
+                && String(s.program_id) === String(programId);
+        });
         var html = '<option value="">-- Pilih Jadwal --</option>';
         list.forEach(function (s) {
             var sel = (String(s.id) === String(selectedId)) ? ' selected' : '';
@@ -344,15 +350,23 @@
             scheduleBox.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">Pilih Kelas terlebih dahulu.</p></div>';
             return;
         }
+        if (!packageSelect || !packageSelect.value) {
+            scheduleBox.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">Pilih Paket terlebih dahulu.</p></div>';
+            return;
+        }
         var opt      = programSelect.options[programSelect.selectedIndex];
         var duration = programSelect.value ? (parseInt(opt.getAttribute('data-duration')) || 0) : 0;
         if (!programSelect.value || duration < 1) {
             scheduleBox.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">Pilih Program Belajar terlebih dahulu.</p></div>';
             return;
         }
-        var available = classSchedules.filter(function (s) { return s.kelas === kelas; });
+        var available = classSchedules.filter(function (s) {
+            return s.kelas === kelas
+                && String(s.package_id) === String(packageSelect.value)
+                && String(s.program_id) === String(programSelect.value);
+        });
         if (available.length === 0) {
-            scheduleBox.innerHTML = '<div class="col-12"><p class="text-danger small mb-0">Belum ada jadwal untuk kelas ini.</p></div>';
+            scheduleBox.innerHTML = '<div class="col-12"><p class="text-danger small mb-0">Belum ada jadwal untuk kombinasi kelas, paket, dan program ini.</p></div>';
             return;
         }
         scheduleHint.textContent = 'Program ini ' + duration + 'x per minggu. Silakan pilih ' + duration + ' jadwal pertemuan.';
@@ -363,7 +377,7 @@
             col.className = 'col-md-6';
             col.innerHTML =
                 '<label class="form-label">Pertemuan ' + (i + 1) + '</label>' +
-                '<select name="class_schedule_ids[]" class="form-select sch-select">' + scheduleOptionsHtml(kelas, oldSchedules[i] || '') + '</select>';
+                '<select name="class_schedule_ids[]" class="form-select sch-select">' + scheduleOptionsHtml(kelas, packageSelect.value, programSelect.value, oldSchedules[i] || '') + '</select>';
             scheduleBox.appendChild(col);
         }
     }
@@ -371,7 +385,7 @@
     // Pakai event jQuery karena <select> di admin diubah menjadi Select2,
     // yang memicu event "change" via jQuery (tidak tertangkap addEventListener native).
     $('#reg-grade').on('change', filterSubjectsByGrade);
-    $('#reg-program, #reg-kelas').on('change', renderSchedules);
+    $('#reg-program, #reg-package, #reg-kelas').on('change', renderSchedules);
 
     filterSubjectsByGrade();
     renderSchedules();

@@ -310,7 +310,7 @@
                             <div id="schedule-hint" class="small text-muted mb-2" style="display:none;"></div>
                             <div id="schedule-container" class="row g-3">
                                 <div class="col-12">
-                                    <p class="text-muted small mb-0">Pilih Kelas & Paket/Program terlebih dahulu.</p>
+                                    <p class="text-muted small mb-0">Pilih Kelas, Paket, & Program terlebih dahulu.</p>
                                 </div>
                             </div>
                         </div>
@@ -395,11 +395,13 @@
     var classSchedules = @json($classSchedules);
 
     var programSelect  = document.getElementById('reg-program');
+    var packageSelect  = document.getElementById('reg-package');
     var scheduleBox    = document.getElementById('schedule-container');
     var scheduleHint   = document.getElementById('schedule-hint');
     var classSelect    = document.getElementById('reg-kelas');
 
     programSelect.addEventListener('change', renderSchedules);
+    packageSelect.addEventListener('change', renderSchedules);
 
     /* ---- Mata pelajaran tampil sesuai jenjang yang dipilih ---- */
     var gradeSelect = document.getElementById('reg-grade');
@@ -440,8 +442,13 @@
     filterSubjectsByGrade();
 
     /* ---- Jadwal: jumlah pilihan mengikuti durasi (x per minggu) program ---- */
-    function scheduleOptionsHtml(selectedKelas) {
-        var list = classSchedules.filter(function (s) { return s.kelas === selectedKelas; });
+    /* Jadwal difilter berdasarkan kombinasi Kelas + Paket + Program yang dipilih. */
+    function scheduleOptionsHtml(selectedKelas, packageId, programId) {
+        var list = classSchedules.filter(function (s) {
+            return s.kelas === selectedKelas
+                && String(s.package_id) === String(packageId)
+                && String(s.program_id) === String(programId);
+        });
         var html = '<option value="">-- Pilih Jadwal --</option>';
         list.forEach(function (s) {
             html += '<option value="' + s.id + '">' + s.hari_label + ' — ' + s.session_name +
@@ -460,6 +467,11 @@
             return;
         }
 
+        if (!packageSelect.value) {
+            scheduleBox.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">Pilih Paket terlebih dahulu.</p></div>';
+            return;
+        }
+
         var opt      = programSelect.options[programSelect.selectedIndex];
         var duration = programSelect.value ? (parseInt(opt.getAttribute('data-duration')) || 0) : 0;
         if (!programSelect.value || duration < 1) {
@@ -467,16 +479,20 @@
             return;
         }
 
-        var available = classSchedules.filter(function (s) { return s.kelas === kelas; });
+        var available = classSchedules.filter(function (s) {
+            return s.kelas === kelas
+                && String(s.package_id) === String(packageSelect.value)
+                && String(s.program_id) === String(programSelect.value);
+        });
         if (available.length === 0) {
-            scheduleBox.innerHTML = '<div class="col-12"><p class="text-danger small mb-0">Belum ada jadwal untuk kelas ini.</p></div>';
+            scheduleBox.innerHTML = '<div class="col-12"><p class="text-danger small mb-0">Belum ada jadwal untuk kombinasi kelas, paket, dan program ini.</p></div>';
             return;
         }
 
         scheduleHint.textContent = 'Program ini ' + duration + 'x per minggu. Silakan pilih ' + duration + ' jadwal pertemuan.';
         scheduleHint.style.display = 'block';
 
-        var optionsHtml = scheduleOptionsHtml(kelas);
+        var optionsHtml = scheduleOptionsHtml(kelas, packageSelect.value, programSelect.value);
         for (var i = 1; i <= duration; i++) {
             var col = document.createElement('div');
             col.className = 'col-md-6';

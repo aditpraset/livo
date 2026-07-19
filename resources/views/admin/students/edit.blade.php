@@ -48,12 +48,39 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Program</label>
-                            <input type="text" name="program" class="form-control @error('program') is-invalid @enderror" value="{{ old('program', $student->program) }}">
+                            <label class="form-label">Kelas / Tingkat <span class="text-danger">*</span></label>
+                            <select name="grade" id="edit-kelas" class="form-select @error('grade') is-invalid @enderror">
+                                <option value="">-- Pilih Kelas --</option>
+                                @foreach(['TK','SD Kelas 1','SD Kelas 2','SD Kelas 3','SD Kelas 4','SD Kelas 5','SD Kelas 6','SMP Kelas 7','SMP Kelas 8','SMP Kelas 9','SMA Kelas 10','SMA Kelas 11','SMA Kelas 12'] as $g)
+                                    <option value="{{ $g }}" {{ old('grade', $student->grade) == $g ? 'selected' : '' }}>{{ $g }}</option>
+                                @endforeach
+                            </select>
+                            @error('grade') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Kelas / Tingkat</label>
-                            <input type="text" name="grade" class="form-control @error('grade') is-invalid @enderror" value="{{ old('grade', $student->grade) }}">
+                            <label class="form-label">Paket <span class="text-danger">*</span></label>
+                            <select name="package_id" id="edit-package" class="form-select @error('package_id') is-invalid @enderror">
+                                <option value="">-- Pilih Paket --</option>
+                                @foreach($packages as $pkg)
+                                    <option value="{{ $pkg->id }}" {{ old('package_id', $student->package_id) == $pkg->id ? 'selected' : '' }}>{{ $pkg->package_name }}</option>
+                                @endforeach
+                            </select>
+                            @error('package_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Program Belajar <span class="text-danger">*</span></label>
+                            <select name="program_id" id="edit-program" class="form-select @error('program_id') is-invalid @enderror">
+                                <option value="">-- Pilih Program --</option>
+                                @foreach($programs as $prog)
+                                    <option value="{{ $prog->id }}" data-duration="{{ $prog->duration }}" {{ old('program_id', $student->program_id) == $prog->id ? 'selected' : '' }}>{{ $prog->program_name }}</option>
+                                @endforeach
+                            </select>
+                            @error('program_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <small class="text-muted">Menentukan jumlah pertemuan/minggu & jadwal yang tersedia.</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Mata Pelajaran</label>
+                            <input type="text" name="program" class="form-control @error('program') is-invalid @enderror" value="{{ old('program', $student->program) }}">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Sekolah</label>
@@ -108,7 +135,9 @@
                         </div>
 
                         @php
-                            // Opsi jadwal (hari — sesi) untuk dipakai ulang di tiap baris & template
+                            // Opsi jadwal (hari — sesi) dari SELURUH master jadwal, dipakai untuk render
+                            // awal tiap baris. Daftar ini disaring ulang di sisi client (JS) sesuai
+                            // kombinasi Kelas + Paket + Program Belajar yang sedang dipilih.
                             $scheduleOptions = '';
                             foreach ($classSchedules as $cs) {
                                 $time = $cs->session
@@ -122,48 +151,45 @@
                         <div class="col-12">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <label class="form-label mb-0">Jadwal Belajar (Hari &amp; Sesi)</label>
-                                <button type="button" id="btn-add-schedule" class="btn btn-outline-primary btn-sm" @disabled($classSchedules->isEmpty())>
+                                <button type="button" id="btn-add-schedule" class="btn btn-outline-primary btn-sm">
                                     <i class="bi bi-plus-lg me-1"></i>Tambah Jadwal
                                 </button>
                             </div>
-                            <p class="text-muted small mb-2">Pilih hari &amp; sesi yang diambil siswa. Tambah atau hapus baris sesuai kebutuhan.</p>
+                            <p class="text-muted small mb-2">Pilih hari &amp; sesi yang diambil siswa. Jadwal yang tersedia mengikuti Kelas, Paket, &amp; Program Belajar di atas.</p>
+                            <p class="text-muted small mb-2 d-none" id="schedule-empty-hint"></p>
 
-                            @if($classSchedules->isEmpty())
-                                <p class="text-muted small mb-0">Belum ada master jadwal untuk kelas siswa ini ({{ $student->class_type ?: $student->grade ?: '-' }}). Atur master jadwal terlebih dahulu.</p>
-                            @else
-                                <div id="schedule-rows" class="row g-2">
-                                    @forelse($selectedRows as $sid)
-                                        <div class="col-md-6 schedule-row">
-                                            <div class="input-group">
-                                                <select name="class_schedule_ids[]" class="form-select">
-                                                    <option value="">-- Pilih Jadwal --</option>
-                                                    @foreach($classSchedules as $cs)
-                                                        <option value="{{ $cs->id }}" {{ $sid == $cs->id ? 'selected' : '' }}>
-                                                            {{ $cs->hari }} — {{ $cs->session->name ?? '-' }}@if($cs->session) ({{ \Illuminate\Support\Str::substr($cs->session->time_start, 0, 5) }} - {{ \Illuminate\Support\Str::substr($cs->session->time_end, 0, 5) }})@endif
-                                                        </option>
-                                                    @endforeach
-                                                </select>
-                                                <button type="button" class="btn btn-outline-danger btn-remove-schedule" title="Hapus"><i class="bi bi-trash"></i></button>
-                                            </div>
-                                        </div>
-                                    @empty
-                                    @endforelse
-                                </div>
-                                @if($maxSlots > 0)
-                                    <small class="text-muted">Program siswa umumnya <strong>{{ $maxSlots }}</strong> pertemuan/minggu (boleh disesuaikan).</small>
-                                @endif
-                                <template id="schedule-row-tpl">
+                            <div id="schedule-rows" class="row g-2">
+                                @forelse($selectedRows as $sid)
                                     <div class="col-md-6 schedule-row">
                                         <div class="input-group">
-                                            <select name="class_schedule_ids[]" class="form-select">
+                                            <select name="class_schedule_ids[]" class="form-select sch-select">
                                                 <option value="">-- Pilih Jadwal --</option>
-                                                {!! $scheduleOptions !!}
+                                                @foreach($classSchedules as $cs)
+                                                    <option value="{{ $cs->id }}" {{ $sid == $cs->id ? 'selected' : '' }}>
+                                                        {{ $cs->hari }} — {{ $cs->session->name ?? '-' }}@if($cs->session) ({{ \Illuminate\Support\Str::substr($cs->session->time_start, 0, 5) }} - {{ \Illuminate\Support\Str::substr($cs->session->time_end, 0, 5) }})@endif
+                                                    </option>
+                                                @endforeach
                                             </select>
                                             <button type="button" class="btn btn-outline-danger btn-remove-schedule" title="Hapus"><i class="bi bi-trash"></i></button>
                                         </div>
                                     </div>
-                                </template>
+                                @empty
+                                @endforelse
+                            </div>
+                            @if($maxSlots > 0)
+                                <small class="text-muted">Program siswa umumnya <strong>{{ $maxSlots }}</strong> pertemuan/minggu (boleh disesuaikan).</small>
                             @endif
+                            <template id="schedule-row-tpl">
+                                <div class="col-md-6 schedule-row">
+                                    <div class="input-group">
+                                        <select name="class_schedule_ids[]" class="form-select sch-select">
+                                            <option value="">-- Pilih Jadwal --</option>
+                                            {!! $scheduleOptions !!}
+                                        </select>
+                                        <button type="button" class="btn btn-outline-danger btn-remove-schedule" title="Hapus"><i class="bi bi-trash"></i></button>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </div>
@@ -220,12 +246,63 @@ document.getElementById('photo-input')?.addEventListener('change', function (e) 
     if (ph) ph.classList.add('d-none');
 });
 
-/* ── Jadwal belajar: tambah / hapus baris (hari & sesi) ── */
+/* ── Jadwal belajar: filter opsi sesuai Kelas + Paket + Program Belajar,
+   plus tambah / hapus baris (hari & sesi) ── */
 (function () {
-    var rows   = document.getElementById('schedule-rows');
-    var tpl    = document.getElementById('schedule-row-tpl');
-    var addBtn = document.getElementById('btn-add-schedule');
-    if (!rows || !tpl || !addBtn) return;
+    var classSchedules = @json($classSchedules);
+
+    var kelasSelect   = document.getElementById('edit-kelas');
+    var packageSelect = document.getElementById('edit-package');
+    var programSelect = document.getElementById('edit-program');
+    var rows          = document.getElementById('schedule-rows');
+    var tpl            = document.getElementById('schedule-row-tpl');
+    var addBtn         = document.getElementById('btn-add-schedule');
+    var emptyHint      = document.getElementById('schedule-empty-hint');
+    if (!kelasSelect || !packageSelect || !programSelect || !rows || !tpl || !addBtn) return;
+
+    function availableSchedules() {
+        var kelas = kelasSelect.value, pkg = packageSelect.value, prog = programSelect.value;
+        if (!kelas || !pkg || !prog) return [];
+        return classSchedules.filter(function (s) {
+            return s.kelas === kelas
+                && String(s.package_id) === String(pkg)
+                && String(s.program_id) === String(prog);
+        });
+    }
+
+    function optionsHtml(list) {
+        var html = '<option value="">-- Pilih Jadwal --</option>';
+        list.forEach(function (s) {
+            var time = s.session ? ' (' + s.session.time_start.substr(0, 5) + ' - ' + s.session.time_end.substr(0, 5) + ')' : '';
+            html += '<option value="' + s.id + '">' + s.hari + ' — ' + (s.session ? s.session.name : '-') + time + '</option>';
+        });
+        return html;
+    }
+
+    // Hanya menyiapkan opsi untuk jadwal BARU (via tombol "Tambah Jadwal") sesuai
+    // kombinasi Kelas + Paket + Program Belajar saat ini. Baris yang sudah tersimpan
+    // TIDAK disentuh sama sekali — data lama tetap seperti semula walau Kelas, Paket,
+    // atau Program diubah; filter ini hanya berlaku untuk penambahan jadwal baru.
+    function refreshNewRowOptions() {
+        var kelas = kelasSelect.value, pkg = packageSelect.value, prog = programSelect.value;
+        var list  = availableSchedules();
+
+        var tplSelect = tpl.content.querySelector('select');
+        if (tplSelect) tplSelect.innerHTML = optionsHtml(list);
+
+        if (!kelas || !pkg || !prog) {
+            emptyHint.textContent = 'Pilih Kelas, Paket, & Program Belajar terlebih dahulu untuk menambahkan jadwal baru.';
+            emptyHint.classList.remove('d-none');
+            addBtn.disabled = true;
+        } else if (list.length === 0) {
+            emptyHint.textContent = 'Belum ada master jadwal untuk kombinasi kelas, paket, dan program ini. Atur master jadwal terlebih dahulu.';
+            emptyHint.classList.remove('d-none');
+            addBtn.disabled = true;
+        } else {
+            emptyHint.classList.add('d-none');
+            addBtn.disabled = false;
+        }
+    }
 
     addBtn.addEventListener('click', function () {
         rows.appendChild(tpl.content.cloneNode(true));
@@ -236,7 +313,13 @@ document.getElementById('photo-input')?.addEventListener('change', function (e) 
         if (btn) btn.closest('.schedule-row').remove();
     });
 
-    // Bila belum ada baris tersimpan, sediakan satu baris kosong siap diisi
+    // Select2 (dipasang global oleh layout admin) memicu event "change" lewat jQuery,
+    // tidak tertangkap addEventListener native.
+    $('#edit-kelas, #edit-package, #edit-program').on('change', refreshNewRowOptions);
+
+    // Siapkan opsi jadwal baru sesuai kombinasi saat ini terlebih dahulu...
+    refreshNewRowOptions();
+    // ...baru sediakan satu baris kosong bila belum ada jadwal tersimpan sama sekali.
     if (!rows.querySelector('.schedule-row')) {
         rows.appendChild(tpl.content.cloneNode(true));
     }

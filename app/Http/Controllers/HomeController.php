@@ -31,11 +31,14 @@ class HomeController extends Controller
         $grades   = Grade::orderBy('grade_name')->get(['id', 'grade_name']);
         $packages = Package::orderBy('package_name')->get(['id', 'package_name']);
 
-        // Master jadwal kelas → dipakai untuk filter jadwal (hari + sesi jadi satu) berdasarkan kelas
+        // Master jadwal kelas → dipakai untuk filter jadwal (hari + sesi jadi satu)
+        // berdasarkan kombinasi kelas, paket, dan program yang dipilih.
         $classSchedules = ClassSchedule::with('session')->get()->map(function ($c) {
             return [
                 'id'           => $c->id,
                 'kelas'        => $c->kelas,
+                'package_id'   => $c->package_id,
+                'program_id'   => $c->program_id,
                 'hari_label'   => $c->hari,
                 'session_id'   => $c->session_id,
                 'session_name' => $c->session?->name,

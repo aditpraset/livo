@@ -9,6 +9,7 @@ class ClassSchedule extends Model
     protected $fillable = [
         'session_id',
         'program_id',
+        'package_id',
         'hari',
         'kelas',
     ];
@@ -21,5 +22,10 @@ class ClassSchedule extends Model
     public function program()
     {
         return $this->belongsTo(Program::class);
+    }
+
+    public function package()
+    {
+        return $this->belongsTo(Package::class);
     }
 }
