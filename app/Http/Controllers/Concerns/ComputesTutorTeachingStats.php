@@ -39,8 +39,12 @@ trait ComputesTutorTeachingStats
         $postTests = $evaluated->filter(fn ($s) => $s->evaluation->post_test !== null)
             ->map(fn ($s) => $s->evaluation->post_test);
 
+        // Sesi = slot mengajar unik (tanggal + jam), bukan jumlah baris siswa.
+        // Beberapa siswa pada slot yang sama dihitung satu sesi.
+        $slotKey = fn ($s) => $s->class_date->toDateString() . '|' . $s->start_time . '|' . $s->end_time;
+
         $stats = [
-            'done' => $schedules->count(),
+            'done' => $schedules->unique($slotKey)->count(),
             'students' => $schedules->pluck('student_id')->unique()->count(),
             'evaluated' => $evaluated->count(),
             'avg_post_test' => $postTests->count() ? round($postTests->avg(), 1) : null,

@@ -488,11 +488,12 @@ class StudentController extends Controller
             'grade' => 'required|string|in:' . implode(',', ClassScheduleController::KELAS),
             'package_id' => 'required|exists:packages,id',
             'program_id' => 'required|exists:programs,id',
+            'duration' => 'required|integer|in:1,3,6,12',
             'photo' => 'nullable|image|max:5120', // semua tipe foto, maks 5 MB
             'quota_sessions' => 'nullable|integer|min:0',
             'class_schedule_ids' => 'nullable|array',
             'class_schedule_ids.*' => 'nullable|exists:class_schedules,id',
-        ], [], ['grade' => 'Kelas', 'package_id' => 'Paket', 'program_id' => 'Program Belajar']);
+        ], [], ['grade' => 'Kelas', 'package_id' => 'Paket', 'program_id' => 'Program Belajar', 'duration' => 'Durasi Paket']);
 
         $data = $request->except(['photo', 'class_schedule_ids']);
 

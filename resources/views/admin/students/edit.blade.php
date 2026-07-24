@@ -79,6 +79,17 @@
                             <small class="text-muted">Menentukan jumlah pertemuan/minggu & jadwal yang tersedia.</small>
                         </div>
                         <div class="col-md-6">
+                            <label class="form-label">Durasi Paket <span class="text-danger">*</span></label>
+                            <select name="duration" class="form-select @error('duration') is-invalid @enderror">
+                                <option value="">-- Pilih Durasi --</option>
+                                @foreach([1, 3, 6, 12] as $d)
+                                    <option value="{{ $d }}" {{ old('duration', $student->duration) == $d ? 'selected' : '' }}>{{ $d }} Bulan</option>
+                                @endforeach
+                            </select>
+                            @error('duration') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <small class="text-muted">Menentukan perhitungan otomatis tanggal expired SPP.</small>
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label">Mata Pelajaran</label>
                             <input type="text" name="program" class="form-control @error('program') is-invalid @enderror" value="{{ old('program', $student->program) }}">
                         </div>

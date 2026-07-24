@@ -75,12 +75,15 @@ class ReportController extends BaseTutorController
         $year = (int) ($request->input('year') ?: now()->year);
         $fee = (float) ($tutor->fee_per_session ?? 0);
 
+        // Sesi = slot mengajar unik (tanggal + jam), bukan jumlah baris siswa.
+        $slotKey = fn ($s) => $s->class_date->toDateString() . '|' . $s->start_time . '|' . $s->end_time;
+
         $counts = Schedule::where('tutor_id', $tutor->id)
             ->where('status_schedule', 'done')
             ->whereYear('class_date', $year)
-            ->get(['class_date'])
+            ->get(['class_date', 'start_time', 'end_time'])
             ->groupBy(fn ($s) => (int) $s->class_date->format('n'))
-            ->map->count();
+            ->map(fn ($items) => $items->unique($slotKey)->count());
 
         $rows = collect(range(1, 12))->map(function ($m) use ($counts, $fee, $year) {
             $sessions = (int) ($counts[$m] ?? 0);
