@@ -86,6 +86,23 @@
                                 <div class="invalid-feedback" id="err-fee"></div>
                             </div>
                         </div>
+                        <div class="mt-3 row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Fee per Siswa Private (Rp)</label>
+                                <input type="number" id="field-fee-private" min="0" class="form-control" placeholder="cth: 50000">
+                                <div class="invalid-feedback" id="err-fee-private"></div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Fee per Siswa (Rp)</label>
+                                <input type="number" id="field-fee-student" min="0" class="form-control" placeholder="cth: 25000">
+                                <div class="invalid-feedback" id="err-fee-student"></div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Fee Transport per Hari (Rp)</label>
+                                <input type="number" id="field-fee-transport" min="0" class="form-control" placeholder="cth: 20000">
+                                <div class="invalid-feedback" id="err-fee-transport"></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-12">
                         <label class="form-label fw-semibold">Spesialisasi <span class="text-danger">*</span></label>
@@ -139,10 +156,10 @@ $(function () {
     }
 
     function resetModal() {
-        $('#tutor-id, #field-name, #field-phone, #field-email, #field-norek, #field-fee, #field-photo').val('');
+        $('#tutor-id, #field-name, #field-phone, #field-email, #field-norek, #field-fee, #field-fee-private, #field-fee-student, #field-fee-transport, #field-photo').val('');
         $('#field-specialization').val([]);
         $('.form-control, .form-select').removeClass('is-invalid');
-        $('#err-name, #err-phone, #err-email, #err-norek, #err-fee, #err-photo, #err-specialization').text('');
+        $('#err-name, #err-phone, #err-email, #err-norek, #err-fee, #err-fee-private, #err-fee-student, #err-fee-transport, #err-photo, #err-specialization').text('');
         showPhoto('');
     }
 
@@ -167,6 +184,9 @@ $(function () {
         $('#field-email').val(btn.data('email'));
         $('#field-norek').val(btn.data('norek'));
         $('#field-fee').val(btn.data('fee'));
+        $('#field-fee-private').val(btn.data('fee-private'));
+        $('#field-fee-student').val(btn.data('fee-student'));
+        $('#field-fee-transport').val(btn.data('fee-transport'));
         var specs = btn.data('specialization') || [];
         $('#field-specialization').val(specs);
         showPhoto(btn.data('photo'));
@@ -183,6 +203,9 @@ $(function () {
         fd.append('email', $('#field-email').val());
         fd.append('no_rekening', $('#field-norek').val());
         fd.append('fee_per_session', $('#field-fee').val());
+        fd.append('fee_per_student_private', $('#field-fee-private').val());
+        fd.append('fee_per_student', $('#field-fee-student').val());
+        fd.append('fee_transport_per_day', $('#field-fee-transport').val());
         ($('#field-specialization').val() || []).forEach(function (s) {
             fd.append('specialization[]', s);
         });
@@ -207,6 +230,9 @@ $(function () {
                     if (err.email)          { $('#field-email').addClass('is-invalid'); $('#err-email').text(err.email[0]); }
                     if (err.no_rekening)    { $('#field-norek').addClass('is-invalid'); $('#err-norek').text(err.no_rekening[0]); }
                     if (err.fee_per_session){ $('#field-fee').addClass('is-invalid');   $('#err-fee').text(err.fee_per_session[0]); }
+                    if (err.fee_per_student_private){ $('#field-fee-private').addClass('is-invalid');   $('#err-fee-private').text(err.fee_per_student_private[0]); }
+                    if (err.fee_per_student){ $('#field-fee-student').addClass('is-invalid');   $('#err-fee-student').text(err.fee_per_student[0]); }
+                    if (err.fee_transport_per_day){ $('#field-fee-transport').addClass('is-invalid');   $('#err-fee-transport').text(err.fee_transport_per_day[0]); }
                     if (err.photo)          { $('#field-photo').addClass('is-invalid'); $('#err-photo').text(err.photo[0]); }
                     if (err.specialization) { $('#field-specialization').addClass('is-invalid'); $('#err-specialization').text(err.specialization[0]); }
                 } else {

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tutor;
 
+use App\Http\Controllers\Concerns\ComputesTutorFee;
 use App\Http\Controllers\Concerns\ComputesTutorTeachingStats;
 use App\Models\Schedule;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -11,6 +12,7 @@ use Illuminate\Http\Request;
 class ReportController extends BaseTutorController
 {
     use ComputesTutorTeachingStats;
+    use ComputesTutorFee;
 
     /** Rekapitulasi hasil pengajaran per bulan. */
     public function rekapPengajaran(Request $request)
@@ -68,39 +70,42 @@ class ReportController extends BaseTutorController
             ->make(true);
     }
 
-    /** Rekapitulasi fee per bulan dalam satu tahun. */
+    /** Rekapitulasi fee per bulan dalam satu tahun (breakdown a + b + c + d). */
     public function rekapFee(Request $request)
     {
         $tutor = $this->tutor();
         $year = (int) ($request->input('year') ?: now()->year);
-        $fee = (float) ($tutor->fee_per_session ?? 0);
 
-        // Sesi = slot mengajar unik (tanggal + jam), bukan jumlah baris siswa.
-        $slotKey = fn ($s) => $s->class_date->toDateString() . '|' . $s->start_time . '|' . $s->end_time;
+        $byMonth = $this->tutorFeeByMonth($tutor, $year);
 
-        $counts = Schedule::where('tutor_id', $tutor->id)
-            ->where('status_schedule', 'done')
-            ->whereYear('class_date', $year)
-            ->get(['class_date', 'start_time', 'end_time'])
-            ->groupBy(fn ($s) => (int) $s->class_date->format('n'))
-            ->map(fn ($items) => $items->unique($slotKey)->count());
+        $rows = collect(range(1, 12))->map(fn ($m) => array_merge(
+            ['month' => Carbon::create($year, $m, 1)],
+            $byMonth[$m]
+        ));
 
-        $rows = collect(range(1, 12))->map(function ($m) use ($counts, $fee, $year) {
-            $sessions = (int) ($counts[$m] ?? 0);
-            return [
-                'month' => Carbon::create($year, $m, 1),
-                'sessions' => $sessions,
-                'fee' => $sessions * $fee,
-            ];
-        });
+        $sum = fn ($key) => $rows->sum($key);
 
         return view('tutor.reports.rekap-fee', [
             'tutor' => $tutor,
-            'year' => $year,
-            'fee' => $fee,
-            'rows' => $rows,
-            'totalSessions' => $rows->sum('sessions'),
-            'totalFee' => $rows->sum('fee'),
+            'year'  => $year,
+            'rows'  => $rows,
+            'rates' => [
+                'session'   => (float) ($tutor->fee_per_session ?? 0),
+                'private'   => (float) ($tutor->fee_per_student_private ?? 0),
+                'student'   => (float) ($tutor->fee_per_student ?? 0),
+                'transport' => (float) ($tutor->fee_transport_per_day ?? 0),
+            ],
+            'totals' => [
+                'private_count' => $sum('private_count'),
+                'regular_count' => $sum('regular_count'),
+                'session_count' => $sum('session_count'),
+                'day_count'     => $sum('day_count'),
+                'fee_private'   => $sum('fee_private'),
+                'fee_regular'   => $sum('fee_regular'),
+                'fee_session'   => $sum('fee_session'),
+                'fee_transport' => $sum('fee_transport'),
+                'total'         => $sum('total'),
+            ],
         ]);
     }
 
@@ -111,17 +116,15 @@ class ReportController extends BaseTutorController
         return view('tutor.reports.index', compact('tutor'));
     }
 
-    /** Slip gaji PDF untuk bulan terpilih. */
+    /** Slip gaji PDF untuk bulan terpilih (breakdown a + b + c + d). */
     public function slipGaji(Request $request)
     {
         $tutor = $this->tutor();
         $month = $this->resolveMonth($request);
-        $fee = (float) ($tutor->fee_per_session ?? 0);
 
-        [, $stats] = $this->teachingData($tutor->id, $month);
-        $total = $stats['done'] * $fee;
+        $fee = $this->tutorFeeForMonth($tutor, $month);
 
-        $pdf = Pdf::loadView('tutor.reports.pdf.slip-gaji', compact('tutor', 'month', 'stats', 'fee', 'total'))
+        $pdf = Pdf::loadView('tutor.reports.pdf.slip-gaji', compact('tutor', 'month', 'fee'))
             ->setPaper('a5', 'landscape');
 
         return $pdf->download('slip-gaji-' . $month->format('Y-m') . '.pdf');

@@ -42,6 +42,9 @@ class TutorController extends Controller
                             data-email="' . e($tutor->email ?? '') . '"
                             data-norek="' . e($tutor->no_rekening ?? '') . '"
                             data-fee="' . e($tutor->fee_per_session !== null ? (0 + $tutor->fee_per_session) : '') . '"
+                            data-fee-private="' . e($tutor->fee_per_student_private !== null ? (0 + $tutor->fee_per_student_private) : '') . '"
+                            data-fee-student="' . e($tutor->fee_per_student !== null ? (0 + $tutor->fee_per_student) : '') . '"
+                            data-fee-transport="' . e($tutor->fee_transport_per_day !== null ? (0 + $tutor->fee_transport_per_day) : '') . '"
                             data-photo="' . e($tutor->photo ? asset('storage/' . $tutor->photo) : '') . '"
                             data-specialization=\'' . e(json_encode($specs)) . '\'>
                             <i class="bi bi-pencil"></i>
@@ -93,7 +96,10 @@ class TutorController extends Controller
             'phone'            => 'required|string|max:20',
             'email'            => 'nullable|email|max:255',
             'no_rekening'      => 'nullable|string|max:50',
-            'fee_per_session'  => 'nullable|numeric|min:0',
+            'fee_per_session'         => 'nullable|numeric|min:0',
+            'fee_per_student_private' => 'nullable|numeric|min:0',
+            'fee_per_student'         => 'nullable|numeric|min:0',
+            'fee_transport_per_day'   => 'nullable|numeric|min:0',
             'photo'            => 'nullable|image|max:5120', // semua tipe foto, maks 5 MB
             'specialization'   => 'required|array|min:1',
             'specialization.*' => 'string|max:100',

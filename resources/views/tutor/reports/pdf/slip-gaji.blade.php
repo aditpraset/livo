@@ -23,7 +23,7 @@
 <body>
     <div class="header">
         <h1>SLIP GAJI TUTOR</h1>
-        <p>Bimbingan Belajar LIVO · Periode {{ $month->translatedFormat('F Y') }}</p>
+        <p>Bimbingan Belajar LIVO · Periode {{ $month->locale("id")->translatedFormat("F Y") }}</p>
     </div>
 
     <table class="info">
@@ -37,10 +37,11 @@
             <td><strong>No. Rekening</strong></td>
             <td>: {{ $tutor->no_rekening ?: '-' }}</td>
             <td><strong>Periode</strong></td>
-            <td>: {{ $month->translatedFormat('F Y') }}</td>
+            <td>: {{ $month->locale("id")->translatedFormat("F Y") }}</td>
         </tr>
     </table>
 
+    @php $rp = fn ($v) => 'Rp ' . number_format($v, 0, ',', '.'); @endphp
     <table class="detail">
         <thead>
             <tr>
@@ -52,20 +53,38 @@
         </thead>
         <tbody>
             <tr>
-                <td>Sesi mengajar selesai (hadir: {{ $stats['hadir'] }}, izin: {{ $stats['izin'] }}, alfa: {{ $stats['alfa'] }})</td>
-                <td class="text-end">{{ $stats['done'] }} sesi</td>
-                <td class="text-end">Rp {{ number_format($fee, 0, ',', '.') }}</td>
-                <td class="text-end">Rp {{ number_format($total, 0, ',', '.') }}</td>
+                <td>Fee sesi mengajar (per slot tanggal + jam)</td>
+                <td class="text-end">{{ $fee['session_count'] }} sesi</td>
+                <td class="text-end">{{ $rp($tutor->fee_per_session ?? 0) }}</td>
+                <td class="text-end">{{ $rp($fee['fee_session']) }}</td>
+            </tr>
+            <tr>
+                <td>Fee siswa Privat (kehadiran)</td>
+                <td class="text-end">{{ $fee['private_count'] }} siswa</td>
+                <td class="text-end">{{ $rp($tutor->fee_per_student_private ?? 0) }}</td>
+                <td class="text-end">{{ $rp($fee['fee_private']) }}</td>
+            </tr>
+            <tr>
+                <td>Fee siswa Semi-Privat (kehadiran)</td>
+                <td class="text-end">{{ $fee['regular_count'] }} siswa</td>
+                <td class="text-end">{{ $rp($tutor->fee_per_student ?? 0) }}</td>
+                <td class="text-end">{{ $rp($fee['fee_regular']) }}</td>
+            </tr>
+            <tr>
+                <td>Fee transport (per hari mengajar)</td>
+                <td class="text-end">{{ $fee['day_count'] }} hari</td>
+                <td class="text-end">{{ $rp($tutor->fee_transport_per_day ?? 0) }}</td>
+                <td class="text-end">{{ $rp($fee['fee_transport']) }}</td>
             </tr>
             <tr class="total-row">
                 <td colspan="3">TOTAL DITERIMA</td>
-                <td class="text-end">Rp {{ number_format($total, 0, ',', '.') }}</td>
+                <td class="text-end">{{ $rp($fee['total']) }}</td>
             </tr>
         </tbody>
     </table>
 
-    @if($fee <= 0)
-        <p style="color:#b45309;"><em>Catatan: fee per sesi belum diatur oleh admin.</em></p>
+    @if($fee['total'] <= 0)
+        <p style="color:#b45309;"><em>Catatan: sebagian/seluruh tarif fee belum diatur oleh admin.</em></p>
     @endif
 
     <table class="footer">
