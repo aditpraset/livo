@@ -178,9 +178,13 @@ class PaymentController extends Controller
         $logoPath = public_path('frontend/images/logo.jpeg');
         $logo = file_exists($logoPath) ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath)) : null;
 
+        // Periode reminder mengikuti durasi paket siswa:
+        // durasi 1 bulan → periode bulan DEPAN; durasi 3/6 (atau lainnya) → periode bulan BERJALAN.
+        $reminderMonth = (int) $student->duration === 1 ? now()->copy()->addMonth() : now();
+
         $data = [
             'student'         => $student,
-            'periode'         => now()->locale('id')->translatedFormat('F Y'),
+            'periode'         => $reminderMonth->locale('id')->translatedFormat('F Y'),
             'kbm_process'     => $student->kbm_process ?: '-',
             'program_name'    => $program->program_name ?? '-',
             'quota_purchased' => $quotaPurchased ?? '-',
