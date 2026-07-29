@@ -89,6 +89,12 @@
             <span class="nav-link-title"> Data Siswa </span>
           </a>
         </li>
+        <li class="nav-item {{ request()->routeIs('admin.tutor-fees*') ? 'active' : '' }}">
+          <a class="nav-link" href="{{ route('admin.tutor-fees.index') }}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="bi bi-cash-stack fs-2"></i></span>
+            <span class="nav-link-title"> Fee Tutor </span>
+          </a>
+        </li>
         <li class="nav-item {{ request()->routeIs('admin.evaluations*') ? 'active' : '' }}">
           <a class="nav-link" href="{{ route('admin.evaluations.index') }}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">

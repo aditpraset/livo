@@ -27,4 +27,9 @@ class Tutor extends Model
     {
         return $this->hasMany(Schedule::class);
     }
+
+    public function tutorFees()
+    {
+        return $this->hasMany(TutorFee::class);
+    }
 }

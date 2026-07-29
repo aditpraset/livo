@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\ScheduleController;
 use App\Http\Controllers\Admin\StudentController;
 use App\Http\Controllers\Admin\SubjectController;
 use App\Http\Controllers\Admin\TutorController;
+use App\Http\Controllers\Admin\TutorFeeController;
 use App\Http\Controllers\Auth\LoginController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -201,6 +202,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/tutors', [TutorController::class, 'store'])->name('tutors.store');
         Route::put('/tutors/{tutor}', [TutorController::class, 'update'])->name('tutors.update');
         Route::delete('/tutors/{tutor}', [TutorController::class, 'destroy'])->name('tutors.destroy');
+
+        // Fee Tutor: generate per bulan → review → terbitkan
+        Route::get('/tutor-fees', [TutorFeeController::class, 'index'])->name('tutor-fees.index');
+        Route::get('/data/tutor-fees', [TutorFeeController::class, 'data'])->name('tutor-fees.data');
+        Route::post('/tutor-fees/generate', [TutorFeeController::class, 'generate'])->name('tutor-fees.generate');
+        Route::put('/tutor-fees/{tutorFee}', [TutorFeeController::class, 'updateRow'])->name('tutor-fees.update-row');
+        Route::post('/tutor-fees/publish', [TutorFeeController::class, 'publish'])->name('tutor-fees.publish');
+        Route::post('/tutor-fees/unpublish', [TutorFeeController::class, 'unpublish'])->name('tutor-fees.unpublish');
 
         // ── Penjadwalan ───────────────────────────────────────────────
         Route::get('/schedules', [ScheduleController::class, 'index'])->name('schedules.index');

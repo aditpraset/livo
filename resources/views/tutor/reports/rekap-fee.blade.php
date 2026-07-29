@@ -8,7 +8,7 @@
 <div class="row mb-4">
     <div class="col-md-7">
         <h1 class="fs-3 mb-1">Rekapitulasi Fee</h1>
-        <p class="text-muted mb-0">Tahun {{ $year }} · total fee = fee sesi + fee per siswa (hadir) + fee transport per hari.</p>
+        <p class="text-muted mb-0">Tahun {{ $year }} · total fee = fee sesi + fee per siswa (hadir) + fee transport per hari. Fee tampil setelah diterbitkan admin.</p>
     </div>
     <div class="col-md-5 text-md-end mt-2 mt-md-0">
         <form method="GET" class="d-inline-flex gap-2">
@@ -21,6 +21,13 @@
         </form>
     </div>
 </div>
+
+@if(!$rows->contains('published', true))
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-1"></i>
+        Belum ada fee yang diterbitkan admin untuk tahun {{ $year }}. Fee akan tampil di sini setelah admin menerbitkannya.
+    </div>
+@endif
 
 @if($rates['session'] <= 0 && $rates['private'] <= 0 && $rates['student'] <= 0 && $rates['transport'] <= 0)
     <div class="alert alert-warning">
@@ -86,9 +93,13 @@
             </thead>
             <tbody>
                 @foreach($rows as $row)
-                    @php $empty = $row['total'] == 0 && $row['session_count'] == 0; @endphp
-                    <tr class="{{ $empty ? 'text-muted' : '' }}">
-                        <td class="fw-semibold">{{ $row['month']->locale('id')->translatedFormat('F') }}</td>
+                    <tr class="{{ !$row['published'] ? 'text-muted' : '' }}">
+                        <td class="fw-semibold">
+                            {{ $row['month']->locale('id')->translatedFormat('F') }}
+                            @if(!$row['published'])
+                                <span class="badge bg-secondary-subtle text-secondary border ms-1">Belum terbit</span>
+                            @endif
+                        </td>
                         <td class="text-center border-start">{{ $row['session_count'] }}</td>
                         <td class="text-end">{{ $rp($row['fee_session']) }}</td>
                         <td class="text-center border-start">{{ $row['private_count'] }}</td>
@@ -99,7 +110,7 @@
                         <td class="text-end">{{ $rp($row['fee_transport']) }}</td>
                         <td class="text-end fw-bold border-start">{{ $rp($row['total']) }}</td>
                         <td class="text-center">
-                            @if($row['total'] > 0 || $row['session_count'] > 0)
+                            @if($row['published'])
                                 <a href="{{ route('tutor.reports.slip-gaji', ['month' => $row['month']->format('Y-m')]) }}" class="btn btn-sm btn-outline-danger" title="Cetak Slip Gaji">
                                     <i class="bi bi-file-earmark-pdf"></i>
                                 </a>
