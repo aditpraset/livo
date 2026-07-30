@@ -25,9 +25,8 @@ class DashboardController extends BaseTutorController
                 ->whereYear('class_date', $now->year)->whereMonth('class_date', $now->month)->count($sessionGroup),
             'upcoming_sessions' => (clone $base)->where('status_schedule', 'scheduled')
                 ->whereDate('class_date', '>=', $now->toDateString())->count($sessionGroup),
-            // Total Siswa Diajar = siswa yang benar-benar hadir pada sesi tutor ini (seluruh waktu)
-            'total_students' => (clone $base)->whereHas('evaluation', fn ($q) => $q->where('student_attendance', 'hadir'))
-                ->distinct('student_id')->count('student_id'),
+            // Total Siswa Diajar = seluruh kehadiran siswa yang hadir (tidak di-distinct)
+            'total_students' => (clone $base)->whereHas('evaluation', fn ($q) => $q->where('student_attendance', 'hadir'))->count(),
             // Siswa Bulan Ini = siswa yang dijadwalkan bulan ini (tidak termasuk jadwal yang dibatalkan)
             'month_students' => (clone $base)->where('status_schedule', '!=', 'canceled')
                 ->whereYear('class_date', $now->year)

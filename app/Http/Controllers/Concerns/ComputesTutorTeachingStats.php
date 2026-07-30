@@ -43,12 +43,13 @@ trait ComputesTutorTeachingStats
         // Beberapa siswa pada slot yang sama dihitung satu sesi.
         $slotKey = fn ($s) => $s->class_date->toDateString() . '|' . $s->start_time . '|' . $s->end_time;
 
-        // Siswa Diajar = siswa yang hadir (bukan sekadar terjadwal), selaras dengan dashboard.
+        // Siswa Diajar = seluruh kehadiran siswa yang hadir (tidak di-distinct, boleh
+        // sama dengan jumlah Hadir) — merepresentasikan total sesi yang benar-benar diajar.
         $hadirSchedules = $evaluated->filter(fn ($s) => $s->evaluation->student_attendance === 'hadir');
 
         $stats = [
             'done' => $schedules->unique($slotKey)->count(),
-            'students' => $hadirSchedules->pluck('student_id')->unique()->count(),
+            'students' => $hadirSchedules->count(),
             'evaluated' => $evaluated->count(),
             'avg_post_test' => $postTests->count() ? round($postTests->avg(), 1) : null,
             'hadir' => $hadirSchedules->count(),
