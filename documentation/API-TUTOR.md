@@ -140,6 +140,9 @@ POST /api/tutor/auth/login
     "email": "budi@livo.co.id",
     "no_rekening": "BCA 1234567890",
     "fee_per_session": 75000,
+    "fee_per_student_private": 50000,
+    "fee_per_student": 25000,
+    "fee_transport_per_day": 20000,
     "specialization": ["Matematika", "Fisika"]
   }
 }
@@ -221,7 +224,7 @@ Ringkasan akumulasi sesi & siswa, review hasil penilaian, dan evaluasi terbaru.
     "total_sessions": 128,
     "month_sessions": 14,
     "upcoming_sessions": 6,
-    "total_students": 22,
+    "total_students": 231,
     "month_students": 9,
     "pending_evaluations": 2
   },
@@ -250,7 +253,19 @@ Ringkasan akumulasi sesi & siswa, review hasil penilaian, dan evaluasi terbaru.
 }
 ```
 
-`stats.total_sessions`/`month_sessions` menghitung sesi berstatus `done`; `upcoming_sessions` menghitung sesi `scheduled` mulai hari ini. `review.*` dihitung dari **seluruh evaluasi** milik tutor ini (tidak difilter tanggal). `avg_*` bernilai `null` bila belum ada data untuk field tersebut.
+**Definisi `stats` (disamakan dengan Portal Tutor web):**
+
+| Field | Definisi |
+|---|---|
+| `total_sessions` / `month_sessions` | Jumlah **sesi unik** berstatus `done` — dikelompokkan per slot (tanggal + jam mulai + jam selesai). Beberapa siswa pada slot/jam yang sama tetap dihitung **1 sesi**, bukan per baris siswa. |
+| `upcoming_sessions` | Jumlah sesi unik (grouping sama) berstatus `scheduled` mulai hari ini. |
+| `total_students` | **Total kehadiran** dengan `student_attendance = hadir` sepanjang waktu — **tidak** di-distinct per siswa. Bila satu siswa hadir 10× dalam setahun, ia menyumbang 10 ke angka ini (bukan 1). |
+| `month_students` | Jumlah **siswa unik** (distinct) yang dijadwalkan bulan ini, **tidak termasuk** jadwal berstatus `canceled`. |
+| `pending_evaluations` | Sesi `done` yang belum ada evaluasinya. |
+
+`review.*` dihitung dari **seluruh evaluasi** milik tutor ini (tidak difilter tanggal). `avg_*` bernilai `null` bila belum ada data untuk field tersebut.
+
+> ⚠️ **Perhatian untuk klien lama:** `total_students` sebelumnya dihitung distinct per siswa; sejak versi ini nilainya **tidak lagi unik** (redundan/berulang per kehadiran), agar konsisten dengan tampilan web. Sesuaikan tampilan/label di aplikasi client bila sebelumnya mengasumsikan nilai unik.
 
 ---
 
@@ -505,6 +520,9 @@ GET /api/tutor/profile
     "email": "budi@livo.co.id",
     "no_rekening": "BCA 1234567890",
     "fee_per_session": 75000,
+    "fee_per_student_private": 50000,
+    "fee_per_student": 25000,
+    "fee_transport_per_day": 20000,
     "specialization": ["Matematika", "Fisika"]
   }
 }
@@ -556,7 +574,7 @@ GET /api/tutor/rekap-pengajaran
   "month": "2026-07",
   "stats": {
     "done": 18,
-    "students": 7,
+    "students": 16,
     "evaluated": 18,
     "avg_post_test": 83.2,
     "hadir": 16,
@@ -587,12 +605,22 @@ GET /api/tutor/rekap-pengajaran
 
 `stats` dihitung dari **seluruh** sesi selesai bulan tsb. (tidak ikut terpotong `per_page`); `schedules` adalah daftar rincinya yang dipaginasi.
 
+- `done` = jumlah **sesi unik** (grouping per slot tanggal+jam), sama seperti Dashboard.
+- `students` = **total kehadiran hadir** (sama persis dengan field `hadir` di bawahnya) — **bukan** jumlah siswa unik. Field ini sengaja redundan dengan `hadir` demi konsistensi dengan tampilan web.
+
 ### 7.2 Rekap Fee per Tahun
 
 ```
 GET /api/tutor/rekap-fee
 ```
 🔒 *Butuh token*
+
+> ⚠️ **Perubahan alur (breaking change):** fee tutor **tidak lagi dihitung langsung (live)** dari jadwal setiap kali endpoint dipanggil. Admin kini menjalankan alur **generate → review → terbitkan** per bulan (lihat [dokumen alur & modul](ALUR-DAN-MODUL-SISTEM-LIVO.md)):
+> 1. Admin memilih bulan lalu men-**generate** fee seluruh tutor untuk bulan itu (status `draft`).
+> 2. Admin **mereview** rincian per tutor, boleh mengedit manual komponennya selagi masih `draft`.
+> 3. Admin **menerbitkan** (`published`) — **baru pada titik ini** tutor bisa melihat fee bulan tsb.
+>
+> Selama status masih `draft` (atau belum pernah di-generate sama sekali), endpoint ini **tidak menampilkan nominal apa pun** ke tutor — bulan tsb tampil dengan `published: false` dan seluruh angka `0`. Ini untuk mencegah tutor melihat fee yang belum final/belum disetujui admin.
 
 **Query:** `year` (default tahun berjalan).
 
@@ -601,17 +629,45 @@ GET /api/tutor/rekap-fee
 ```json
 {
   "year": 2026,
-  "fee_per_session": 75000,
+  "rates": {
+    "session": 75000,
+    "private": 50000,
+    "student": 25000,
+    "transport": 20000
+  },
   "rows": [
-    { "month": 1, "month_label": "Januari", "sessions": 0, "fee": 0 },
-    { "month": 2, "month_label": "Februari", "sessions": 12, "fee": 900000 }
+    {
+      "private_count": 0, "regular_count": 0, "session_count": 0, "day_count": 0,
+      "fee_private": 0, "fee_regular": 0, "fee_session": 0, "fee_transport": 0, "total": 0,
+      "month": 1, "month_label": "Januari", "published": false
+    },
+    {
+      "private_count": 3, "regular_count": 20, "session_count": 12, "day_count": 10,
+      "fee_private": 150000, "fee_regular": 500000, "fee_session": 900000, "fee_transport": 200000, "total": 1750000,
+      "month": 2, "month_label": "Februari", "published": true
+    }
   ],
-  "total_sessions": 96,
-  "total_fee": 7200000
+  "totals": {
+    "private_count": 3, "regular_count": 20, "session_count": 12, "day_count": 10,
+    "fee_private": 150000, "fee_regular": 500000, "fee_session": 900000, "fee_transport": 200000, "total": 1750000
+  }
 }
 ```
 
-`rows` selalu berisi **12 elemen** (Januari–Desember), dipotong pada contoh di atas agar ringkas. `fee_per_session` diambil dari master Tutor (`tutors.fee_per_session`) — bernilai `0` bila admin belum mengaturnya. `sessions` menghitung sesi berstatus `done` per bulan; `fee = sessions × fee_per_session`.
+`rows` selalu berisi **12 elemen** (Januari–Desember), dipotong pada contoh di atas agar ringkas. `totals` adalah penjumlahan seluruh `rows` sepanjang tahun (hanya bulan `published` yang bernilai > 0).
+
+**Rincian fee = a + b + c + d**, dihitung admin saat generate dan disimpan apa adanya (bisa diedit manual sebelum terbit):
+
+| Komponen | Field jumlah | Field nominal | Rumus |
+|---|---|---|---|
+| a) Siswa Privat (paket Privat, kehadiran `hadir`) | `private_count` | `fee_private` | `private_count × rates.private` |
+| b) Siswa Semi-Privat (paket Semi-Privat, kehadiran `hadir`) | `regular_count` | `fee_regular` | `regular_count × rates.student` |
+| c) Sesi mengajar (per slot tanggal+jam, bukan per siswa) | `session_count` | `fee_session` | `session_count × rates.session` |
+| d) Transport (per hari yang ada minimal 1 sesi) | `day_count` | `fee_transport` | `day_count × rates.transport` |
+
+`total = fee_private + fee_regular + fee_session + fee_transport`. `rates.*` diambil dari master Tutor (`fee_per_student_private`, `fee_per_student`, `fee_per_session`, `fee_transport_per_day`) — nilai ini hanya untuk referensi tampilan; angka aktual pada `rows[].fee_*` sudah final saat di-generate (dan bisa berbeda dari `rates` bila admin melakukan edit manual sebelum menerbitkan).
+
+Field `published` (boolean) menandai apakah bulan tsb sudah bisa ditagihkan/dicetak slip-nya — gunakan untuk menonaktifkan tombol "Unduh Slip" di UI client saat `false`.
 
 ---
 
@@ -626,7 +682,17 @@ GET /api/tutor/reports/slip-gaji
 ```
 🔒 *Butuh token* · **Query:** `month` (`YYYY-MM`, default bulan berjalan)
 
-Response: unduhan PDF ukuran A5 landscape, nama berkas `slip-gaji-YYYY-MM.pdf`. Berisi jumlah sesi selesai × fee per sesi, rincian kehadiran, dan area tanda tangan.
+**Syarat:** periode bulan tsb harus sudah **`published`** oleh admin (lihat [7.2 Rekap Fee](#72-rekap-fee-per-tahun)). Bila belum:
+
+**Response `404 Not Found`**
+
+```json
+{ "message": "Fee bulan Juli 2026 belum diterbitkan oleh admin." }
+```
+
+Bila sudah terbit — **Response `200 OK`**: unduhan PDF ukuran A5 landscape, nama berkas `slip-gaji-YYYY-MM.pdf`. Berisi rincian 4 komponen fee (sesi, siswa privat, siswa semi-privat, transport) sesuai data yang diterbitkan admin, dan area tanda tangan.
+
+> ⚠️ **Perubahan alur:** sebelumnya slip gaji dihitung live (`sesi × fee_per_session`) dan selalu bisa diunduh kapan saja. Sekarang **hanya berhasil bila admin sudah menerbitkan** fee bulan tsb — tangani status `404` di client dengan menampilkan pesan bahwa fee bulan itu belum diterbitkan, bukan sebagai error generik.
 
 ### 8.2 Summary Pengajaran
 
@@ -647,7 +713,7 @@ Seluruh error memakai format standar Laravel:
 |---|---|---|
 | `401 Unauthorized` | Token tidak dikirim, tidak valid, atau sudah dicabut (logout) | `{ "message": "Unauthenticated." }` |
 | `403 Forbidden` | Role bukan `tutor`; akun tutor tidak tertaut ke master Tutor; mengakses siswa/sesi/evaluasi milik tutor lain | `{ "message": "<penjelasan, bisa kosong>" }` |
-| `404 Not Found` | ID di path (`{student}`, `{schedule}`) tidak ditemukan | `{ "message": "..." }` |
+| `404 Not Found` | ID di path (`{student}`, `{schedule}`) tidak ditemukan; atau slip gaji diminta untuk bulan yang **belum diterbitkan** admin (lihat [8.1](#81-slip-gaji)) | `{ "message": "..." }` |
 | `422 Unprocessable Entity` | Validasi input gagal, atau aturan bisnis login (lihat bagian 2) | `{ "message": "The given data was invalid.", "errors": { "<field>": ["<pesan>"] } }` |
 
 Contoh `403` saat akun tutor belum tertaut ke master Tutor (berlaku di **semua** endpoint terproteksi):
@@ -668,6 +734,7 @@ Contoh `403` saat akun tutor belum tertaut ke master Tutor (berlaku di **semua**
 | `user.status` | `pending`, `aktif`, `nonaktif` |
 | `schedule.status_schedule` | `scheduled`, `done`, `canceled` |
 | `evaluation.student_attendance` | `hadir`, `izin`, `alfa` |
+| `fee_period.status` (internal admin, tercermin sebagai `rows[].published`) | `draft`, `published` |
 
 ### Objek `tutor` (master Tutor)
 
@@ -679,8 +746,13 @@ Contoh `403` saat akun tutor belum tertaut ke master Tutor (berlaku di **semua**
 | `phone` | string | |
 | `email` | string | Kunci penaut akun login |
 | `no_rekening` | string\|null | |
-| `fee_per_session` | number\|null | Dasar perhitungan rekap fee & slip gaji |
+| `fee_per_session` | number\|null | Tarif per sesi mengajar (komponen c) |
+| `fee_per_student_private` | number\|null | Tarif per kehadiran siswa paket **Privat** (komponen a) |
+| `fee_per_student` | number\|null | Tarif per kehadiran siswa paket **Semi-Privat** (komponen b) |
+| `fee_transport_per_day` | number\|null | Tarif transport per hari mengajar (komponen d) |
 | `specialization` | string[] | Daftar mata pelajaran spesialisasi |
+
+> Keempat field `fee_*` adalah **tarif master** yang diatur admin di data Tutor — dipakai admin saat men-generate fee bulanan (lihat [7.2 Rekap Fee](#72-rekap-fee-per-tahun)). Bukan nominal fee aktual suatu bulan.
 
 ### Objek `evaluation` (ringkas, seperti dipakai di 4.3/5.1)
 
@@ -737,7 +809,7 @@ curl -s -X POST "$BASE/evaluations/502" \
   -d "materi_manual=Aljabar Dasar" \
   -d "post_test=90"
 
-# 5) Unduh slip gaji bulan berjalan
+# 5) Unduh slip gaji bulan berjalan (404 bila admin belum menerbitkan fee bulan tsb)
 curl -s "$BASE/reports/slip-gaji?month=2026-07" \
   -H "Authorization: Bearer $TOKEN" \
   -o slip-gaji.pdf

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Tutor;
 
 use App\Models\Evaluation;
 use App\Models\Schedule;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends BaseApiTutorController
 {
@@ -14,14 +15,21 @@ class DashboardController extends BaseApiTutorController
 
         $base = Schedule::where('tutor_id', $tutor->id);
 
+        // Satu "sesi" = satu slot mengajar (tanggal + jam), bukan per siswa.
+        // Beberapa siswa pada slot yang sama dihitung sebagai satu sesi.
+        $sessionGroup = DB::raw('DISTINCT class_date, start_time, end_time');
+
         $stats = [
-            'total_sessions' => (clone $base)->where('status_schedule', 'done')->count(),
+            'total_sessions' => (clone $base)->where('status_schedule', 'done')->count($sessionGroup),
             'month_sessions' => (clone $base)->where('status_schedule', 'done')
-                ->whereYear('class_date', $now->year)->whereMonth('class_date', $now->month)->count(),
+                ->whereYear('class_date', $now->year)->whereMonth('class_date', $now->month)->count($sessionGroup),
             'upcoming_sessions' => (clone $base)->where('status_schedule', 'scheduled')
-                ->whereDate('class_date', '>=', $now->toDateString())->count(),
-            'total_students' => (clone $base)->distinct('student_id')->count('student_id'),
-            'month_students' => (clone $base)->whereYear('class_date', $now->year)
+                ->whereDate('class_date', '>=', $now->toDateString())->count($sessionGroup),
+            // Total Siswa Diajar = seluruh kehadiran siswa yang hadir (tidak di-distinct)
+            'total_students' => (clone $base)->whereHas('evaluation', fn ($q) => $q->where('student_attendance', 'hadir'))->count(),
+            // Siswa Bulan Ini = siswa yang dijadwalkan bulan ini (tidak termasuk jadwal yang dibatalkan)
+            'month_students' => (clone $base)->where('status_schedule', '!=', 'canceled')
+                ->whereYear('class_date', $now->year)
                 ->whereMonth('class_date', $now->month)->distinct('student_id')->count('student_id'),
             'pending_evaluations' => (clone $base)->where('status_schedule', 'done')
                 ->whereDoesntHave('evaluation')->count(),

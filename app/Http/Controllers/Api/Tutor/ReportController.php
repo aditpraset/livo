@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\Tutor;
 
 use App\Http\Controllers\Concerns\ComputesTutorTeachingStats;
+use App\Models\FeePeriod;
 use App\Models\Schedule;
+use App\Models\TutorFee;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -48,50 +50,82 @@ class ReportController extends BaseApiTutorController
         ]);
     }
 
-    /** Rekapitulasi fee per bulan dalam satu tahun. */
+    /**
+     * Rekapitulasi fee per bulan dalam satu tahun (breakdown a + b + c + d).
+     * Hanya menampilkan bulan yang periodenya sudah DITERBITKAN oleh admin;
+     * bulan yang masih draft/belum di-generate tampil kosong (published=false).
+     */
     public function rekapFee(Request $request)
     {
         $tutor = $this->tutor();
         $year = (int) ($request->input('year') ?: now()->year);
-        $fee = (float) ($tutor->fee_per_session ?? 0);
 
-        $counts = Schedule::where('tutor_id', $tutor->id)
-            ->where('status_schedule', 'done')
-            ->whereYear('class_date', $year)
-            ->get(['class_date'])
-            ->groupBy(fn ($s) => (int) $s->class_date->format('n'))
-            ->map->count();
+        $published = TutorFee::with('period')
+            ->where('tutor_id', $tutor->id)
+            ->whereHas('period', fn ($q) => $q->whereYear('month', $year)->where('status', 'published'))
+            ->get()
+            ->keyBy(fn ($tf) => (int) $tf->period->month->format('n'));
 
-        $rows = collect(range(1, 12))->map(function ($m) use ($counts, $fee, $year) {
-            $sessions = (int) ($counts[$m] ?? 0);
-            return [
-                'month' => $m,
+        $empty = ['private_count' => 0, 'regular_count' => 0, 'session_count' => 0, 'day_count' => 0,
+            'fee_private' => 0, 'fee_regular' => 0, 'fee_session' => 0, 'fee_transport' => 0, 'total' => 0];
+
+        $rows = collect(range(1, 12))->map(function ($m) use ($published, $year, $empty) {
+            $tf = $published->get($m);
+            return array_merge($empty, [
+                'month'       => $m,
                 'month_label' => Carbon::create($year, $m, 1)->translatedFormat('F'),
-                'sessions' => $sessions,
-                'fee' => $sessions * $fee,
-            ];
+                'published'   => (bool) $tf,
+            ], $tf ? $tf->only(array_keys($empty)) : []);
         });
 
+        $sum = fn ($key) => $rows->sum($key);
+
         return response()->json([
-            'year' => $year,
-            'fee_per_session' => $fee,
-            'rows' => $rows,
-            'total_sessions' => $rows->sum('sessions'),
-            'total_fee' => $rows->sum('fee'),
+            'year'  => $year,
+            'rates' => [
+                'session'   => (float) ($tutor->fee_per_session ?? 0),
+                'private'   => (float) ($tutor->fee_per_student_private ?? 0),
+                'student'   => (float) ($tutor->fee_per_student ?? 0),
+                'transport' => (float) ($tutor->fee_transport_per_day ?? 0),
+            ],
+            'rows'  => $rows,
+            'totals' => [
+                'private_count' => $sum('private_count'),
+                'regular_count' => $sum('regular_count'),
+                'session_count' => $sum('session_count'),
+                'day_count'     => $sum('day_count'),
+                'fee_private'   => $sum('fee_private'),
+                'fee_regular'   => $sum('fee_regular'),
+                'fee_session'   => $sum('fee_session'),
+                'fee_transport' => $sum('fee_transport'),
+                'total'         => $sum('total'),
+            ],
         ]);
     }
 
-    /** Slip gaji PDF untuk bulan terpilih. */
+    /** Slip gaji PDF untuk bulan terpilih. Hanya tersedia bila periode sudah diterbitkan admin. */
     public function slipGaji(Request $request)
     {
         $tutor = $this->tutor();
         $month = $this->resolveMonth($request);
-        $fee = (float) ($tutor->fee_per_session ?? 0);
 
-        [, $stats] = $this->teachingData($tutor->id, $month);
-        $total = $stats['done'] * $fee;
+        $period = FeePeriod::publishedFor($month);
+        $tutorFee = $period
+            ? TutorFee::where('fee_period_id', $period->id)->where('tutor_id', $tutor->id)->first()
+            : null;
 
-        $pdf = Pdf::loadView('tutor.reports.pdf.slip-gaji', compact('tutor', 'month', 'stats', 'fee', 'total'))
+        if (!$tutorFee) {
+            return response()->json([
+                'message' => 'Fee bulan ' . $month->locale('id')->translatedFormat('F Y') . ' belum diterbitkan oleh admin.',
+            ], 404);
+        }
+
+        $fee = $tutorFee->only([
+            'private_count', 'regular_count', 'session_count', 'day_count',
+            'fee_private', 'fee_regular', 'fee_session', 'fee_transport', 'total',
+        ]);
+
+        $pdf = Pdf::loadView('tutor.reports.pdf.slip-gaji', compact('tutor', 'month', 'fee'))
             ->setPaper('a5', 'landscape');
 
         return $pdf->download('slip-gaji-' . $month->format('Y-m') . '.pdf');
