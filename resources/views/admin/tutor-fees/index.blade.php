@@ -78,9 +78,9 @@
                     <tr>
                         <th width="40">#</th>
                         <th>Tutor</th>
-                        <th class="text-center">Sesi (c)</th>
-                        <th class="text-center">Siswa Privat (a)</th>
-                        <th class="text-center">Siswa Semi-Privat (b)</th>
+                        <th class="text-center">Sesi Semi-Privat (b)</th>
+                        <th class="text-center">Sesi Privat (a)</th>
+                        <th class="text-center">Total Siswa (c)</th>
                         <th class="text-center">Transport (d)</th>
                         <th class="text-end">Total Fee</th>
                         <th class="text-center" width="70">Aksi</th>
@@ -106,27 +106,27 @@
                 <input type="hidden" id="edit-fee-id">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Jumlah Sesi (c)</label>
+                        <label class="form-label fw-semibold">Jumlah Sesi Semi-Privat (b)</label>
                         <input type="number" min="0" id="edit-session-count" class="form-control fee-count" data-target="edit-fee-session">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Fee Sesi (Rp)</label>
+                        <label class="form-label fw-semibold">Fee Sesi Semi-Privat (Rp)</label>
                         <input type="number" min="0" id="edit-fee-session" class="form-control fee-amount">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Siswa Privat (a)</label>
+                        <label class="form-label fw-semibold">Jumlah Sesi Privat (a)</label>
                         <input type="number" min="0" id="edit-private-count" class="form-control fee-count" data-target="edit-fee-private">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Fee Siswa Privat (Rp)</label>
+                        <label class="form-label fw-semibold">Fee Sesi Privat (Rp)</label>
                         <input type="number" min="0" id="edit-fee-private" class="form-control fee-amount">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Siswa Semi-Privat (b)</label>
+                        <label class="form-label fw-semibold">Total Siswa (c)</label>
                         <input type="number" min="0" id="edit-regular-count" class="form-control fee-count" data-target="edit-fee-regular">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Fee Siswa Semi-Privat (Rp)</label>
+                        <label class="form-label fw-semibold">Fee Total Siswa (Rp)</label>
                         <input type="number" min="0" id="edit-fee-regular" class="form-control fee-amount">
                     </div>
                     <div class="col-md-6">

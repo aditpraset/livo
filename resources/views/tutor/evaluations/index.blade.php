@@ -45,7 +45,8 @@ $(function () {
         serverSide: true,
         ajax: {
             url: '{{ route('tutor.evaluations.data') }}',
-            data: function (d) { d.mode = evalMode; }
+            data: function (d) { d.mode = evalMode; },
+            cache: false
         },
         order: [],
         columns: [

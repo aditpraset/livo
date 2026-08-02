@@ -81,14 +81,14 @@
                                 <div class="invalid-feedback" id="err-norek"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Fee per Sesi (Rp)</label>
+                                <label class="form-label fw-semibold">Fee per Sesi Semi-Privat (Rp)</label>
                                 <input type="number" id="field-fee" min="0" class="form-control" placeholder="cth: 75000">
                                 <div class="invalid-feedback" id="err-fee"></div>
                             </div>
                         </div>
                         <div class="mt-3 row g-3">
                             <div class="col-md-4">
-                                <label class="form-label fw-semibold">Fee per Siswa Private (Rp)</label>
+                                <label class="form-label fw-semibold">Fee per Sesi Privat (Rp)</label>
                                 <input type="number" id="field-fee-private" min="0" class="form-control" placeholder="cth: 50000">
                                 <div class="invalid-feedback" id="err-fee-private"></div>
                             </div>

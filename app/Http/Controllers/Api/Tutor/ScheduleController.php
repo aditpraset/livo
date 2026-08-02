@@ -22,6 +22,10 @@ class ScheduleController extends BaseApiTutorController
             ->where('tutor_id', $tutor->id)
             ->whereDate('class_date', '>=', $start->toDateString())
             ->whereDate('class_date', '<=', $end->toDateString())
+            ->when($request->filled('search'), fn ($q) => $q->whereHas(
+                'student',
+                fn ($qq) => $qq->where('full_name', 'like', '%' . $request->input('search') . '%')
+            ))
             ->orderBy('class_date')->orderBy('start_time')
             ->get();
 
@@ -35,6 +39,7 @@ class ScheduleController extends BaseApiTutorController
             'end' => $end->toDateString(),
             'prev_week' => $start->copy()->subWeek()->toDateString(),
             'next_week' => $start->copy()->addWeek()->toDateString(),
+            'search' => $request->input('search'),
             'total' => $schedules->count(),
             'days' => $days,
             'schedules_by_day' => $days->mapWithKeys(fn ($d) => [$d => $byDay->get($d, collect())->values()]),

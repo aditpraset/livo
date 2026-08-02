@@ -283,6 +283,7 @@ GET /api/tutor/schedules/week
 | Param | Tipe | Wajib | Keterangan |
 |---|---|---|---|
 | `week` | date (`YYYY-MM-DD`) | — | Tanggal mana pun dalam minggu yang ingin dilihat. Default: minggu berjalan. Minggu dihitung Senin–Minggu. |
+| `search` | string | — | Filter berdasarkan **nama siswa** (partial match, tidak case-sensitive). Hanya sesi dengan siswa yang namanya mengandung kata kunci ini yang ditampilkan. |
 
 **Response `200 OK`**
 
@@ -292,6 +293,7 @@ GET /api/tutor/schedules/week
   "end": "2026-07-12",
   "prev_week": "2026-06-29",
   "next_week": "2026-07-13",
+  "search": null,
   "total": 5,
   "days": ["2026-07-06", "2026-07-07", "2026-07-08", "2026-07-09", "2026-07-10", "2026-07-11", "2026-07-12"],
   "schedules_by_day": {
@@ -314,7 +316,7 @@ GET /api/tutor/schedules/week
 }
 ```
 
-`schedules_by_day` berisi 7 key (satu per hari Senin–Minggu sesuai `days`), masing-masing array sesi (bisa kosong). Field `evaluation` berisi objek ringkas bila sesi sudah dievaluasi, atau `null` bila belum.
+`schedules_by_day` berisi 7 key (satu per hari Senin–Minggu sesuai `days`), masing-masing array sesi (bisa kosong). Field `evaluation` berisi objek ringkas bila sesi sudah dievaluasi, atau `null` bila belum. Field `search` menggemakan kembali kata kunci yang dikirim (`null` bila parameter `search` tidak disertakan); `total` mengikuti hasil yang sudah difilter oleh `search`.
 
 ### 4.2 Detail Siswa
 
@@ -397,7 +399,7 @@ GET /api/tutor/evaluations
 
 Sesi milik tutor ini yang **belum ada evaluasi**, dan (a) berstatus `done`, atau (b) berstatus `scheduled` tapi tanggalnya sudah lewat.
 
-**Query:** `page`, `per_page`.
+**Query:** `page`, `per_page`, `search` (opsional — filter berdasarkan **nama siswa**, partial match tidak case-sensitive, sama seperti pada [4.1 Jadwal Satu Minggu](#41-jadwal-satu-minggu)).
 
 **Item pada `data`:**
 
@@ -409,7 +411,7 @@ Sesi milik tutor ini yang **belum ada evaluasi**, dan (a) berstatus `done`, atau
   "end_time": "14:30",
   "room": "Kelas B",
   "status_schedule": "done",
-  "student": { "id": 9, "full_name": "Siswa Lain" },
+  "student": { "id": 9, "full_name": "Siswa Lain", "grade": "SMP Kelas 9" },
   "subject": { "id": 2, "subject_name": "Matematika" }
 }
 ```
@@ -420,6 +422,12 @@ Sesi milik tutor ini yang **belum ada evaluasi**, dan (a) berstatus `done`, atau
 GET /api/tutor/evaluations/{schedule}
 ```
 🔒 *Butuh token* · **hanya sesi milik tutor ini** — selain itu `403`.
+
+**Query**
+
+| Param | Tipe | Wajib | Keterangan |
+|---|---|---|---|
+| `search` | string | — | Filter tambahan pada `syllabi`: mencari kata kunci di **pokok bahasan** atau **sub pokok bahasan** (partial match, tidak case-sensitive). |
 
 **Response `200 OK`**
 
@@ -433,19 +441,29 @@ GET /api/tutor/evaluations/{schedule}
     "class_date": "2026-07-11",
     "start_time": "13:00:00",
     "end_time": "14:30:00",
+    "room": "Kelas B",
     "status_schedule": "done",
-    "student": { "id": 9, "full_name": "Siswa Lain", "...": "..." },
+    "student": { "id": 9, "full_name": "Siswa Lain", "grade": "SMP Kelas 9", "...": "..." },
     "subject": { "id": 2, "subject_name": "Matematika" },
     "evaluation": null
   },
   "syllabi": [
-    { "id": 11, "pokok_bahasan": "Aljabar", "sub_pokok_bahasan": "Persamaan Linear" },
-    { "id": 12, "pokok_bahasan": "Geometri", "sub_pokok_bahasan": "Segitiga" }
+    { "id": 11, "pokok_bahasan": "Aljabar", "sub_pokok_bahasan": "Persamaan Linear", "kelas": "SMP Kelas 9" },
+    { "id": 12, "pokok_bahasan": "Geometri", "sub_pokok_bahasan": "Segitiga", "kelas": "SMP Kelas 9" }
   ]
 }
 ```
 
-`syllabi` adalah daftar pilihan materi dari silabus mata pelajaran sesi ini — dipakai untuk mengisi `syllabus_id` pada endpoint simpan (5.3). Kosong bila sesi tidak punya `subject_id`.
+`syllabi` adalah daftar pilihan materi — dipakai untuk mengisi `syllabus_id` pada endpoint simpan (5.3). Disaring otomatis sesuai **dua kriteria sekaligus**:
+
+1. **Mata pelajaran** sesi ini (`schedule.subject_id`).
+2. **Kelas/jenjang siswa** (`schedule.student.grade`) — hanya silabus dengan `kelas` yang sama persis dengan kelas siswa yang ditampilkan.
+
+Tambahkan `?search=<kata kunci>` untuk mempersempit lebih lanjut berdasarkan teks pokok/sub pokok bahasan.
+
+Catatan:
+- Bila siswa **belum punya `grade`** tercatat, filter kelas dilewati (fallback) — seluruh silabus mata pelajaran tsb ditampilkan tanpa disaring kelas.
+- `syllabi` selalu **kosong** bila sesi tidak punya `subject_id`.
 
 ### 5.3 Simpan Evaluasi
 
@@ -656,14 +674,19 @@ GET /api/tutor/rekap-fee
 
 `rows` selalu berisi **12 elemen** (Januari–Desember), dipotong pada contoh di atas agar ringkas. `totals` adalah penjumlahan seluruh `rows` sepanjang tahun (hanya bulan `published` yang bernilai > 0).
 
-**Rincian fee = a + b + c + d**, dihitung admin saat generate dan disimpan apa adanya (bisa diedit manual sebelum terbit):
+**Rincian fee = a + b + c + d**, dihitung admin saat generate dan disimpan apa adanya (bisa diedit manual sebelum terbit). Satu **sesi** = satu slot mengajar (tanggal + jam), boleh diisi banyak siswa sekaligus:
 
 | Komponen | Field jumlah | Field nominal | Rumus |
 |---|---|---|---|
-| a) Siswa Privat (paket Privat, kehadiran `hadir`) | `private_count` | `fee_private` | `private_count × rates.private` |
-| b) Siswa Semi-Privat (paket Semi-Privat, kehadiran `hadir`) | `regular_count` | `fee_regular` | `regular_count × rates.student` |
-| c) Sesi mengajar (per slot tanggal+jam, bukan per siswa) | `session_count` | `fee_session` | `session_count × rates.session` |
+| a) Sesi Privat — sesi yang berisi **minimal satu** siswa paket Privat, flat per sesi (bukan dikali jumlah siswa) | `private_count` | `fee_private` | `private_count × rates.private` |
+| b) Sesi Semi-Privat — sesi yang **tidak** berisi siswa Privat sama sekali, flat per sesi (alternatif dari a) | `session_count` | `fee_session` | `session_count × rates.session` |
+| c) Total siswa hadir — seluruh kehadiran `hadir` di semua sesi bulan itu, **tanpa memandang paket**, dikali per kepala | `regular_count` | `fee_regular` | `regular_count × rates.student` |
 | d) Transport (per hari yang ada minimal 1 sesi) | `day_count` | `fee_transport` | `day_count × rates.transport` |
+
+Catatan penting:
+- Nama field `private_count`/`session_count`/`regular_count` dipertahankan agar skema API tidak berubah, tapi maknanya **bukan lagi jumlah siswa untuk ketiganya** — `private_count` & `session_count` sekarang **jumlah sesi**, hanya `regular_count` yang tetap jumlah siswa (dan sekarang mencakup semua paket, bukan cuma Semi-Privat).
+- Sesi **campuran** (ada siswa Privat & non-Privat sekaligus) diklasifikasikan sebagai sesi Privat (a) — siswa non-Privat di sesi itu tetap ikut dihitung pada komponen (c).
+- Siswa dengan `package_id` kosong/tidak valid diperlakukan sebagai non-Privat (fallback ke sesi tipe b / komponen c), supaya tidak ada kehadiran yang "hilang" dari perhitungan.
 
 `total = fee_private + fee_regular + fee_session + fee_transport`. `rates.*` diambil dari master Tutor (`fee_per_student_private`, `fee_per_student`, `fee_per_session`, `fee_transport_per_day`) — nilai ini hanya untuk referensi tampilan; angka aktual pada `rows[].fee_*` sudah final saat di-generate (dan bisa berbeda dari `rates` bila admin melakukan edit manual sebelum menerbitkan).
 
@@ -808,6 +831,21 @@ curl -s -X POST "$BASE/evaluations/502" \
   -d "student_attendance=hadir" \
   -d "materi_manual=Aljabar Dasar" \
   -d "post_test=90"
+
+# 4a) Cari siswa "Budi" pada jadwal minggu ini
+curl -s "$BASE/schedules/week?search=Budi" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 4b) Cari siswa "Budi" pada daftar evaluasi yang belum diisi
+curl -s "$BASE/evaluations?search=Budi" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 4c) Cari silabus "Aljabar" untuk sesi #502 (otomatis disaring sesuai mapel & kelas siswa sesi ini)
+curl -s "$BASE/evaluations/502?search=Aljabar" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer $TOKEN"
 
 # 5) Unduh slip gaji bulan berjalan (404 bila admin belum menerbitkan fee bulan tsb)
 curl -s "$BASE/reports/slip-gaji?month=2026-07" \

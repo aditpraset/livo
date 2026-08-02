@@ -8,7 +8,7 @@
 <div class="row mb-4">
     <div class="col-md-7">
         <h1 class="fs-3 mb-1">Rekapitulasi Fee</h1>
-        <p class="text-muted mb-0">Tahun {{ $year }} · total fee = fee sesi + fee per siswa (hadir) + fee transport per hari. Fee tampil setelah diterbitkan admin.</p>
+        <p class="text-muted mb-0">Tahun {{ $year }} · total fee = fee sesi Privat/Semi-Privat + fee per siswa (hadir) + fee transport per hari. Fee tampil setelah diterbitkan admin.</p>
     </div>
     <div class="col-md-5 text-md-end mt-2 mt-md-0">
         <form method="GET" class="d-inline-flex gap-2">
@@ -40,19 +40,19 @@
 <div class="row g-3 mb-3">
     <div class="col-6 col-md-3">
         <div class="card card-sm"><div class="card-body">
-            <div class="text-muted small">Fee per Sesi</div>
+            <div class="text-muted small">Fee / Sesi Semi-Privat</div>
             <div class="fs-4 fw-bold">{{ $rp($rates['session']) }}</div>
         </div></div>
     </div>
     <div class="col-6 col-md-3">
         <div class="card card-sm"><div class="card-body">
-            <div class="text-muted small">Fee / Siswa Privat</div>
+            <div class="text-muted small">Fee / Sesi Privat</div>
             <div class="fs-4 fw-bold">{{ $rp($rates['private']) }}</div>
         </div></div>
     </div>
     <div class="col-6 col-md-3">
         <div class="card card-sm"><div class="card-body">
-            <div class="text-muted small">Fee / Siswa Semi-Privat</div>
+            <div class="text-muted small">Fee / Siswa (semua paket)</div>
             <div class="fs-4 fw-bold">{{ $rp($rates['student']) }}</div>
         </div></div>
     </div>
@@ -77,9 +77,9 @@
             <thead>
                 <tr>
                     <th rowspan="2" class="align-middle">Bulan</th>
-                    <th colspan="2" class="text-center border-start">Sesi (c)</th>
-                    <th colspan="2" class="text-center border-start">Siswa Privat (a)</th>
-                    <th colspan="2" class="text-center border-start">Siswa Semi-Privat (b)</th>
+                    <th colspan="2" class="text-center border-start">Sesi Semi-Privat (b)</th>
+                    <th colspan="2" class="text-center border-start">Sesi Privat (a)</th>
+                    <th colspan="2" class="text-center border-start">Total Siswa (c)</th>
                     <th colspan="2" class="text-center border-start">Transport (d)</th>
                     <th rowspan="2" class="text-end align-middle border-start">Total Fee</th>
                     <th rowspan="2" class="text-center align-middle">Slip</th>
@@ -142,6 +142,6 @@
 
 <p class="text-muted small mt-3 mb-0">
     <i class="bi bi-info-circle me-1"></i>
-    Jumlah siswa (a &amp; b) dihitung per kehadiran (setiap siswa hadir di setiap sesi). Sesi (c) dihitung per slot (tanggal + jam), berapa pun jumlah siswa dalam slot itu. Transport (d) dihitung per hari yang ada sesi.
+Sesi Privat (a) & Sesi Semi-Privat (b) dihitung flat per slot (tanggal + jam) — sesi berisi minimal satu siswa Privat dihitung (a), selain itu dihitung (b). Total Siswa (c) dihitung per kehadiran (setiap siswa hadir di setiap sesi, semua paket). Transport (d) dihitung per hari yang ada sesi.
 </p>
 @endsection

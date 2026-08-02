@@ -49,7 +49,7 @@ class TutorFeeController extends Controller
             ->addIndexColumn()
             ->addColumn('tutor_name', fn ($tf) => e($tf->tutor->name ?? '-'))
             ->addColumn('session', fn ($tf) => $tf->session_count . ' sesi<br><small class="text-muted">' . $rp($tf->fee_session) . '</small>')
-            ->addColumn('private', fn ($tf) => $tf->private_count . ' siswa<br><small class="text-muted">' . $rp($tf->fee_private) . '</small>')
+            ->addColumn('private', fn ($tf) => $tf->private_count . ' sesi<br><small class="text-muted">' . $rp($tf->fee_private) . '</small>')
             ->addColumn('regular', fn ($tf) => $tf->regular_count . ' siswa<br><small class="text-muted">' . $rp($tf->fee_regular) . '</small>')
             ->addColumn('transport', fn ($tf) => $tf->day_count . ' hari<br><small class="text-muted">' . $rp($tf->fee_transport) . '</small>')
             ->addColumn('total', fn ($tf) => '<strong>' . $rp($tf->total) . '</strong>')

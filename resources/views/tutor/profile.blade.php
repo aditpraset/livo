@@ -29,7 +29,7 @@
                     @endforeach
                 </div>
                 @if($tutor->fee_per_session)
-                    <div class="mt-3 small text-muted">Fee per sesi</div>
+                    <div class="mt-3 small text-muted">Fee per sesi semi-privat</div>
                     <div class="fw-bold">Rp {{ number_format($tutor->fee_per_session, 0, ',', '.') }}</div>
                 @endif
             </div>

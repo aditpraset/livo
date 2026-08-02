@@ -27,6 +27,10 @@ class EvaluationController extends BaseApiTutorController
                             ->whereDate('class_date', '<', now()->toDateString());
                     });
             })
+            ->when($request->filled('search'), fn ($q) => $q->whereHas(
+                'student',
+                fn ($qq) => $qq->where('full_name', 'like', '%' . $request->input('search') . '%')
+            ))
             ->orderBy('class_date')->orderBy('start_time')
             ->paginate($request->integer('per_page', 15));
 
@@ -37,27 +41,52 @@ class EvaluationController extends BaseApiTutorController
             'end_time' => substr($s->end_time, 0, 5),
             'room' => $s->room,
             'status_schedule' => $s->status_schedule,
-            'student' => ['id' => $s->student->id ?? null, 'full_name' => $s->student->full_name ?? null],
+            'student' => [
+                'id' => $s->student->id ?? null,
+                'full_name' => $s->student->full_name ?? null,
+                'grade' => $s->student->grade ?? null,
+            ],
             'subject' => ['id' => $s->subject->id ?? null, 'subject_name' => $s->subject->subject_name ?? null],
         ]);
 
         return response()->json($pending);
     }
 
-    /** Detail sesi + opsi silabus, untuk mengisi form evaluasi. */
-    public function show(Schedule $schedule)
+    /**
+     * Detail sesi + opsi silabus, untuk mengisi form evaluasi.
+     * Silabus disaring sesuai mata pelajaran & kelas (grade) siswa pada sesi ini,
+     * dan bisa dicari lebih lanjut lewat query `search` (pokok/sub pokok bahasan).
+     */
+    public function show(Request $request, Schedule $schedule)
     {
         $tutor = $this->tutor();
         abort_unless($schedule->tutor_id === $tutor->id, 403);
 
         $schedule->load(['student', 'subject', 'evaluation.syllabus']);
 
+        $grade = $schedule->student->grade ?? null;
+
         $syllabi = $schedule->subject_id
-            ? Syllabus::where('subject_id', $schedule->subject_id)->orderBy('pokok_bahasan')->get(['id', 'pokok_bahasan', 'sub_pokok_bahasan'])
+            ? Syllabus::where('subject_id', $schedule->subject_id)
+                ->when($grade, fn ($q) => $q->where('kelas', $grade))
+                ->when($request->filled('search'), function ($q) use ($request) {
+                    $search = $request->input('search');
+                    $q->where(function ($qq) use ($search) {
+                        $qq->where('pokok_bahasan', 'like', '%' . $search . '%')
+                            ->orWhere('sub_pokok_bahasan', 'like', '%' . $search . '%');
+                    });
+                })
+                ->orderBy('pokok_bahasan')
+                ->get(['id', 'pokok_bahasan', 'sub_pokok_bahasan', 'kelas'])
             : collect();
 
+        // class_date di-override manual: serialisasi default Eloquent mengubahnya ke ISO8601 UTC,
+        // yang menggeser tanggal mundur satu hari untuk WIB (mis. 22 Jun jadi 21 Jun 17:00Z).
+        $scheduleData = $schedule->toArray();
+        $scheduleData['class_date'] = $schedule->class_date->toDateString();
+
         return response()->json([
-            'schedule' => $schedule,
+            'schedule' => $scheduleData,
             'syllabi' => $syllabi,
         ]);
     }
