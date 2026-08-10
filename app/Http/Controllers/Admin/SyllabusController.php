@@ -22,14 +22,19 @@ class SyllabusController extends Controller
 
     public function data(Subject $subject)
     {
-        return DataTables::of($subject->syllabi()->latest())
+        return DataTables::of($subject->syllabi()->withCount('questions')->latest())
             ->addIndexColumn()
             ->editColumn('sub_pokok_bahasan', function ($syllabus) {
                 return $syllabus->sub_pokok_bahasan ?: '<span class="text-muted">—</span>';
             })
-            ->addColumn('action', function ($syllabus) {
+            ->addColumn('action', function ($syllabus) use ($subject) {
                 return '
                     <div class="btn-group btn-group-sm">
+                        <a href="' . route('admin.subjects.syllabi.questions.index', [$subject->id, $syllabus->id]) . '"
+                            class="btn btn-outline-info" title="Bank Soal">
+                            <i class="bi bi-patch-question"></i>
+                            <span class="badge bg-info-subtle text-info border border-info-subtle ms-1">' . $syllabus->questions_count . '</span>
+                        </a>
                         <button class="btn btn-outline-warning btn-edit"
                             data-id="' . $syllabus->id . '"
                             data-pokok="' . e($syllabus->pokok_bahasan) . '"

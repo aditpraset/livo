@@ -20,4 +20,9 @@ class Syllabus extends Model
     {
         return $this->belongsTo(Subject::class);
     }
+
+    public function questions()
+    {
+        return $this->hasMany(Question::class);
+    }
 }

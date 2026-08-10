@@ -36,7 +36,7 @@
                     <th>Sub Pokok Bahasan</th>
                     <th>Jenis Kurikulum</th>
                     <th>Kelas</th>
-                    <th width="130" class="text-center">Aksi</th>
+                    <th width="170" class="text-center">Aksi</th>
                 </tr>
             </thead>
             <tbody></tbody>

@@ -176,6 +176,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('/subjects/{subject}/syllabi/{syllabus}', [\App\Http\Controllers\Admin\SyllabusController::class, 'update'])->name('subjects.syllabi.update');
         Route::delete('/subjects/{subject}/syllabi/{syllabus}', [\App\Http\Controllers\Admin\SyllabusController::class, 'destroy'])->name('subjects.syllabi.destroy');
 
+        // Bank Soal (per Silabus)
+        Route::get('/subjects/{subject}/syllabi/{syllabus}/questions', [\App\Http\Controllers\Admin\QuestionController::class, 'index'])->name('subjects.syllabi.questions.index');
+        Route::get('/subjects/{subject}/syllabi/{syllabus}/questions/data', [\App\Http\Controllers\Admin\QuestionController::class, 'data'])->name('subjects.syllabi.questions.data');
+        Route::post('/subjects/{subject}/syllabi/{syllabus}/questions', [\App\Http\Controllers\Admin\QuestionController::class, 'store'])->name('subjects.syllabi.questions.store');
+        Route::put('/subjects/{subject}/syllabi/{syllabus}/questions/{question}', [\App\Http\Controllers\Admin\QuestionController::class, 'update'])->name('subjects.syllabi.questions.update');
+        Route::delete('/subjects/{subject}/syllabi/{syllabus}/questions/{question}', [\App\Http\Controllers\Admin\QuestionController::class, 'destroy'])->name('subjects.syllabi.questions.destroy');
+
         // Program
         Route::get('/programs', [ProgramController::class, 'index'])->name('programs.index');
         Route::get('/data/programs', [ProgramController::class, 'data'])->name('programs.data');
