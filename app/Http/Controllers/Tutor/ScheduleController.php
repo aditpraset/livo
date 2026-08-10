@@ -31,16 +31,42 @@ class ScheduleController extends BaseTutorController
 
         $days = collect(range(0, 6))->map(fn ($i) => $start->copy()->addDays($i));
 
-        // Jumlah sesi = slot mengajar unik (tanggal + jam), bukan jumlah siswa.
-        // Beberapa siswa pada slot yang sama dihitung satu sesi.
-        $slotKey = fn ($s) => $s->class_date->toDateString() . '|' . $s->start_time . '|' . $s->end_time;
-        $totalWeek = $schedules->unique($slotKey)->count();
-        $sesiPerDay = $byDay->map(fn ($items) => $items->unique($slotKey)->count());
+        // Jumlah sesi = slot mengajar unik (jam), bukan jumlah siswa.
+        // Beberapa siswa pada slot jam yang sama dikelompokkan jadi satu sesi
+        // (siswa-siswanya dilihat lewat modal, bukan baris terpisah per siswa).
+        $slotKey = fn ($s) => $s->start_time . '|' . $s->end_time;
+
+        $sessionsByDay = $byDay->map(fn ($items) => $items->groupBy($slotKey)
+            ->map(function ($group) {
+                $first = $group->first();
+                return [
+                    'start_time' => $first->start_time,
+                    'end_time'   => $first->end_time,
+                    'room'       => $group->pluck('room')->filter()->unique()->values()->implode(', ') ?: '-',
+                    'subject'    => $group->pluck('subject.subject_name')->filter()->unique()->values()->implode(', ') ?: '-',
+                    'students'   => $group->map(fn ($s) => [
+                        'id'                => $s->student_id,
+                        'name'              => $s->student->full_name ?? '-',
+                        'grade'             => $s->student->grade ?? '',
+                        'subject'           => $s->subject->subject_name ?? '-',
+                        'status_schedule'   => $s->status_schedule,
+                        'pending_eval'      => $s->status_schedule === 'done' && !$s->evaluation,
+                    ])->values(),
+                    'count'      => $group->count(),
+                    'done'       => $group->where('status_schedule', 'done')->count(),
+                    'scheduled'  => $group->where('status_schedule', 'scheduled')->count(),
+                    'canceled'   => $group->where('status_schedule', 'canceled')->count(),
+                ];
+            })
+            ->sortBy('start_time')->values());
+
+        $totalWeek = $sessionsByDay->sum->count();
+        $sesiPerDay = $sessionsByDay->map->count();
 
         return view('tutor.schedules.week', [
             'tutor' => $tutor,
             'days' => $days,
-            'byDay' => $byDay,
+            'sessionsByDay' => $sessionsByDay,
             'sesiPerDay' => $sesiPerDay,
             'start' => $start,
             'end' => $end,

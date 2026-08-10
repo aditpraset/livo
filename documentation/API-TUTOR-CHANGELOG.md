@@ -4,6 +4,55 @@ Catatan perubahan & perbaikan pada API Tutor (`/api/tutor/*`). Detail kontrak en
 
 ---
 
+## 2026-08-07 — Web: Evaluasi Siswa dikelompokkan per minggu → per hari → per sesi
+
+- **Cakupan:** Web Tutor saja (`GET /tutor/evaluasi`) — tidak mengubah API.
+- **Perubahan:** Halaman Evaluasi Siswa (tab "Belum Dievaluasi" & "Sudah Dievaluasi") sebelumnya pakai tabel DataTables (server-side, paginasi 15/halaman, satu baris per siswa, tanpa batas tanggal). Sekarang mengikuti pola yang sama dengan Jadwal Mingguan: dibatasi **per minggu** (navigasi Minggu Lalu/Ini/Depan), dikelompokkan per hari lalu per sesi (jam) — satu baris per sesi dengan tombol "Lihat Siswa (N)" yang membuka modal.
+- **Isi modal:** untuk tiap siswa pada sesi tsb — status (kehadiran bila mode "Sudah Dievaluasi", atau status sesi bila "Belum Dievaluasi"), badge Feedback Siswa + tombol ubah cepat (modal kedua, tanpa reload halaman penuh), dan tombol Isi/Edit Evaluasi (ke form lengkap).
+- **Dampak:** Endpoint AJAX lama `GET /data/evaluasi` (`tutor.evaluations.data`, DataTables) **dihapus** — tidak dipakai lagi. `EvaluationController::index()` kini mengembalikan halaman penuh (bukan JSON), method `data()` dihapus.
+- **Catatan:** Karena mode "Belum Dievaluasi" kini juga dibatasi per minggu (mengikuti `class_date` sesi), sesi lewat yang belum dievaluasi dari minggu-minggu sebelumnya tidak otomatis tampil di "Minggu Ini" — tutor perlu navigasi ke minggu terkait untuk melihatnya (sama seperti cara kerja Jadwal Mingguan).
+- **File:** `app/Http/Controllers/Tutor/EvaluationController.php` (`index()` dirombak, `data()` dihapus), `resources/views/tutor/evaluations/index.blade.php` (dirombak total), `routes/web.php` (route `evaluations.data` dihapus).
+- **Verifikasi:** diuji render langsung untuk mode `pending` & `done` dengan user tutor nyata — data per sesi (termasuk `has_evaluation`, `attendance`, `student_feedback`, `create_url`) terisi benar di JSON yang dikonsumsi modal.
+
+---
+
+## 2026-08-07 — Web: Jadwal mingguan tutor dikelompokkan per sesi
+
+- **Cakupan:** Web Tutor saja (`GET /tutor/jadwal`) — tidak mengubah API.
+- **Perubahan:** Sebelumnya satu baris tabel = satu siswa, sehingga sesi dengan banyak siswa (kelas semi-privat/reguler) tampil sebagai banyak baris berulang. Sekarang baris dikelompokkan **per sesi** (slot jam, per hari) — satu baris per sesi, dengan tombol "Lihat Siswa (N)" yang membuka modal berisi daftar siswa pada sesi itu (nama, kelas, mata pelajaran, status kehadiran/evaluasi, tautan ke history siswa).
+- **Detail:** Pengelompokan sesi memakai kunci jam mulai+selesai (mengikuti pola yang sama seperti perhitungan "jumlah sesi" di rekap pengajaran/fee — bukan per siswa). Kolom Kelas/Ruang & Mata Pelajaran pada baris sesi menggabungkan nilai unik bila ada lebih dari satu (jarang terjadi, biasanya seragam per sesi). Kolom Status jadi ringkasan jumlah per status (mis. "3 Selesai, 1 Terjadwal").
+- **File:** `app/Http/Controllers/Tutor/ScheduleController.php` (`week()`), `resources/views/tutor/schedules/week.blade.php`.
+- **Verifikasi:** diuji dengan data nyata — sesi dengan 3 siswa berhasil tampil sebagai 1 baris, modal menampilkan ketiga siswa dengan benar.
+
+---
+
+## 2026-08-07 — Fitur: Feedback siswa (melekat pada sesi, bukan pada evaluasi)
+
+- **Cakupan:** Web Tutor (menu Evaluasi Siswa — tab "Belum Dievaluasi" & "Sudah Dievaluasi") dan API.
+- **Perubahan:** Tambah field `student_feedback` dengan 5 pilihan tetap: `buruk` (Buruk), `kurang_baik` (Kurang Baik), `cukup_baik` (Cukup Baik), `baik` (Baik), `sangat_baik` (Sangat Baik). Opsional — boleh dikosongkan.
+- **Keputusan desain penting — field melekat pada `Schedule` (sesi), bukan `Evaluation`:** awalnya diimplementasikan sebagai kolom pada `evaluations`, tapi ini salah karena artinya feedback baru bisa diisi **setelah** sesi dievaluasi (evaluasi mensyaratkan `student_attendance` yang wajib diisi). Diperbaiki dengan memindahkan kolom ke tabel `schedules`, sehingga feedback bisa diisi **kapan saja** — termasuk untuk sesi yang belum dievaluasi sama sekali.
+- **Desain UI (web):** feedback **bukan** bagian dari form isi/edit evaluasi (`create.blade.php`) — field ini diisi langsung dari **tabel** daftar evaluasi lewat ikon pensil kecil di kolom "Feedback Siswa" yang membuka modal ringkas (hanya pilih & simpan feedback), tanpa perlu membuka form evaluasi lengkap. Tombol ini tampil di **kedua tab** ("Belum Dievaluasi" maupun "Sudah Dievaluasi").
+- **Detail:**
+  - Kolom `student_feedback` (enum, nullable) ada di tabel `schedules` (bukan `evaluations`).
+  - `Schedule::FEEDBACK_OPTIONS` (const) + `Schedule::student_feedback_label` (accessor) — dipindah dari `Evaluation` ke `Schedule`.
+  - Endpoint web baru `PUT /tutor/evaluasi/{schedule}/feedback` (route `tutor.evaluations.feedback`) — update `student_feedback` pada `Schedule` langsung, tidak butuh evaluasi ada lebih dulu. Hanya 403 bila sesi bukan milik tutor tsb.
+  - Endpoint API baru senada: `PUT /api/tutor/evaluations/{schedule}/feedback`.
+  - Tabel daftar evaluasi tutor (web, kedua tab) menampilkan kolom "Feedback Siswa" sebagai badge berwarna (merah untuk Buruk/Kurang Baik, kuning untuk Cukup Baik, hijau untuk Baik/Sangat Baik) + tombol ubah; tampil "—" bila belum diisi.
+  - `student_feedback` otomatis muncul di `GET /evaluations` (list), `GET /evaluations/{schedule}` (detail, di objek `schedule`), dan `GET /reports/rekap-pengajaran`.
+  - `POST /evaluations/{schedule}` (simpan evaluasi) **tidak lagi** menerima `student_feedback` di body — sudah dipisah ke endpoint feedback sendiri.
+- **File:**
+  - `database/migrations/2026_08_07_000001_add_student_feedback_to_schedules_table.php` (migrasi awal ke `evaluations` sudah di-rollback & dihapus, diganti migrasi ini)
+  - `app/Models/Schedule.php` (`FEEDBACK_OPTIONS`, `student_feedback_label`), `app/Models/Evaluation.php` (dikembalikan seperti semula)
+  - `app/Http/Controllers/Tutor/EvaluationController.php` (`data()`, `updateFeedback()` — kini operasi ke `Schedule`, tanpa syarat evaluasi ada)
+  - `app/Http/Controllers/Api/Tutor/EvaluationController.php` (`index()`, `updateFeedback()` baru; `store()` tidak lagi memvalidasi `student_feedback`)
+  - `app/Http/Controllers/Api/Tutor/ReportController.php` (`rekapPengajaran()`)
+  - `routes/web.php` (`tutor.evaluations.feedback`), `routes/api.php` (`api.tutor.evaluations.feedback`)
+  - `resources/views/tutor/evaluations/index.blade.php` (kolom + modal + JS, referensi `Schedule::FEEDBACK_OPTIONS`), `resources/views/tutor/evaluations/create.blade.php` (field feedback tidak ada di sini)
+  - `documentation/API-TUTOR.md` (bagian 5.3 & 5.4 baru: Simpan Feedback Siswa)
+- **Verifikasi:** diuji langsung memanggil controller dengan user tutor nyata — berhasil set feedback untuk sesi **tanpa evaluasi** (evaluation `null`), nilai valid tersimpan ke DB, nilai di luar 5 pilihan ditolak oleh validasi.
+
+---
+
 ## 2026-08 — Perbaikan tanggal, penambahan data kelas, & fee
 
 ### 1. Fitur: Pencarian nama siswa pada jadwal & evaluasi

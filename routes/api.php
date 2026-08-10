@@ -28,6 +28,7 @@ Route::prefix('tutor')->name('api.tutor.')->group(function () {
         Route::get('/evaluations', [EvaluationController::class, 'index'])->name('evaluations.index');
         Route::get('/evaluations/{schedule}', [EvaluationController::class, 'show'])->name('evaluations.show');
         Route::post('/evaluations/{schedule}', [EvaluationController::class, 'store'])->name('evaluations.store');
+        Route::put('/evaluations/{schedule}/feedback', [EvaluationController::class, 'updateFeedback'])->name('evaluations.feedback');
 
         Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
         Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');

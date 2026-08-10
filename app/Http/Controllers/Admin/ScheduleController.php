@@ -9,6 +9,7 @@ use App\Models\Schedule;
 use App\Models\ScheduleSession;
 use App\Models\StudentRegistration;
 use App\Models\Student;
+use App\Models\StudentGroup;
 use App\Models\Subject;
 use App\Models\Syllabus;
 use App\Models\Tutor;
@@ -29,8 +30,9 @@ class ScheduleController extends Controller
         $tutors           = Tutor::orderBy('name')->get(['id', 'name']);
         $subjects         = Subject::orderBy('subject_name')->get(['id', 'subject_name', 'grade_ids']);
         $scheduleSessions = ScheduleSession::orderBy('time_start')->get();
+        $studentGroups    = StudentGroup::with('session')->orderBy('name')->get();
 
-        return view('admin.schedules.index', compact('students', 'tutors', 'subjects', 'scheduleSessions'));
+        return view('admin.schedules.index', compact('students', 'tutors', 'subjects', 'scheduleSessions', 'studentGroups'));
     }
 
     public function data()
@@ -325,6 +327,155 @@ class ScheduleController extends Controller
         $message = $created . ' jadwal berhasil digenerate';
         if ($skipped > 0) {
             $message .= ', ' . $skipped . ' siswa dilewati (jadwal sudah ada atau data tidak lengkap)';
+        }
+        $message .= '.';
+
+        return response()->json(['success' => true, 'created' => $created, 'skipped' => $skipped, 'message' => $message]);
+    }
+
+    /**
+     * Buat jadwal untuk satu "grouping" siswa sekaligus — admin cukup memilih
+     * Sesi + Hari + Mata Pelajaran + Tutor, lalu sistem mencari sendiri siswa
+     * mana saja yang cocok dengan kombinasi tsb (dari data hari/sesi belajar
+     * siswa + mata pelajaran yang diambil) dan membuatkan jadwalnya sekaligus.
+     *
+     * Bila `student_group_id` (master Grouping Siswa) diisi, siswa yang
+     * dijadwalkan adalah **anggota eksplisit** group tsb — tidak lagi dicari
+     * otomatis lewat data hari/sesi/mapel siswa, karena admin sudah menentukan
+     * langsung siapa saja anggotanya di master Grouping Siswa.
+     *
+     * Alur tambah jadwal manual (satu siswa) & generate semua siswa tetap ada,
+     * ini murni tambahan cara baru.
+     */
+    public function generateByGroup(Request $request)
+    {
+        $validated = $request->validate([
+            'student_group_id' => 'nullable|exists:student_groups,id',
+            'session_id'       => 'required|exists:schedule_sessions,id',
+            'hari'             => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu,Minggu',
+            'subject_id'       => 'required|exists:subjects,id',
+            'tutor_id'         => 'required|exists:tutors,id',
+            'week_date'        => 'required|date',
+        ]);
+
+        $dayOffset = [
+            'Senin' => 0, 'Selasa' => 1, 'Rabu' => 2, 'Kamis' => 3, 'Jumat' => 4, 'Sabtu' => 5, 'Minggu' => 6,
+        ];
+
+        $session = ScheduleSession::find($validated['session_id']);
+        $subject = Subject::find($validated['subject_id']);
+
+        $classDate = \Carbon\Carbon::parse($validated['week_date'])
+            ->startOfWeek(\Carbon\Carbon::MONDAY)
+            ->addDays($dayOffset[$validated['hari']]);
+        $startTime = substr($session->time_start, 0, 5);
+        $endTime   = substr($session->time_end, 0, 5);
+
+        $useExplicitGroup = !empty($validated['student_group_id']);
+
+        if ($useExplicitGroup) {
+            // Anggota sudah ditentukan admin di master Grouping Siswa — pakai apa adanya,
+            // tanpa pencocokan hari/sesi/mapel otomatis.
+            $students = StudentGroup::findOrFail($validated['student_group_id'])
+                ->students()->where('status', 1)->get();
+            $matchingClassScheduleIds = [];
+        } else {
+            // Kombinasi hari + sesi ini bisa dipenuhi lewat beberapa ClassSchedule
+            // (mis. jenjang/paket berbeda tapi hari & sesi sama) — kumpulkan semua idnya.
+            $matchingClassScheduleIds = ClassSchedule::where('session_id', $validated['session_id'])
+                ->where('hari', $validated['hari'])
+                ->pluck('id')
+                ->all();
+
+            $students = Student::where('status', 1)->get();
+        }
+
+        $created = 0;
+        $skipped = 0;
+
+        foreach ($students as $student) {
+            if (!$useExplicitGroup) {
+                $scheduleIds  = $student->class_schedule_ids ?? [];
+                $selectedDays = $student->selected_days;
+                $sessionId    = $student->schedule_session_id;
+
+                if (empty($scheduleIds) && !($selectedDays && $sessionId) && $student->registration_code) {
+                    $reg = StudentRegistration::where('registration_code', $student->registration_code)->first();
+                    if ($reg) {
+                        $scheduleIds  = $reg->class_schedule_ids ?: $scheduleIds;
+                        $selectedDays = $selectedDays ?: $reg->selected_days;
+                        $sessionId    = $sessionId ?: $reg->schedule_session_id;
+                    }
+                }
+
+                // Siswa harus punya slot hari+sesi yang cocok dengan grouping yang dipilih.
+                $matchesSlot = !empty($scheduleIds)
+                    ? count(array_intersect($scheduleIds, $matchingClassScheduleIds)) > 0
+                    : ($selectedDays === $validated['hari'] && (int) $sessionId === (int) $validated['session_id']);
+
+                if (!$matchesSlot) {
+                    continue; // siswa ini bukan bagian dari grouping — tidak dihitung "dilewati"
+                }
+
+                // Mata pelajaran siswa harus mencakup mapel yang dipilih.
+                $programNames = $student->program ? (json_decode($student->program, true) ?? []) : [];
+                if (!in_array($subject->subject_name, $programNames, true)) {
+                    $skipped++;
+                    continue;
+                }
+            }
+
+            // Kuota yang belum "kepakai" = jadwal yang belum dievaluasi & belum dibatalkan
+            // (bukan hanya status "scheduled" — jadwal grouping langsung dibuat "done").
+            $pendingCount = Schedule::where('student_id', $student->id)
+                ->where('status_schedule', '!=', 'canceled')
+                ->whereDoesntHave('evaluation')
+                ->count();
+            $remaining = (int) ($student->quota_sessions ?? 0) - $pendingCount;
+
+            if ($remaining <= 0) {
+                $skipped++;
+                continue;
+            }
+
+            $exists = Schedule::where('student_id', $student->id)
+                ->where('class_date', $classDate->toDateString())
+                ->where('start_time', $startTime)
+                ->where('status_schedule', '!=', 'canceled')
+                ->exists();
+
+            if ($exists) {
+                $skipped++;
+                continue;
+            }
+
+            // Langsung "done" (bukan "scheduled") — jadwal per grouping langsung
+            // dianggap selesai/final saat dibuat, supaya tutor langsung bisa
+            // melihat & mengisi evaluasinya tanpa menunggu status diubah dulu.
+            Schedule::create([
+                'student_id'      => $student->id,
+                'tutor_id'        => $validated['tutor_id'],
+                'subject_id'      => $subject->id,
+                'class_date'      => $classDate->toDateString(),
+                'start_time'      => $startTime,
+                'end_time'        => $endTime,
+                'status_schedule' => 'done',
+            ]);
+
+            $created++;
+        }
+
+        if ($created === 0 && $skipped === 0) {
+            $message = $useExplicitGroup
+                ? 'Group ini belum punya anggota siswa. Tambahkan siswa di master Grouping Siswa terlebih dahulu.'
+                : 'Tidak ada siswa yang cocok dengan sesi, hari, dan mata pelajaran ini.';
+            return response()->json(['success' => false, 'message' => $message], 422);
+        }
+
+        $message = $created . ' jadwal berhasil dibuat untuk grouping ini';
+        if ($skipped > 0) {
+            $reason = $useExplicitGroup ? 'kuota habis atau jadwal sudah ada' : 'kuota habis, jadwal sudah ada, atau mapel tidak cocok';
+            $message .= ', ' . $skipped . ' siswa dilewati (' . $reason . ')';
         }
         $message .= '.';
 

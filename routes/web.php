@@ -54,9 +54,9 @@ Route::prefix('tutor')->name('tutor.')->middleware(['auth', 'role:tutor'])->grou
 
     // Evaluasi yang harus diisi
     Route::get('/evaluasi', [\App\Http\Controllers\Tutor\EvaluationController::class, 'index'])->name('evaluations.index');
-    Route::get('/data/evaluasi', [\App\Http\Controllers\Tutor\EvaluationController::class, 'data'])->name('evaluations.data');
     Route::get('/evaluasi/{schedule}', [\App\Http\Controllers\Tutor\EvaluationController::class, 'create'])->name('evaluations.create');
     Route::post('/evaluasi/{schedule}', [\App\Http\Controllers\Tutor\EvaluationController::class, 'store'])->name('evaluations.store');
+    Route::put('/evaluasi/{schedule}/feedback', [\App\Http\Controllers\Tutor\EvaluationController::class, 'updateFeedback'])->name('evaluations.feedback');
 
     // Profil tutor
     Route::get('/profil', [\App\Http\Controllers\Tutor\ProfileController::class, 'show'])->name('profile');
@@ -136,6 +136,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/schedule-sessions/{scheduleSession}', [\App\Http\Controllers\Admin\ScheduleSessionController::class, 'show'])->name('schedule-sessions.show');
         Route::put('/schedule-sessions/{scheduleSession}', [\App\Http\Controllers\Admin\ScheduleSessionController::class, 'update'])->name('schedule-sessions.update');
         Route::delete('/schedule-sessions/{scheduleSession}', [\App\Http\Controllers\Admin\ScheduleSessionController::class, 'destroy'])->name('schedule-sessions.destroy');
+
+        // Grouping Siswa (Master — preset Sesi + Hari, dipakai saat Buat Jadwal per Grouping)
+        Route::get('/student-groups', [\App\Http\Controllers\Admin\StudentGroupController::class, 'index'])->name('student-groups.index');
+        Route::get('/data/student-groups', [\App\Http\Controllers\Admin\StudentGroupController::class, 'data'])->name('student-groups.data');
+        Route::post('/student-groups', [\App\Http\Controllers\Admin\StudentGroupController::class, 'store'])->name('student-groups.store');
+        Route::get('/student-groups/{studentGroup}', [\App\Http\Controllers\Admin\StudentGroupController::class, 'show'])->name('student-groups.show');
+        Route::put('/student-groups/{studentGroup}', [\App\Http\Controllers\Admin\StudentGroupController::class, 'update'])->name('student-groups.update');
+        Route::delete('/student-groups/{studentGroup}', [\App\Http\Controllers\Admin\StudentGroupController::class, 'destroy'])->name('student-groups.destroy');
 
         // ── Master Data ──────────────────────────────────────────────
         // Paket Belajar
@@ -221,6 +229,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/schedules/events', [ScheduleController::class, 'events'])->name('schedules.events');
         Route::get('/schedules/student-schedule-info/{student}', [ScheduleController::class, 'studentScheduleInfo'])->name('schedules.student-info');
         Route::post('/schedules/generate', [ScheduleController::class, 'generate'])->name('schedules.generate');
+        Route::post('/schedules/generate-by-group', [ScheduleController::class, 'generateByGroup'])->name('schedules.generate-by-group');
         Route::post('/schedules', [ScheduleController::class, 'store'])->name('schedules.store');
         Route::get('/schedules/{schedule}', [ScheduleController::class, 'show'])->name('schedules.show');
         Route::put('/schedules/{schedule}', [ScheduleController::class, 'update'])->name('schedules.update');

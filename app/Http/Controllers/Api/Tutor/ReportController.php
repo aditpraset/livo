@@ -41,6 +41,7 @@ class ReportController extends BaseApiTutorController
             'student_attendance' => $s->evaluation->student_attendance ?? null,
             'post_test' => $s->evaluation->post_test ?? null,
             'tutor_notes' => $s->evaluation->tutor_notes ?? null,
+            'student_feedback' => $s->student_feedback,
         ]);
 
         return response()->json([

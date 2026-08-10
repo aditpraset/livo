@@ -155,6 +155,9 @@
         <button class="btn btn-outline-success" id="btn-generate-schedule">
             <i class="bi bi-calendar2-week me-1"></i> Generate Jadwal
         </button>
+        <button class="btn btn-outline-primary" id="btn-generate-group">
+            <i class="bi bi-people me-1"></i> Buat per Grouping
+        </button>
         <button class="btn btn-primary" id="btn-add-schedule">
             <i class="bi bi-plus-lg me-1"></i> Tambah Jadwal
         </button>
@@ -390,6 +393,95 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                 <button type="button" class="btn btn-success" id="btn-do-generate">
                     <i class="bi bi-calendar2-check me-1"></i> Generate Semua
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ========== MODAL: Buat Jadwal per Grouping ========== --}}
+<div class="modal fade" id="modal-generate-group" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary bg-opacity-10">
+                <h5 class="modal-title"><i class="bi bi-people me-2 text-primary"></i>Buat Jadwal per Grouping</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info border-0 bg-info bg-opacity-10 py-2 px-3 mb-3" style="font-size:.84rem">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Pilih <strong>Group</strong> untuk memakai anggota siswa yang sudah ditentukan di master
+                    Grouping Siswa (Sesi &amp; Hari otomatis terisi). Atau pilih "Tanpa Group" untuk mencari
+                    siswa otomatis berdasarkan hari/sesi belajar &amp; mata pelajaran siswa seperti biasa.
+                    Jadwal yang dibuat langsung berstatus <strong>Selesai</strong> — tutor bisa langsung
+                    melihat & mengisi evaluasinya tanpa menunggu.
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Pilih Group <span class="text-muted fw-normal">(opsional — otomatis isi Sesi &amp; Hari)</span></label>
+                        <select id="grp-preset" class="form-select">
+                            <option value="">-- Tanpa Group (pilih Sesi &amp; Hari manual) --</option>
+                            @foreach($studentGroups as $g)
+                                <option value="{{ $g->id }}" data-session-id="{{ $g->session_id }}" data-hari="{{ $g->hari }}">
+                                    {{ $g->name }} — {{ $g->session->name ?? '-' }} · {{ $g->hari }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <div class="form-text">Kelola daftar group di menu Master &rarr; Grouping Siswa.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Sesi <span class="text-danger">*</span></label>
+                        <select id="grp-session" class="form-select">
+                            <option value="">-- Pilih Sesi --</option>
+                            @foreach($scheduleSessions as $sess)
+                                <option value="{{ $sess->id }}">{{ $sess->name }} ({{ substr($sess->time_start, 0, 5) }}–{{ substr($sess->time_end, 0, 5) }})</option>
+                            @endforeach
+                        </select>
+                        <div class="invalid-feedback" id="err-grp-session"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Hari <span class="text-danger">*</span></label>
+                        <select id="grp-hari" class="form-select">
+                            <option value="">-- Pilih Hari --</option>
+                            @foreach(['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'] as $hari)
+                                <option value="{{ $hari }}">{{ $hari }}</option>
+                            @endforeach
+                        </select>
+                        <div class="invalid-feedback" id="err-grp-hari"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Mata Pelajaran <span class="text-danger">*</span></label>
+                        <select id="grp-subject" class="form-select">
+                            <option value="">-- Pilih Mapel --</option>
+                            @foreach($subjects as $sub)
+                                <option value="{{ $sub->id }}">{{ $sub->subject_name }}</option>
+                            @endforeach
+                        </select>
+                        <div class="invalid-feedback" id="err-grp-subject"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Tutor <span class="text-danger">*</span></label>
+                        <select id="grp-tutor" class="form-select">
+                            <option value="">-- Pilih Tutor --</option>
+                            @foreach($tutors as $t)
+                                <option value="{{ $t->id }}">{{ $t->name }}</option>
+                            @endforeach
+                        </select>
+                        <div class="invalid-feedback" id="err-grp-tutor"></div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Pilih Tanggal (minggu) <span class="text-danger">*</span></label>
+                        <input type="date" id="grp-week-date" class="form-control" value="{{ date('Y-m-d') }}">
+                        <div class="form-text">Hari yang dipilih di atas akan dicari dalam minggu yang sama dengan tanggal ini.</div>
+                        <div class="invalid-feedback" id="err-grp-week"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary" id="btn-do-generate-group">
+                    <i class="bi bi-calendar2-check me-1"></i> Buat Jadwal Grouping
                 </button>
             </div>
         </div>
@@ -972,6 +1064,74 @@ $(function () {
             },
             complete: function () {
                 $btn.prop('disabled', false).html('<i class="bi bi-calendar2-check me-1"></i> Generate Semua');
+            }
+        });
+    });
+
+    /* ── Buat Jadwal per Grouping (Sesi + Hari + Mapel + Tutor) ── */
+    $('#btn-generate-group').on('click', function () {
+        $('#grp-preset, #grp-session, #grp-hari, #grp-subject, #grp-tutor').val('').removeClass('is-invalid');
+        $('#grp-session, #grp-hari').prop('disabled', false);
+        $('#grp-week-date').val(new Date().toISOString().slice(0,10));
+        $('#err-grp-session, #err-grp-hari, #err-grp-subject, #err-grp-tutor, #err-grp-week').text('');
+        $('#modal-generate-group').modal('show');
+    });
+
+    // Pilih Group → otomatis isi & kunci Sesi + Hari. "Tanpa Group" → kembali bisa pilih manual.
+    $('#grp-preset').on('change', function () {
+        var $opt = $(this).find('option:selected');
+        var sessionId = $opt.data('session-id');
+        var hari = $opt.data('hari');
+
+        if (sessionId && hari) {
+            $('#grp-session').val(sessionId).prop('disabled', true).removeClass('is-invalid');
+            $('#grp-hari').val(hari).prop('disabled', true).removeClass('is-invalid');
+        } else {
+            $('#grp-session, #grp-hari').val('').prop('disabled', false);
+        }
+    });
+
+    $('#btn-do-generate-group').on('click', function () {
+        var payload = {
+            student_group_id: $('#grp-preset').val(),
+            session_id: $('#grp-session').val(),
+            hari: $('#grp-hari').val(),
+            subject_id: $('#grp-subject').val(),
+            tutor_id: $('#grp-tutor').val(),
+            week_date: $('#grp-week-date').val(),
+        };
+
+        var valid = true;
+        ['session', 'hari', 'subject', 'tutor'].forEach(function (key) {
+            var ok = !!payload[key === 'hari' ? 'hari' : key + '_id'];
+            $('#grp-' + key).toggleClass('is-invalid', !ok);
+            $('#err-grp-' + key).text(ok ? '' : 'Wajib diisi.');
+            if (!ok) valid = false;
+        });
+        if (!payload.week_date) {
+            $('#grp-week-date').addClass('is-invalid');
+            $('#err-grp-week').text('Tanggal harus diisi.');
+            valid = false;
+        } else {
+            $('#grp-week-date').removeClass('is-invalid');
+            $('#err-grp-week').text('');
+        }
+        if (!valid) return;
+
+        var $btn = $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Memproses...');
+        $.ajax({
+            url: '{{ route("admin.schedules.generate-by-group") }}', type: 'POST',
+            data: Object.assign({ _token: '{{ csrf_token() }}' }, payload),
+            success: function (res) {
+                $('#modal-generate-group').modal('hide');
+                calendar.refetchEvents();
+                Swal.fire({ icon: 'success', title: 'Berhasil!', text: res.message, confirmButtonText: 'OK' });
+            },
+            error: function (xhr) {
+                Swal.fire({ icon: 'warning', title: 'Perhatian', text: xhr.responseJSON?.message ?? 'Terjadi kesalahan.' });
+            },
+            complete: function () {
+                $btn.prop('disabled', false).html('<i class="bi bi-calendar2-check me-1"></i> Buat Jadwal Grouping');
             }
         });
     });

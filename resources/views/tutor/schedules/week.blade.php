@@ -20,8 +20,9 @@
 <div class="row g-3">
     @foreach($days as $day)
         @php
-            $items = $byDay->get($day->toDateString(), collect());
+            $sessions = $sessionsByDay->get($day->toDateString(), collect());
             $isToday = $day->isToday();
+            $studentTotal = $sessions->sum('count');
         @endphp
         <div class="col-12">
             <div class="card {{ $isToday ? 'border-primary' : '' }}">
@@ -29,10 +30,10 @@
                     <h3 class="card-title mb-0 {{ $isToday ? 'text-primary' : '' }}">
                         {{ $day->translatedFormat('l, d M Y') }}
                         @if($isToday)<span class="badge bg-primary ms-2">Hari Ini</span>@endif
-                        <span class="text-muted small ms-2">{{ $sesiPerDay->get($day->toDateString(), 0) }} sesi · {{ $items->count() }} siswa</span>
+                        <span class="text-muted small ms-2">{{ $sesiPerDay->get($day->toDateString(), 0) }} sesi · {{ $studentTotal }} siswa</span>
                     </h3>
                 </div>
-                @if($items->isEmpty())
+                @if($sessions->isEmpty())
                     <div class="card-body py-3 text-muted small">Tidak ada jadwal.</div>
                 @else
                     <div class="table-responsive">
@@ -41,38 +42,28 @@
                                 <tr>
                                     <th style="width:130px">Sesi (Jam)</th>
                                     <th style="width:120px">Kelas / Ruang</th>
-                                    <th>Siswa</th>
                                     <th>Mata Pelajaran</th>
-                                    <th style="width:110px">Status</th>
-                                    <th style="width:90px"></th>
+                                    <th style="width:150px">Siswa</th>
+                                    <th style="width:170px">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($items as $s)
+                                @foreach($sessions as $session)
                                     <tr>
-                                        <td><span class="badge bg-secondary-subtle text-secondary">{{ substr($s->start_time, 0, 5) }}–{{ substr($s->end_time, 0, 5) }}</span></td>
-                                        <td>{{ $s->room ?: '-' }}</td>
+                                        <td><span class="badge bg-secondary-subtle text-secondary">{{ substr($session['start_time'], 0, 5) }}–{{ substr($session['end_time'], 0, 5) }}</span></td>
+                                        <td>{{ $session['room'] }}</td>
+                                        <td>{{ $session['subject'] }}</td>
                                         <td>
-                                            <div class="fw-semibold">{{ $s->student->full_name ?? '-' }}</div>
-                                            <small class="text-muted">{{ $s->student->grade ?? '' }}</small>
+                                            <button type="button" class="btn btn-sm btn-outline-primary btn-lihat-siswa"
+                                                data-label="{{ $day->translatedFormat('l, d M Y') }} · {{ substr($session['start_time'], 0, 5) }}–{{ substr($session['end_time'], 0, 5) }}"
+                                                data-students="{{ json_encode($session['students']) }}">
+                                                <i class="bi bi-people me-1"></i> Lihat Siswa ({{ $session['count'] }})
+                                            </button>
                                         </td>
-                                        <td>{{ $s->subject->subject_name ?? '-' }}</td>
                                         <td>
-                                            @switch($s->status_schedule)
-                                                @case('done') <span class="badge bg-success">Selesai</span> @break
-                                                @case('canceled') <span class="badge bg-danger">Batal</span> @break
-                                                @default <span class="badge bg-info">Terjadwal</span>
-                                            @endswitch
-                                            @if($s->status_schedule === 'done' && !$s->evaluation)
-                                                <div><small class="text-warning">Belum dievaluasi</small></div>
-                                            @endif
-                                        </td>
-                                        <td class="text-end">
-                                            @if($s->student)
-                                                <a href="{{ route('tutor.students.show', $s->student_id) }}" class="btn btn-sm btn-outline-primary" title="History Evaluasi">
-                                                    <i class="bi bi-person-lines-fill"></i>
-                                                </a>
-                                            @endif
+                                            @if($session['done'] > 0)<span class="badge bg-success">{{ $session['done'] }} Selesai</span>@endif
+                                            @if($session['scheduled'] > 0)<span class="badge bg-info">{{ $session['scheduled'] }} Terjadwal</span>@endif
+                                            @if($session['canceled'] > 0)<span class="badge bg-danger">{{ $session['canceled'] }} Batal</span>@endif
                                         </td>
                                     </tr>
                                 @endforeach
@@ -84,4 +75,76 @@
         </div>
     @endforeach
 </div>
+
+{{-- Modal: Daftar Siswa pada satu sesi --}}
+<div class="modal fade" id="modal-siswa-sesi" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Siswa — <span id="modal-siswa-label"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-vcenter mb-0">
+                        <thead>
+                            <tr>
+                                <th>Siswa</th>
+                                <th>Mata Pelajaran</th>
+                                <th>Status</th>
+                                <th class="text-end">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modal-siswa-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
+
+@push('js')
+<script>
+$(function () {
+    var studentHistoryUrl = '{{ route('tutor.students.show', ['student' => '__ID__']) }}';
+
+    var statusBadge = {
+        done: '<span class="badge bg-success">Selesai</span>',
+        canceled: '<span class="badge bg-danger">Batal</span>',
+        scheduled: '<span class="badge bg-info">Terjadwal</span>',
+    };
+
+    function esc(str) {
+        return $('<div>').text(str == null ? '' : str).html();
+    }
+
+    $(document).on('click', '.btn-lihat-siswa', function () {
+        var students = $(this).data('students') || [];
+        $('#modal-siswa-label').text($(this).data('label'));
+
+        var $body = $('#modal-siswa-body').empty();
+        students.forEach(function (s) {
+            var badge = statusBadge[s.status_schedule] || '';
+            if (s.pending_eval) {
+                badge += '<div><small class="text-warning">Belum dievaluasi</small></div>';
+            }
+            var url = studentHistoryUrl.replace('__ID__', s.id);
+            $body.append(
+                '<tr>' +
+                '<td><div class="fw-semibold">' + esc(s.name) + '</div><small class="text-muted">' + esc(s.grade) + '</small></td>' +
+                '<td>' + esc(s.subject) + '</td>' +
+                '<td>' + badge + '</td>' +
+                '<td class="text-end"><a href="' + url + '" class="btn btn-sm btn-outline-primary" title="History Evaluasi"><i class="bi bi-person-lines-fill"></i></a></td>' +
+                '</tr>'
+            );
+        });
+
+        $('#modal-siswa-sesi').modal('show');
+    });
+});
+</script>
+@endpush

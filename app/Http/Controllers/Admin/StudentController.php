@@ -27,12 +27,25 @@ class StudentController extends Controller
 
     public function index()
     {
-        return view('admin.students.index');
+        $grades = Student::whereNotNull('grade')->where('grade', '!=', '')
+            ->distinct()->orderBy('grade')->pluck('grade');
+        $subjects = Subject::orderBy('subject_name')->get(['id', 'subject_name']);
+
+        return view('admin.students.index', compact('grades', 'subjects'));
     }
 
     public function dataStudents(Request $request)
     {
-        $query = Student::latest();
+        $query = Student::latest()
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
+            ->when($request->filled('grade'), fn ($q) => $q->where('grade', $request->grade))
+            ->when($request->filled('subject'), function ($q) use ($request) {
+                $subjectName = Subject::find($request->subject)?->subject_name;
+                if ($subjectName) {
+                    $q->whereJsonContains('program', $subjectName);
+                }
+            });
+
         return DataTables::of($query)
             ->addIndexColumn()
             ->editColumn('full_name', function ($student) {

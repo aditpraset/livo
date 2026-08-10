@@ -135,12 +135,36 @@ class PaymentController extends Controller
                 if ($r['whatsapp']) {
                     $wa = preg_replace('/[^0-9]/', '', $r['whatsapp']);
                     $wa = str_starts_with($wa, '0') ? '62' . substr($wa, 1) : $wa;
-                    $btn = '<a href="https://wa.me/' . $wa . '" target="_blank" class="btn btn-sm btn-outline-success me-1" title="Ingatkan via WhatsApp"><i class="bi bi-whatsapp"></i></a>' . $btn;
+                    $text = rawurlencode($this->reminderBroadcastMessage($r['expired_date']));
+                    $btn = '<a href="https://wa.me/' . $wa . '?text=' . $text . '" target="_blank" class="btn btn-sm btn-outline-success me-1" title="Ingatkan via WhatsApp"><i class="bi bi-whatsapp"></i></a>' . $btn;
                 }
                 return '<div class="d-inline-flex">' . $btn . '</div>';
             })
             ->rawColumns(['sisa', 'action'])
             ->make(true);
+    }
+
+    /** Teks default broadcast WA pengingat pembayaran (dipakai di tombol "Ingatkan via WhatsApp"). */
+    private function reminderBroadcastMessage(string $expiredDate): string
+    {
+        return <<<TEXT
+        Selamat Siang Ayah/Bunda,
+
+        Sehubungan dengan sisa kuota belajar yang hampir habis, mohon segera dilakukan proses pembayaran sebelum tanggal {$expiredDate} agar Nominal SPP masih menggunakan harga periode sebelumnya. Proses pembayaran dapat dilakukan di kantor cabang secara tunai ataupun via transfer ke rekening dibawah ini:
+
+        BCA : 5465-232-568
+        Mandiri : 123-000-0101-883
+        BNI : 1123-988-935
+        Cimb Niaga : 7031-6007-8200
+        Permata : 4115711887
+        BRI : 0933-0100-6115-501
+        BSI : 722-914-9298
+        Rekening a/n Taufik Hidayat
+
+        Demikian informasi ini kami sampaikan, atas perhatian dan kerjasamanya kami ucapkan terima kasih.
+
+        -PJ-
+        TEXT;
     }
 
     /** Cetak PDF Reminder Payment untuk satu siswa (format sesuai dokumen referensi). */
@@ -179,8 +203,11 @@ class PaymentController extends Controller
         $logo = file_exists($logoPath) ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath)) : null;
 
         // Periode reminder mengikuti durasi paket siswa:
-        // durasi 1 bulan → periode bulan DEPAN; durasi 3/6 (atau lainnya) → periode bulan BERJALAN.
-        $reminderMonth = (int) $student->duration === 1 ? now()->copy()->addMonth() : now();
+        // durasi 1 bulan → 1 bulan SETELAH tanggal expired terakhir (bukan 1 bulan setelah
+        // bulan berjalan); durasi 3/6 (atau lainnya) → periode bulan BERJALAN.
+        $reminderMonth = ((int) $student->duration === 1 && $lastPayment && $lastPayment->expired_date)
+            ? \Carbon\Carbon::parse($lastPayment->expired_date)->addMonth()
+            : now();
 
         $data = [
             'student'         => $student,

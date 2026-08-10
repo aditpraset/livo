@@ -411,6 +411,7 @@ Sesi milik tutor ini yang **belum ada evaluasi**, dan (a) berstatus `done`, atau
   "end_time": "14:30",
   "room": "Kelas B",
   "status_schedule": "done",
+  "student_feedback": null,
   "student": { "id": 9, "full_name": "Siswa Lain", "grade": "SMP Kelas 9" },
   "subject": { "id": 2, "subject_name": "Matematika" }
 }
@@ -443,6 +444,7 @@ GET /api/tutor/evaluations/{schedule}
     "end_time": "14:30:00",
     "room": "Kelas B",
     "status_schedule": "done",
+    "student_feedback": null,
     "student": { "id": 9, "full_name": "Siswa Lain", "grade": "SMP Kelas 9", "...": "..." },
     "subject": { "id": 2, "subject_name": "Matematika" },
     "evaluation": null
@@ -488,6 +490,8 @@ Membuat evaluasi baru, atau **memperbarui** bila sesi ini sudah pernah dievaluas
 | `kepercayaan_diri` | integer 1–100 | — | |
 | `tutor_notes` | string, maks 1000 | — | |
 
+> Feedback siswa **bukan** bagian dari endpoint ini — lihat [5.4 Simpan Feedback Siswa](#54-simpan-feedback-siswa), field terpisah yang melekat pada sesi (Schedule), bisa diisi kapan saja termasuk sebelum sesi ini dievaluasi.
+
 **Efek samping otomatis:**
 - Bila `status_schedule` sesi masih `scheduled`, otomatis diubah menjadi `done`.
 - Kehadiran `hadir`/`alfa` memotong **1 kuota sesi** siswa (sekali saja, ditandai internal agar tidak terpotong dobel bila evaluasi diedit ulang). Kehadiran `izin` tidak memotong; mengubah dari status pemotong ke `izin` mengembalikan kuota.
@@ -516,6 +520,38 @@ Membuat evaluasi baru, atau **memperbarui** bila sesi ini sudah pernah dievaluas
 ```
 
 **Response `422`** — validasi gagal (lihat [format error](#9-format-error)). **Response `403`** — sesi bukan milik tutor ini.
+
+### 5.4 Simpan Feedback Siswa
+
+```
+PUT /api/tutor/evaluations/{schedule}/feedback
+```
+🔒 *Butuh token* · **hanya sesi milik tutor ini** — selain itu `403`.
+
+Set/ubah feedback siswa untuk satu sesi. **Terpisah dari evaluasi** — field ini melekat pada `Schedule`, bukan `Evaluation`, sehingga bisa diisi **kapan saja**, termasuk untuk sesi yang belum dievaluasi sama sekali (belum ada `student_attendance`, dsb).
+
+**Body**
+
+| Field | Tipe | Wajib | Keterangan |
+|---|---|---|---|
+| `student_feedback` | string: `buruk`\|`kurang_baik`\|`cukup_baik`\|`baik`\|`sangat_baik` | — | Kosongkan (`null`/tidak dikirim) untuk menghapus feedback. |
+
+**Response `200 OK`**
+
+```json
+{
+  "message": "Feedback siswa berhasil disimpan.",
+  "schedule": {
+    "id": 502,
+    "student_feedback": "sangat_baik",
+    "...": "field schedule lainnya"
+  }
+}
+```
+
+**Response `422`** — nilai `student_feedback` di luar 5 pilihan. **Response `403`** — sesi bukan milik tutor ini.
+
+`student_feedback` juga otomatis tersedia pada item-item `GET /evaluations` (list) dan pada `GET /evaluations/{schedule}` (detail, di objek `schedule`), serta pada `GET /reports/rekap-pengajaran`.
 
 ---
 

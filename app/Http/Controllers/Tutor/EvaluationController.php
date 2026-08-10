@@ -6,33 +6,34 @@ use App\Http\Controllers\Concerns\ManagesEvaluations;
 use App\Models\Evaluation;
 use App\Models\Schedule;
 use App\Models\Syllabus;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Yajra\DataTables\Facades\DataTables;
 
 class EvaluationController extends BaseTutorController
 {
     use ManagesEvaluations;
 
-    /** Daftar sesi yang evaluasinya harus diisi (selesai / sudah lewat, belum ada evaluasi). */
-    public function index()
-    {
-        $tutor = $this->tutor();
-        return view('tutor.evaluations.index', compact('tutor'));
-    }
-
-    /** Data server-side untuk tabel evaluasi (mode: pending = belum diisi, done = sudah diisi & bisa diedit). */
-    public function data(Request $request)
+    /**
+     * Daftar sesi per minggu, dikelompokkan per hari lalu per sesi (jam) — sama
+     * seperti tampilan Jadwal Mingguan. Mode `pending` = belum dievaluasi
+     * (selesai/lewat, belum ada evaluasi), mode `done` = sudah dievaluasi.
+     */
+    public function index(Request $request)
     {
         $tutor = $this->tutor();
         $mode  = $request->input('mode', 'pending');
 
+        $anchor = $request->filled('week') ? Carbon::parse($request->week) : now();
+        $start = $anchor->copy()->startOfWeek(Carbon::MONDAY);
+        $end = $anchor->copy()->endOfWeek(Carbon::SUNDAY);
+
         $query = Schedule::with(['student', 'subject', 'evaluation'])
-            ->where('tutor_id', $tutor->id);
+            ->where('tutor_id', $tutor->id)
+            ->whereDate('class_date', '>=', $start->toDateString())
+            ->whereDate('class_date', '<=', $end->toDateString());
 
         if ($mode === 'done') {
-            // Sesi yang sudah dievaluasi — evaluasinya masih bisa diedit kembali
-            $query->whereHas('evaluation')
-                ->orderByDesc('class_date')->orderByDesc('start_time');
+            $query->whereHas('evaluation');
         } else {
             $query->whereDoesntHave('evaluation')
                 ->where(function ($q) {
@@ -41,39 +42,58 @@ class EvaluationController extends BaseTutorController
                             $q->where('status_schedule', 'scheduled')
                                 ->whereDate('class_date', '<', now()->toDateString());
                         });
-                })
-                ->orderBy('class_date')->orderBy('start_time');
+                });
         }
 
-        return DataTables::of($query)
-            ->addIndexColumn()
-            ->editColumn('class_date', fn ($s) => $s->class_date->translatedFormat('d M Y')
-                . '<br><small class="text-muted">' . substr($s->start_time, 0, 5) . '–' . substr($s->end_time, 0, 5) . '</small>')
-            ->addColumn('student_name', fn ($s) => '<div class="fw-semibold">' . e($s->student->full_name ?? '-') . '</div>'
-                . '<small class="text-muted">' . e($s->student->grade ?? '') . '</small>')
-            ->addColumn('subject_name', fn ($s) => e($s->subject->subject_name ?? '-'))
-            ->editColumn('room', fn ($s) => e($s->room ?: '-'))
-            ->editColumn('status_schedule', function ($s) use ($mode) {
-                if ($mode === 'done') {
-                    $att = $s->evaluation->student_attendance ?? null;
-                    $badge = match ($att) {
-                        'hadir' => 'bg-success', 'izin' => 'bg-warning text-dark', 'alfa' => 'bg-danger', default => 'bg-secondary',
-                    };
-                    return $att ? '<span class="badge ' . $badge . '">' . ucfirst($att) . '</span>' : '<span class="text-muted">—</span>';
-                }
-                return $s->status_schedule === 'done'
-                    ? '<span class="badge bg-success">Selesai</span>'
-                    : '<span class="badge bg-warning">Lewat, belum ditandai</span>';
+        $schedules = $query->orderBy('class_date')->orderBy('start_time')->get();
+
+        $byDay = $schedules->groupBy(fn ($s) => $s->class_date->toDateString());
+        $days = collect(range(0, 6))->map(fn ($i) => $start->copy()->addDays($i));
+
+        // Kelompokkan per slot jam — sama seperti Jadwal Mingguan, satu sesi bisa berisi banyak siswa.
+        $slotKey = fn ($s) => $s->start_time . '|' . $s->end_time;
+
+        $sessionsByDay = $byDay->map(fn ($items) => $items->groupBy($slotKey)
+            ->map(function ($group) {
+                $first = $group->first();
+                return [
+                    'start_time' => $first->start_time,
+                    'end_time'   => $first->end_time,
+                    'room'       => $group->pluck('room')->filter()->unique()->values()->implode(', ') ?: '-',
+                    'subject'    => $group->pluck('subject.subject_name')->filter()->unique()->values()->implode(', ') ?: '-',
+                    'students'   => $group->map(fn ($s) => [
+                        'schedule_id'     => $s->id,
+                        'name'            => $s->student->full_name ?? '-',
+                        'grade'           => $s->student->grade ?? '',
+                        'subject'         => $s->subject->subject_name ?? '-',
+                        'status_schedule' => $s->status_schedule,
+                        'attendance'      => $s->evaluation->student_attendance ?? null,
+                        'has_evaluation'  => (bool) $s->evaluation,
+                        'student_feedback' => $s->student_feedback,
+                        'student_feedback_label' => $s->student_feedback_label,
+                        'create_url'      => route('tutor.evaluations.create', $s->id),
+                    ])->values(),
+                    'count'      => $group->count(),
+                    'evaluated'  => $group->filter(fn ($s) => $s->evaluation)->count(),
+                ];
             })
-            ->addColumn('action', fn ($s) => $s->evaluation
-                ? '<a href="' . route('tutor.evaluations.create', $s->id) . '" class="btn btn-sm btn-outline-warning">
-                    <i class="bi bi-pencil me-1"></i> Edit Evaluasi
-                </a>'
-                : '<a href="' . route('tutor.evaluations.create', $s->id) . '" class="btn btn-sm btn-primary">
-                    <i class="bi bi-pencil-square me-1"></i> Isi Evaluasi
-                </a>')
-            ->rawColumns(['class_date', 'student_name', 'status_schedule', 'action'])
-            ->make(true);
+            ->sortBy('start_time')->values());
+
+        $sesiPerDay = $sessionsByDay->map->count();
+        $totalWeek = $sessionsByDay->sum->count();
+
+        return view('tutor.evaluations.index', [
+            'tutor' => $tutor,
+            'mode' => $mode,
+            'days' => $days,
+            'sessionsByDay' => $sessionsByDay,
+            'sesiPerDay' => $sesiPerDay,
+            'start' => $start,
+            'end' => $end,
+            'prevWeek' => $start->copy()->subWeek()->toDateString(),
+            'nextWeek' => $start->copy()->addWeek()->toDateString(),
+            'totalWeek' => $totalWeek,
+        ]);
     }
 
     /** Form isi evaluasi untuk satu sesi. */
@@ -125,5 +145,24 @@ class EvaluationController extends BaseTutorController
 
         return redirect()->route('tutor.evaluations.index')
             ->with('success', 'Evaluasi ' . ($schedule->student->full_name ?? 'siswa') . ' berhasil disimpan.');
+    }
+
+    /**
+     * Simpan/ubah feedback siswa langsung dari tabel evaluasi (tanpa buka form lengkap).
+     * Feedback melekat pada sesi (Schedule), jadi bisa diisi kapan saja — termasuk
+     * untuk sesi yang belum dievaluasi sama sekali.
+     */
+    public function updateFeedback(Request $request, Schedule $schedule)
+    {
+        $tutor = $this->tutor();
+        abort_unless($schedule->tutor_id === $tutor->id, 403);
+
+        $validated = $request->validate([
+            'student_feedback' => ['nullable', 'in:' . implode(',', array_keys(Schedule::FEEDBACK_OPTIONS))],
+        ]);
+
+        $schedule->update($validated);
+
+        return response()->json(['message' => 'Feedback siswa berhasil disimpan.']);
     }
 }

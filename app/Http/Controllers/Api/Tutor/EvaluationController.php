@@ -41,6 +41,7 @@ class EvaluationController extends BaseApiTutorController
             'end_time' => substr($s->end_time, 0, 5),
             'room' => $s->room,
             'status_schedule' => $s->status_schedule,
+            'student_feedback' => $s->student_feedback,
             'student' => [
                 'id' => $s->student->id ?? null,
                 'full_name' => $s->student->full_name ?? null,
@@ -126,6 +127,27 @@ class EvaluationController extends BaseApiTutorController
         return response()->json([
             'message' => 'Evaluasi ' . ($schedule->student->full_name ?? 'siswa') . ' berhasil disimpan.',
             'evaluation' => $evaluation->fresh(),
+        ]);
+    }
+
+    /**
+     * Simpan/ubah feedback siswa untuk satu sesi. Feedback melekat pada sesi
+     * (Schedule), jadi bisa diisi kapan saja — termasuk sebelum sesi ini dievaluasi.
+     */
+    public function updateFeedback(Request $request, Schedule $schedule)
+    {
+        $tutor = $this->tutor();
+        abort_unless($schedule->tutor_id === $tutor->id, 403);
+
+        $validated = $request->validate([
+            'student_feedback' => ['nullable', 'in:' . implode(',', array_keys(Schedule::FEEDBACK_OPTIONS))],
+        ]);
+
+        $schedule->update($validated);
+
+        return response()->json([
+            'message' => 'Feedback siswa berhasil disimpan.',
+            'schedule' => $schedule->fresh(),
         ]);
     }
 }

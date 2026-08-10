@@ -31,6 +31,42 @@
             <div class="card-header bg-white px-4 py-3">
                 <h4 class="mb-0 h5">Daftar Siswa</h4>
             </div>
+            <div class="px-4 pt-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small fw-semibold mb-1">Status</label>
+                        <select id="filter-status" class="form-select form-select-sm">
+                            <option value="">Semua Status</option>
+                            <option value="1">Aktif</option>
+                            <option value="2">Non-Aktif</option>
+                            <option value="3">Cuti</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small fw-semibold mb-1">Kelas</label>
+                        <select id="filter-grade" class="form-select form-select-sm">
+                            <option value="">Semua Kelas</option>
+                            @foreach($grades as $grade)
+                                <option value="{{ $grade }}">{{ $grade }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small fw-semibold mb-1">Mata Pelajaran</label>
+                        <select id="filter-subject" class="form-select form-select-sm">
+                            <option value="">Semua Mapel</option>
+                            @foreach($subjects as $subject)
+                                <option value="{{ $subject->id }}">{{ $subject->subject_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="btn-reset-filter">
+                            <i class="bi bi-x-circle me-1"></i> Reset Filter
+                        </button>
+                    </div>
+                </div>
+            </div>
             <div class="table-responsive p-3">
                 <table class="table table-hover mb-0" id="students-table">
                     <thead class="table-light">
@@ -96,7 +132,14 @@ $(document).ready(function() {
     var table = $('#students-table').DataTable({
         processing: true,
         serverSide: true,
-        ajax: "{{ route('admin.data.students') }}",
+        ajax: {
+            url: "{{ route('admin.data.students') }}",
+            data: function (d) {
+                d.status = $('#filter-status').val();
+                d.grade = $('#filter-grade').val();
+                d.subject = $('#filter-subject').val();
+            }
+        },
         columns: [
             { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false, className: 'px-4' },
             { data: 'registration_code', name: 'registration_code' },
@@ -113,6 +156,16 @@ $(document).ready(function() {
             info: "Menampilkan _START_ sampai _END_ dari _TOTAL_ data",
             paginate: { first: "Pertama", last: "Terakhir", next: "Selanjutnya", previous: "Sebelumnya" }
         }
+    });
+
+    // ── Filter Status / Kelas / Mata Pelajaran ──
+    $('#filter-status, #filter-grade, #filter-subject').on('change', function () {
+        table.ajax.reload();
+    });
+
+    $('#btn-reset-filter').on('click', function () {
+        $('#filter-status, #filter-grade, #filter-subject').val('');
+        table.ajax.reload();
     });
 
     // ── Import Excel ──
