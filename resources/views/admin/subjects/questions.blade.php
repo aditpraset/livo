@@ -15,9 +15,17 @@
             &middot; {{ $syllabus->jenis_kurikulum }} &middot; {{ $syllabus->kelas }}
         </p>
     </div>
-    <button class="btn btn-primary" id="btn-add">
-        <i class="bi bi-plus-lg me-1"></i> Tambah Soal
-    </button>
+    <div class="d-flex gap-2">
+        <a href="{{ route('admin.subjects.syllabi.questions.template', [$subject->id, $syllabus->id]) }}" class="btn btn-outline-success">
+            <i class="bi bi-download me-1"></i> Download Template
+        </a>
+        <button class="btn btn-success" id="btn-import">
+            <i class="bi bi-file-earmark-excel me-1"></i> Upload Excel
+        </button>
+        <button class="btn btn-primary" id="btn-add">
+            <i class="bi bi-plus-lg me-1"></i> Tambah Soal
+        </button>
+    </div>
 </div>
 @endsection
 
@@ -78,6 +86,40 @@
         </div>
     </div>
 </div>
+
+{{-- Modal Import Excel --}}
+<div class="modal fade" id="modal-import" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Upload Soal dari Excel</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info small d-flex align-items-start gap-2">
+                    <i class="bi bi-info-circle-fill mt-1"></i>
+                    <div>
+                        Gunakan <a href="{{ route('admin.subjects.syllabi.questions.template', [$subject->id, $syllabus->id]) }}" class="fw-semibold">template Excel</a> yang disediakan.
+                        Kolom <strong>Jawaban Benar</strong> diisi salah satu dari <code>A</code>, <code>B</code>, <code>C</code>, atau <code>D</code>. Baris header tidak diimport.
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">File Excel / CSV <span class="text-danger">*</span></label>
+                    <input type="file" id="import-file" class="form-control" accept=".xlsx,.xls,.csv">
+                    <div class="invalid-feedback" id="err-file"></div>
+                    <small class="text-muted">Format: .xlsx, .xls, atau .csv — maksimal 5 MB.</small>
+                </div>
+                <div id="import-errors" class="mt-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-success" id="btn-upload">
+                    <i class="bi bi-upload me-1"></i> Upload
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('js')
@@ -100,6 +142,63 @@ $(function () {
             url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json',
             emptyTable: 'Belum ada soal untuk silabus ini.'
         }
+    });
+
+    // ── Import Excel ──
+    $('#btn-import').on('click', function () {
+        $('#import-file').val('').removeClass('is-invalid');
+        $('#err-file').text('');
+        $('#import-errors').html('');
+        $('#modal-import').modal('show');
+    });
+
+    $('#btn-upload').on('click', function () {
+        var fileInput = $('#import-file')[0];
+        $('#import-file').removeClass('is-invalid');
+        $('#err-file').text('');
+        $('#import-errors').html('');
+
+        if (!fileInput.files.length) {
+            $('#import-file').addClass('is-invalid');
+            $('#err-file').text('Silakan pilih file terlebih dahulu.');
+            return;
+        }
+
+        var formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('_token', '{{ csrf_token() }}');
+
+        var $btn = $('#btn-upload').prop('disabled', true)
+            .html('<span class="spinner-border spinner-border-sm me-1"></span> Mengupload...');
+
+        $.ajax({
+            url: baseUrl + '/import', type: 'POST',
+            data: formData, processData: false, contentType: false,
+            success: function (res) {
+                $('#modal-import').modal('hide');
+                table.ajax.reload();
+                Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2500, showConfirmButton: false });
+            },
+            error: function (xhr) {
+                var res = xhr.responseJSON || {};
+                if (res.errors && res.errors.file) {
+                    $('#import-file').addClass('is-invalid');
+                    $('#err-file').text(res.errors.file[0]);
+                } else {
+                    var html = '<div class="alert alert-danger small mb-0">' + (res.message || 'Terjadi kesalahan.');
+                    if (Array.isArray(res.errors) && res.errors.length) {
+                        html += '<ul class="mb-0 mt-2 ps-3">';
+                        res.errors.forEach(function (e) { html += '<li>' + e + '</li>'; });
+                        html += '</ul>';
+                    }
+                    html += '</div>';
+                    $('#import-errors').html(html);
+                }
+            },
+            complete: function () {
+                $btn.prop('disabled', false).html('<i class="bi bi-upload me-1"></i> Upload');
+            }
+        });
     });
 
     function resetModal() {

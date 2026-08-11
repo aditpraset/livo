@@ -7,14 +7,14 @@
         @page { margin: 7mm 8mm; }
         * { font-family: DejaVu Sans, sans-serif; }
         body { font-size: 9px; color: #222; margin: 0; }
-        .header-top { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+        .header-top { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
         .header-top td { vertical-align: middle; }
         .title { text-align: center; font-size: 17px; font-weight: bold; letter-spacing: .5px; }
         .subtitle { text-align: center; font-size: 9px; color: #444; }
-        .period-line { text-align: center; font-size: 10px; font-weight: bold; color: #222; margin: 3px 0 0; }
+        .period-line { text-align: center; font-size: 10px; font-weight: bold; color: #222; margin: 2px 0 0; }
         .logo { height: 50px; }
-        table.info { width: 100%; border-collapse: collapse; margin: 10px 0 10px; font-size: 9px; }
-        table.info td { padding: 2px 4px; vertical-align: top; }
+        table.info { width: 100%; border-collapse: collapse; margin: 0 0 6px; font-size: 9px; }
+        table.info td { padding: 1px 4px; vertical-align: top; }
         .info .lbl { font-weight: bold; white-space: nowrap; }
         .info .sep { width: 6px; }
         .badge { display: inline-block; padding: 1px 7px; color: #111; font-weight: bold; font-size: 9px; }
@@ -28,6 +28,8 @@
 
         .two-col { width: 100%; border-collapse: collapse; }
         .two-col > td { vertical-align: top; width: 50%; padding: 0; }
+        .three-col { width: 100%; border-collapse: collapse; }
+        .three-col > td { vertical-align: top; width: 33.33%; padding: 0; }
         .section-title { font-weight: bold; font-size: 9px; margin: 3px 0 4px; }
 
         table.materi { width: 100%; border-collapse: collapse; }
@@ -37,17 +39,10 @@
         table.materi .val { width: 72px; text-align: center; }
         table.materi .lbl-r { text-align: right; font-weight: bold; border: none; }
 
-        .catatan-box { border: 1px solid #777; height: 150px; }
-        .ttd { width: 100%; margin-top: 6px; }
+        .catatan-box { border: 1px solid #777; height: 100px; }
         .ttd td { vertical-align: top; font-size: 9.5px; }
 
-        /* Grafik batang sesi per bulan */
-        table.bar-chart { width: 100%; border-collapse: collapse; }
-        table.bar-chart td { padding: 3px 4px; font-size: 9px; vertical-align: middle; }
-        .bc-label { width: 64px; font-weight: bold; white-space: nowrap; }
-        .bc-track { background: #eef2f9; border: 1px solid #d4ddec; }
-        .bc-bar { background: #2C3E73; height: 11px; line-height: 11px; font-size: 0; }
-        .bc-val { width: 50px; font-weight: bold; text-align: right; white-space: nowrap; }
+        .muted { color: #888; }
     </style>
 </head>
 <body>
@@ -69,7 +64,6 @@
         <td style="width:90px;"></td>
     </tr>
 </table>
-<br>
 <table class="info">
     <tr>
         <td class="lbl">NIS / Nama Panggilan</td><td class="sep">:</td>
@@ -92,7 +86,7 @@
         <td colspan="7"><span style="font-weight:bold; color:{{ ($alfaTotal ?? 0) > 0 ? '#dc2626' : '#222' }};">{{ $alfaTotal ?? 0 }} kali</span></td>
     </tr>
 </table>
-<br>
+
 {{-- ── Tabel utama: rata-rata per bulan ── --}}
 <table class="data">
     <thead>
@@ -155,30 +149,38 @@
     @endforeach
 </table>
 
-{{-- ── Grafik (di bawah tabel pembahasan, berdampingan) ── --}}
-<table class="two-col" style="margin-top:10px;">
+{{-- ── Grafik (di bawah tabel pembahasan, 3 grafik dalam 1 baris) ── --}}
+<table class="three-col" style="margin-top:10px;">
     <tr>
-        <td valign="top" style="padding:0 6px 0 0;">
+        <td valign="top" style="padding:0 5px 0 0;">
             <div class="section-title">Grafik Sesi per Bulan</div>
             @if(count($rows))
-                <img src="data:image/svg+xml;base64,{{ base64_encode($sessionSvg) }}" style="width:100%; height:auto;">
+                <img src="data:image/svg+xml;base64,{{ base64_encode($sessionSvg) }}" width="168" height="89">
             @else
-                <div style="color:#888; font-size:9px;">Belum ada data sesi pada periode ini.</div>
+                <div class="muted">Belum ada data sesi pada periode ini.</div>
             @endif
         </td>
-        <td valign="top" style="padding:0 0 0 6px;">
+        <td valign="top" style="padding:0 5px;">
             <div class="section-title">Grafik Penilaian Rata-rata</div>
             @if(count($rows))
-                <img src="data:image/svg+xml;base64,{{ base64_encode($abilitySvg) }}" style="width:100%; height:auto;">
+                <img src="data:image/svg+xml;base64,{{ base64_encode($abilitySvg) }}" width="168" height="91">
             @else
-                <div style="color:#888; font-size:9px;">Belum ada data pada periode ini.</div>
+                <div class="muted">Belum ada data pada periode ini.</div>
+            @endif
+        </td>
+        <td valign="top" style="padding:0 0 0 5px;">
+            <div class="section-title">Grafik Mata Pelajaran</div>
+            @if(count($rows) && count($programs))
+                <img src="data:image/svg+xml;base64,{{ base64_encode($subjectSvg) }}" width="168" height="91">
+            @else
+                <div class="muted">Belum ada data mata pelajaran pada periode ini.</div>
             @endif
         </td>
     </tr>
 </table>
 
 {{-- ── Catatan & TTD ── --}}
-<div style="margin-top:10px;">
+<div style="margin-top:8px;">
     <div class="section-title">Catatan Tambahan :</div>
     <table class="two-col">
         <tr>
@@ -188,14 +190,14 @@
             <td style="width:40%; padding-left:6px;" valign="bottom">
                 <table style="width:100%; border-collapse:collapse; text-align:center;">
                     <tr>
-                        <td style="text-align:center; padding-bottom:15px;">Jakarta, {{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}</td>
+                        <td style="text-align:center; padding-bottom:10px;">Jakarta, {{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}</td>
                     </tr>
                     <tr>
-                        <td style="text-align:center; padding-bottom:15px;">
+                        <td style="text-align:center; padding-bottom:10px;">
                             @if(!empty($qrCode))
-                                <img src="{{ $qrCode }}" style="width:72px; height:72px;">
+                                <img src="{{ $qrCode }}" width="65" height="65">
                             @else
-                                <span style="display:inline-block; height:72px;"></span>
+                                <span style="display:inline-block; height:65px;"></span>
                             @endif
                         </td>
                     </tr>

@@ -7,6 +7,11 @@ use App\Models\Question;
 use App\Models\Subject;
 use App\Models\Syllabus;
 use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Yajra\DataTables\Facades\DataTables;
 
 /**
@@ -69,6 +74,131 @@ class QuestionController extends Controller
         $question->delete();
 
         return response()->json(['success' => true, 'message' => 'Soal berhasil dihapus.']);
+    }
+
+    /** Download template Excel kosong (+ contoh baris) untuk import soal via Bank Soal. */
+    public function template(Subject $subject, Syllabus $syllabus)
+    {
+        $spreadsheet = new Spreadsheet();
+
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Bank Soal');
+        $sheet->fromArray(
+            ['Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Jawaban Benar (A/B/C/D)'],
+            null, 'A1'
+        );
+        $sheet->fromArray([[
+            'Ibu kota Indonesia adalah?', 'Jakarta', 'Bandung', 'Surabaya', 'Medan', 'A',
+        ]], null, 'A2');
+
+        $lastCol = $sheet->getHighestColumn();
+        $sheet->getStyle('A1:' . $lastCol . '1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A1:' . $lastCol . '1')->getFill()
+            ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('2C3E73');
+        for ($c = 1; $c <= Coordinate::columnIndexFromString($lastCol); $c++) {
+            $sheet->getColumnDimensionByColumn($c)->setWidth($c === 1 ? 50 : 24);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        $fileName = 'template-bank-soal-' . str()->slug($syllabus->pokok_bahasan) . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /** Import soal dari file Excel sesuai template, untuk silabus ini. */
+    public function import(Request $request, Subject $subject, Syllabus $syllabus)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:5120',
+        ], [
+            'file.mimes' => 'Format file harus .xlsx, .xls, atau .csv.',
+            'file.max'   => 'Ukuran file maksimal 5 MB.',
+        ]);
+
+        try {
+            $spreadsheet = IOFactory::load($request->file('file')->getRealPath());
+            $sheet = $spreadsheet->getSheetByName('Bank Soal') ?? $spreadsheet->getSheet(0);
+            $rows  = $sheet->toArray(null, true, true, false);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'File tidak dapat dibaca. Pastikan menggunakan template yang disediakan.',
+            ], 422);
+        }
+
+        array_shift($rows); // buang header
+
+        $inserted = 0;
+        $skipped  = 0;
+        $errors   = [];
+
+        foreach ($rows as $i => $row) {
+            $line = $i + 2;
+            $get  = fn ($idx) => isset($row[$idx]) ? trim((string) $row[$idx]) : '';
+
+            $question = $get(0);
+            $a = $get(1); $b = $get(2); $c = $get(3); $d = $get(4);
+            $correct = strtolower($get(5));
+
+            // Lewati baris yang seluruhnya kosong
+            if ($question === '' && $a === '' && $b === '' && $c === '' && $d === '' && $correct === '') {
+                continue;
+            }
+
+            if ($question === '' || $a === '' || $b === '' || $c === '' || $d === '') {
+                $skipped++;
+                $errors[] = "Baris {$line}: Pertanyaan dan keempat pilihan (A-D) wajib diisi.";
+                continue;
+            }
+
+            if (!in_array($correct, ['a', 'b', 'c', 'd'], true)) {
+                $skipped++;
+                $errors[] = "Baris {$line}: Jawaban Benar '{$get(5)}' tidak valid (harus A/B/C/D).";
+                continue;
+            }
+
+            $syllabus->questions()->create([
+                'question'       => $question,
+                'option_a'       => $a,
+                'option_b'       => $b,
+                'option_c'       => $c,
+                'option_d'       => $d,
+                'correct_answer' => $correct,
+            ]);
+            $inserted++;
+        }
+
+        if ($inserted === 0 && $skipped === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada data pada file tsb.',
+            ], 422);
+        }
+
+        if ($inserted === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada soal valid yang diimport.',
+                'errors'  => $errors,
+            ], 422);
+        }
+
+        $message = "{$inserted} soal berhasil diimport.";
+        if ($skipped > 0) {
+            $message .= " {$skipped} baris dilewati.";
+        }
+
+        return response()->json([
+            'success'  => true,
+            'message'  => $message,
+            'inserted' => $inserted,
+            'skipped'  => $skipped,
+            'errors'   => $errors,
+        ]);
     }
 
     private function validateData(Request $request): array

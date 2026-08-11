@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ComputesTutorTeachingStats;
 use App\Models\FeePeriod;
 use App\Models\Schedule;
 use App\Models\TutorFee;
+use App\Support\PdfChart;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -158,7 +159,7 @@ class ReportController extends BaseTutorController
         return $pdf->download('slip-gaji-' . $month->format('Y-m') . '.pdf');
     }
 
-    /** Summary pengajaran PDF untuk bulan terpilih. */
+    /** Summary pengajaran PDF untuk bulan terpilih (2 kolom: rekap+materi & grafik). */
     public function summaryPengajaran(Request $request)
     {
         $tutor = $this->tutor();
@@ -166,8 +167,47 @@ class ReportController extends BaseTutorController
 
         [$schedules, $stats] = $this->teachingData($tutor->id, $month);
 
-        $pdf = Pdf::loadView('tutor.reports.pdf.summary', compact('tutor', 'month', 'schedules', 'stats'))
-            ->setPaper('a4', 'landscape');
+        $slotKey = fn ($s) => $s->class_date->toDateString() . '|' . $s->start_time . '|' . $s->end_time;
+
+        // Grafik 1: jumlah sesi per bulan, 6 bulan terakhir (termasuk bulan laporan).
+        $monthsRange = collect(range(5, 0))->map(fn ($i) => $month->copy()->subMonths($i));
+        $historySchedules = Schedule::where('tutor_id', $tutor->id)
+            ->where('status_schedule', 'done')
+            ->whereBetween('class_date', [
+                $monthsRange->first()->copy()->startOfMonth()->toDateString(),
+                $month->copy()->endOfMonth()->toDateString(),
+            ])
+            ->get(['class_date', 'start_time', 'end_time']);
+
+        $sesiPerBulan = $monthsRange->mapWithKeys(function ($m) use ($historySchedules, $slotKey) {
+            $count = $historySchedules->filter(fn ($s) => $s->class_date->format('Y-m') === $m->format('Y-m'))
+                ->unique($slotKey)->count();
+            return [$m->translatedFormat('M') => $count];
+        });
+        $chartSesiPerBulan = PdfChart::bar($sesiPerBulan->keys()->all(), $sesiPerBulan->values()->all());
+
+        // Grafik 2: rata-rata skor kemampuan dari evaluasi bulan ini.
+        $evaluations = $schedules->map(fn ($s) => $s->evaluation)->filter();
+        $avg = fn (string $field) => $evaluations->pluck($field)->filter(fn ($v) => $v !== null)->avg();
+        $chartKemampuan = PdfChart::bar(
+            ['Pemahaman', 'Analisa', 'Hafalan', 'P.Diri'],
+            [
+                (int) round($avg('pemahaman') ?? 0),
+                (int) round($avg('kemampuan_analisa') ?? 0),
+                (int) round($avg('kemampuan_hafalan') ?? 0),
+                (int) round($avg('kepercayaan_diri') ?? 0),
+            ],
+            '#22A699'
+        );
+
+        // Grafik 3: distribusi jumlah sesi per mata pelajaran bulan ini.
+        $mapelCounts = $schedules->groupBy(fn ($s) => $s->subject->subject_name ?? 'Lainnya')
+            ->map->count()->sortDesc();
+        $chartMapel = PdfChart::pie($mapelCounts->keys()->all(), $mapelCounts->values()->all());
+
+        $pdf = Pdf::loadView('tutor.reports.pdf.summary', compact(
+            'tutor', 'month', 'schedules', 'stats', 'chartSesiPerBulan', 'chartKemampuan', 'chartMapel'
+        ))->setPaper('a4', 'landscape');
 
         return $pdf->download('summary-pengajaran-' . $month->format('Y-m') . '.pdf');
     }

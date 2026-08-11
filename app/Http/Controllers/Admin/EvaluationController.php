@@ -387,17 +387,20 @@ class EvaluationController extends Controller
 
         // Grafik sesi: batang vertikal bertumpuk per bulan, dibagi per mata pelajaran
         $sessionSvg = $this->buildSessionStackedSvg($rows, $programs->values()->all());
-        // Grafik profil kemampuan: batang vertikal (sumbu X = kemampuan, sumbu Y = nilai).
-        // Mencakup Analisa, Hafalan, Percaya Diri, dan rata-rata tiap mata pelajaran.
-        $abilityData = [
+
+        // Grafik profil kemampuan: Analisa, Hafalan, Percaya Diri saja.
+        $abilitySvg = $this->buildAbilityBarSvg([
             'Analisa'      => $footer['analisa'],
             'Hafalan'      => $footer['hafalan'],
             'Percaya Diri' => $footer['kepercayaan'],
-        ];
+        ], 'Kemampuan');
+
+        // Grafik mata pelajaran: rata-rata nilai post test per mata pelajaran yang diambil.
+        $subjectData = [];
         foreach ($programs as $prog) {
-            $abilityData[$prog] = $footer['subjects'][$prog] ?? null;
+            $subjectData[$prog] = $footer['subjects'][$prog] ?? null;
         }
-        $abilitySvg = $this->buildAbilityBarSvg($abilityData);
+        $subjectSvg = $this->buildAbilityBarSvg($subjectData, 'Mata Pelajaran');
 
         $periode = $this->periodLabel($startDate, $endDate);
         $student->loadMissing('scheduleSession');
@@ -413,7 +416,7 @@ class EvaluationController extends Controller
         $logo = file_exists($logoPath) ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath)) : null;
 
         $pdf = Pdf::loadView('admin.evaluations.summary-pdf', compact(
-            'student', 'programs', 'rows', 'footer', 'predikat', 'periode', 'materi', 'sessionSvg', 'abilitySvg', 'qrCode', 'logo', 'alfaTotal'
+            'student', 'programs', 'rows', 'footer', 'predikat', 'periode', 'materi', 'sessionSvg', 'abilitySvg', 'subjectSvg', 'qrCode', 'logo', 'alfaTotal'
         ))->setPaper('a4', 'portrait');
 
         $fileName = trim('Laporan Summary ' . ($student->nis ?? '-') . ' - ' . ($student->nickname ?? $student->full_name));
@@ -486,10 +489,10 @@ class EvaluationController extends Controller
     }
 
     /**
-     * Grafik batang vertikal (SVG) untuk profil kemampuan.
-     * Sumbu X = jenis kemampuan, sumbu Y = nilai (skala 0-100).
+     * Grafik batang vertikal (SVG) untuk profil kemampuan / nilai per mata pelajaran.
+     * Sumbu X = label (kemampuan atau mata pelajaran), sumbu Y = nilai (skala 0-100).
      */
-    private function buildAbilityBarSvg(array $data): string
+    private function buildAbilityBarSvg(array $data, string $xAxisTitle = 'Kemampuan'): string
     {
         $w = 340; $h = 185; $padL = 26; $padB = 48; $padT = 18; $padR = 10; $max = 100;
         $plotW = $w - $padL - $padR; $plotH = $h - $padT - $padB;
@@ -529,7 +532,7 @@ class EvaluationController extends Controller
             }
         }
         // judul sumbu X
-        $svg .= '<text x="' . round($padL + $plotW / 2, 1) . '" y="' . ($base + 40) . '" font-size="8" text-anchor="middle" fill="#444" font-weight="bold">Kemampuan / Mata Pelajaran</text>';
+        $svg .= '<text x="' . round($padL + $plotW / 2, 1) . '" y="' . ($base + 40) . '" font-size="8" text-anchor="middle" fill="#444" font-weight="bold">' . htmlspecialchars($xAxisTitle) . '</text>';
         $svg .= '</svg>';
         return $svg;
     }
