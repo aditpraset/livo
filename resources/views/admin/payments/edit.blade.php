@@ -88,6 +88,7 @@
                                 <option value="1" {{ old('period', $payment->period ?? 1) == 1 ? 'selected' : '' }}>1 Bulan (30 hari)</option>
                                 <option value="2" {{ old('period', $payment->period) == 2 ? 'selected' : '' }}>2 Bulan (60 hari)</option>
                                 <option value="3" {{ old('period', $payment->period) == 3 ? 'selected' : '' }}>3 Bulan (90 hari)</option>
+                                <option value="6" {{ old('period', $payment->period) == 6 ? 'selected' : '' }}>6 Bulan (180 hari)</option>
                             </select>
                             @error('period') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>

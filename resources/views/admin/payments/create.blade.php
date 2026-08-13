@@ -90,6 +90,7 @@
                                 <option value="1" {{ old('period', 1) == 1 ? 'selected' : '' }}>1 Bulan (30 hari)</option>
                                 <option value="2" {{ old('period') == 2 ? 'selected' : '' }}>2 Bulan (60 hari)</option>
                                 <option value="3" {{ old('period') == 3 ? 'selected' : '' }}>3 Bulan (90 hari)</option>
+                                <option value="6" {{ old('period') == 6 ? 'selected' : '' }}>6 Bulan (180 hari)</option>
                             </select>
                             @error('period') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
@@ -166,10 +167,10 @@
         } else {
             if (hint) hint.classList.add('d-none');
         }
-        // Durasi paket siswa (1-3 bulan) → set Periode otomatis
+        // Durasi paket siswa → set Periode otomatis (hanya bila ada opsi Periode yang cocok)
         var opt = this.options[this.selectedIndex];
         var duration = opt ? parseInt(opt.getAttribute('data-duration'), 10) : NaN;
-        if (periodSelect && duration >= 1 && duration <= 3) {
+        if (periodSelect && [1, 2, 3, 6].indexOf(duration) !== -1) {
             periodSelect.value = String(duration);
         }
         recalcExpired();
