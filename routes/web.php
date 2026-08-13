@@ -75,9 +75,30 @@ Route::prefix('tutor')->name('tutor.')->middleware(['auth', 'role:tutor'])->grou
 
 // ── Area Siswa ──
 Route::prefix('siswa')->name('siswa.')->middleware(['auth', 'role:siswa'])->group(function () {
-    Route::get('/', function () {
-        return view('siswa.dashboard');
-    })->name('dashboard');
+    // Pilihan mode masuk (Siswa / Orang Tua) — tanpa middleware siswa.mode agar tidak berputar
+    Route::get('/mode', [\App\Http\Controllers\Siswa\ModeController::class, 'show'])->name('mode');
+    Route::post('/mode', [\App\Http\Controllers\Siswa\ModeController::class, 'store'])->name('mode.store');
+    Route::post('/mode/ganti', [\App\Http\Controllers\Siswa\ModeController::class, 'switch'])->name('mode.switch');
+
+    // Seluruh halaman berikut baru terbuka setelah mode dipilih
+    Route::middleware('siswa.mode')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Siswa\DashboardController::class, 'index'])->name('dashboard');
+
+        // Jadwal belajar mingguan
+        Route::get('/jadwal', [\App\Http\Controllers\Siswa\ScheduleController::class, 'week'])->name('schedules.week');
+
+        // Nilai & evaluasi (hanya yang sudah diterbitkan admin)
+        Route::get('/nilai', [\App\Http\Controllers\Siswa\EvaluationController::class, 'index'])->name('evaluations.index');
+        Route::get('/data/nilai', [\App\Http\Controllers\Siswa\EvaluationController::class, 'data'])->name('evaluations.data');
+
+        // Riwayat pembayaran
+        Route::get('/pembayaran', [\App\Http\Controllers\Siswa\PaymentController::class, 'index'])->name('payments.index');
+        Route::get('/data/pembayaran', [\App\Http\Controllers\Siswa\PaymentController::class, 'data'])->name('payments.data');
+
+        // Profil siswa
+        Route::get('/profil', [\App\Http\Controllers\Siswa\ProfileController::class, 'show'])->name('profile');
+        Route::put('/profil', [\App\Http\Controllers\Siswa\ProfileController::class, 'update'])->name('profile.update');
+    });
 });
 
 Route::prefix('admin')->name('admin.')->group(function () {

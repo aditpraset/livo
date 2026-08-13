@@ -161,13 +161,16 @@ class LoginController extends Controller implements HasMiddleware
         return redirect()->route('admin.login');
     }
 
-    /** Arahkan user sesuai role setelah login. */
+    /**
+     * Arahkan user sesuai role setelah login. Role siswa singgah dulu di halaman
+     * pilihan mode (Siswa / Orang Tua) sebelum masuk dashboard.
+     */
     private function redirectByRole(User $user)
     {
         return match (true) {
             $user->hasRole('admin') => redirect()->route('admin.dashboard'),
             $user->hasRole('tutor') => redirect()->route('tutor.dashboard'),
-            $user->hasRole('siswa') => redirect()->route('siswa.dashboard'),
+            $user->hasRole('siswa') => redirect()->route('siswa.mode'),
             default => redirect()->route('admin.login'),
         };
     }
