@@ -14,6 +14,7 @@ use App\Models\Student;
 use App\Models\Subject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -119,7 +120,7 @@ class StudentController extends Controller
         $validated = $request->validate(array_merge([
             'full_name'           => 'required|string|max:255',
             'nickname'            => 'nullable|string|max:255',
-            'nis'                 => 'nullable|string|max:50|unique:students,nis',
+            'nis'                 => ['nullable', 'string', 'max:50', Rule::unique('students', 'nis')->whereNull('deleted_at')],
             'registration_date'   => 'nullable|date',
             'religion'            => 'nullable|string|max:50',
             'address'             => 'nullable|string',

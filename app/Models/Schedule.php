@@ -32,9 +32,10 @@ class Schedule extends Model
         'class_date' => 'date',
     ];
 
+    /** withTrashed: siswa yang sudah dihapus (soft-delete) tetap tampil di riwayat jadwal. */
     public function student()
     {
-        return $this->belongsTo(Student::class);
+        return $this->belongsTo(Student::class)->withTrashed();
     }
 
     public function tutor()

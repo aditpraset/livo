@@ -32,9 +32,10 @@ class Payment extends Model
         'rejection_reason',
     ];
 
+    /** withTrashed: siswa yang sudah dihapus (soft-delete) tetap tampil di riwayat pembayaran. */
     public function student()
     {
-        return $this->belongsTo(Student::class);
+        return $this->belongsTo(Student::class)->withTrashed();
     }
 
     public function package()

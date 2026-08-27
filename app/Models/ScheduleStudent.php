@@ -13,9 +13,10 @@ class ScheduleStudent extends Model
         'notes',
     ];
 
+    /** withTrashed: siswa yang sudah dihapus (soft-delete) tetap tampil di riwayat. */
     public function student()
     {
-        return $this->belongsTo(Student::class);
+        return $this->belongsTo(Student::class)->withTrashed();
     }
 
     public function scheduleSession()
