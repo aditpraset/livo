@@ -145,9 +145,15 @@ class EvaluationController extends BaseApiTutorController
 
         $schedule->update($validated);
 
+        // class_date di-override manual (lihat catatan yang sama di show()): serialisasi
+        // default Eloquent mengubahnya ke ISO8601 UTC yang menggeser tanggal mundur sehari.
+        $fresh = $schedule->fresh();
+        $scheduleData = $fresh->toArray();
+        $scheduleData['class_date'] = $fresh->class_date->toDateString();
+
         return response()->json([
             'message' => 'Feedback siswa berhasil disimpan.',
-            'schedule' => $schedule->fresh(),
+            'schedule' => $scheduleData,
         ]);
     }
 }

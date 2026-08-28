@@ -151,6 +151,7 @@
 $(function () {
     var mode = '{{ $mode }}';
     var createUrlTemplate = '{{ route('tutor.evaluations.create', ['schedule' => '__ID__']) }}';
+    var feedbackUrlTemplate = '{{ route('tutor.evaluations.feedback', ['schedule' => '__ID__']) }}';
 
     function esc(str) {
         return $('<div>').text(str == null ? '' : str).html();
@@ -217,7 +218,7 @@ $(function () {
         var id = $('#feedback-schedule-id').val();
         var $btn = $(this).prop('disabled', true);
         $.ajax({
-            url: '/evaluasi/' + id + '/feedback',
+            url: feedbackUrlTemplate.replace('__ID__', id),
             type: 'PUT',
             data: { _token: '{{ csrf_token() }}', student_feedback: $('#feedback-value').val() },
             success: function () {

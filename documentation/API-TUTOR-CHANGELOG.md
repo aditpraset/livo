@@ -4,6 +4,17 @@ Catatan perubahan & perbaikan pada API Tutor (`/api/tutor/*`). Detail kontrak en
 
 ---
 
+## 2026-08-28 — Bug fix: Feedback Siswa (verifikasi ulang fitur)
+
+Saat verifikasi ulang fitur Feedback Siswa (ditambahkan 2026-08-07), ditemukan 2 bug:
+
+- **Web Tutor (bug utama, fitur benar-benar tidak jalan di UI):** halaman Evaluasi Siswa (`resources/views/tutor/evaluations/index.blade.php`) meng-hardcode URL AJAX modal "Ubah Feedback" sebagai `/evaluasi/{id}/feedback` — hilang prefix `/tutor`, padahal rute aslinya `tutor/evaluasi/{schedule}/feedback`. Akibatnya klik "Simpan" di modal feedback selalu gagal (404) sejak fitur ini pertama dibuat. Diperbaiki dengan memakai `route('tutor.evaluations.feedback', ...)` (pola yang sama seperti `createUrlTemplate` di file yang sama), bukan string hardcode.
+- **API (`PUT /evaluations/{schedule}/feedback`):** response `schedule.class_date` memakai serialisasi default Eloquent (bug ISO8601 UTC yang sama yang diperbaiki di `show()` pada 2026-08-07) — belum ikut diperbaiki saat endpoint ini dibuat. Sekarang `class_date` di-override manual jadi `toDateString()`, konsisten dengan `show()` dan `index()`.
+- **File:** `resources/views/tutor/evaluations/index.blade.php`, `app/Http/Controllers/Api/Tutor/EvaluationController.php` (`updateFeedback()`).
+- **Verifikasi:** diuji end-to-end dengan data nyata — simpan feedback (web & API), validasi menolak nilai invalid, sesi tanpa evaluasi tetap bisa diisi, tutor lain ditolak (403), dan `class_date` di response API sekarang cocok dengan tanggal aslinya (tidak mundur sehari).
+
+---
+
 ## 2026-08-07 — Web: Evaluasi Siswa dikelompokkan per minggu → per hari → per sesi
 
 - **Cakupan:** Web Tutor saja (`GET /tutor/evaluasi`) — tidak mengubah API.
