@@ -205,8 +205,10 @@ class PaymentController extends Controller
         // Periode reminder mengikuti durasi paket siswa:
         // durasi 1 bulan → 1 bulan SETELAH tanggal expired terakhir (bukan 1 bulan setelah
         // bulan berjalan); durasi 3/6 (atau lainnya) → periode bulan BERJALAN.
+        // addMonthNoOverflow (bukan addMonth) — expired tgl 31 Agustus harus jadi September,
+        // bukan "lompat" ke Oktober krn September cuma 30 hari.
         $reminderMonth = ((int) $student->duration === 1 && $lastPayment && $lastPayment->expired_date)
-            ? \Carbon\Carbon::parse($lastPayment->expired_date)->addMonth()
+            ? \Carbon\Carbon::parse($lastPayment->expired_date)->addMonthNoOverflow()
             : now();
 
         $data = [
