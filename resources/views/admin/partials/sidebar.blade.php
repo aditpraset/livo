@@ -23,13 +23,24 @@
     <div class="collapse navbar-collapse" id="sidebar-menu">
       <!-- BEGIN NAVBAR MENU -->
       <ul class="navbar-nav pt-lg-3">
-        <li class="nav-item {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
-          <a class="nav-link" href="{{ route('admin.dashboard') }}">
+        <li class="nav-item dropdown {{ request()->routeIs('admin.dashboard', 'admin.students.dashboard', 'admin.administrasi.dashboard') ? 'active' : '' }}">
+          <a class="nav-link dropdown-toggle" href="#navbar-dashboard" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('admin.dashboard', 'admin.students.dashboard', 'admin.administrasi.dashboard') ? 'true' : 'false' }}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><polyline points="5 12 3 12 12 3 21 12 19 12" /><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /><path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></svg>
             </span>
             <span class="nav-link-title"> Dashboard </span>
           </a>
+          <div class="dropdown-menu {{ request()->routeIs('admin.dashboard', 'admin.students.dashboard', 'admin.administrasi.dashboard') ? 'show' : '' }}">
+            <a class="dropdown-item {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}">
+              <i class="bi bi-speedometer2 me-1"></i> Dashboard Umum
+            </a>
+            <a class="dropdown-item {{ request()->routeIs('admin.students.dashboard') ? 'active' : '' }}" href="{{ route('admin.students.dashboard') }}">
+              <i class="bi bi-bar-chart-line me-1"></i> Dashboard Siswa
+            </a>
+            <a class="dropdown-item {{ request()->routeIs('admin.administrasi.dashboard') ? 'active' : '' }}" href="{{ route('admin.administrasi.dashboard') }}">
+              <i class="bi bi-cash-stack me-1"></i> Dashboard Administrasi
+            </a>
+          </div>
         </li>
         <li class="nav-item dropdown {{ request()->routeIs('admin.schedules*') ? 'active' : '' }}">
           <a class="nav-link dropdown-toggle" href="#navbar-schedule" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('admin.schedules*') ? 'true' : 'false' }}">
@@ -84,7 +95,7 @@
             </a>
           </div>
         </li>
-        <li class="nav-item {{ request()->routeIs('admin.students*') ? 'active' : '' }}">
+        <li class="nav-item {{ request()->routeIs('admin.students*') && !request()->routeIs('admin.students.dashboard') ? 'active' : '' }}">
           <a class="nav-link" href="{{ route('admin.students.index') }}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-school" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M22 9l-10 -4l-10 4l10 4l10 -4v6" /><path d="M6 10.6v5.4a6 3 0 0 0 12 0v-5.4" /></svg>
