@@ -31,6 +31,11 @@ class TutorController extends Controller
                 $specs = is_array($tutor->specialization) ? $tutor->specialization : [];
                 return collect($specs)->map(fn($s) => '<span class="badge bg-primary-subtle text-primary me-1">' . e($s) . '</span>')->implode('');
             })
+            ->addColumn('kategori_label', function ($tutor) {
+                $label = Tutor::KATEGORI_OPTIONS[$tutor->kategori] ?? '-';
+                $badge = $tutor->kategori === 'tetap' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary';
+                return '<span class="badge ' . $badge . '">' . e($label) . '</span>';
+            })
             ->addColumn('action', function ($tutor) {
                 $specs = is_array($tutor->specialization) ? $tutor->specialization : [];
                 return '
@@ -45,6 +50,10 @@ class TutorController extends Controller
                             data-fee-private="' . e($tutor->fee_per_student_private !== null ? (0 + $tutor->fee_per_student_private) : '') . '"
                             data-fee-student="' . e($tutor->fee_per_student !== null ? (0 + $tutor->fee_per_student) : '') . '"
                             data-fee-transport="' . e($tutor->fee_transport_per_day !== null ? (0 + $tutor->fee_transport_per_day) : '') . '"
+                            data-kategori="' . e($tutor->kategori ?? 'freelance') . '"
+                            data-gaji-pokok="' . e($tutor->gaji_pokok !== null ? (0 + $tutor->gaji_pokok) : '') . '"
+                            data-tunjangan="' . e($tutor->tunjangan_per_bulan !== null ? (0 + $tutor->tunjangan_per_bulan) : '') . '"
+                            data-maks-sesi-tunjangan="' . e($tutor->maks_sesi_tunjangan_per_bulan ?? '') . '"
                             data-photo="' . e($tutor->photo ? asset('storage/' . $tutor->photo) : '') . '"
                             data-specialization=\'' . e(json_encode($specs)) . '\'>
                             <i class="bi bi-pencil"></i>
@@ -56,7 +65,7 @@ class TutorController extends Controller
                         </button>
                     </div>';
             })
-            ->rawColumns(['photo_thumb', 'specialization', 'action'])
+            ->rawColumns(['photo_thumb', 'specialization', 'kategori_label', 'action'])
             ->make(true);
     }
 
@@ -100,12 +109,18 @@ class TutorController extends Controller
             'fee_per_student_private' => 'nullable|numeric|min:0',
             'fee_per_student'         => 'nullable|numeric|min:0',
             'fee_transport_per_day'   => 'nullable|numeric|min:0',
+            'kategori'                      => 'required|in:freelance,tetap',
+            'gaji_pokok'                    => 'nullable|numeric|min:0',
+            'tunjangan_per_bulan'           => 'nullable|numeric|min:0',
+            'maks_sesi_tunjangan_per_bulan' => 'nullable|integer|min:0',
             'photo'            => 'nullable|image|max:5120', // semua tipe foto, maks 5 MB
             'specialization'   => 'required|array|min:1',
             'specialization.*' => 'string|max:100',
         ], [
             'specialization.required' => 'Pilih minimal satu spesialisasi.',
             'specialization.min'      => 'Pilih minimal satu spesialisasi.',
+            'kategori.required'       => 'Pilih kategori tutor.',
+            'kategori.in'             => 'Kategori tutor tidak valid.',
         ]);
     }
 

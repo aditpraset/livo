@@ -68,7 +68,8 @@ class ReportController extends BaseApiTutorController
             ->keyBy(fn ($tf) => (int) $tf->period->month->format('n'));
 
         $empty = ['private_count' => 0, 'regular_count' => 0, 'session_count' => 0, 'day_count' => 0,
-            'fee_private' => 0, 'fee_regular' => 0, 'fee_session' => 0, 'fee_transport' => 0, 'total' => 0];
+            'fee_private' => 0, 'fee_regular' => 0, 'fee_session' => 0, 'fee_transport' => 0,
+            'fee_pokok' => 0, 'fee_tunjangan' => 0, 'extra_session_count' => 0, 'fee_extra_session' => 0, 'total' => 0];
 
         $rows = collect(range(1, 12))->map(function ($m) use ($published, $year, $empty) {
             $tf = $published->get($m);
@@ -88,6 +89,10 @@ class ReportController extends BaseApiTutorController
                 'private'   => (float) ($tutor->fee_per_student_private ?? 0),
                 'student'   => (float) ($tutor->fee_per_student ?? 0),
                 'transport' => (float) ($tutor->fee_transport_per_day ?? 0),
+                'kategori'      => $tutor->kategori,
+                'gaji_pokok'    => (float) ($tutor->gaji_pokok ?? 0),
+                'tunjangan'     => (float) ($tutor->tunjangan_per_bulan ?? 0),
+                'maks_sesi'     => $tutor->maks_sesi_tunjangan_per_bulan,
             ],
             'rows'  => $rows,
             'totals' => [
@@ -99,6 +104,10 @@ class ReportController extends BaseApiTutorController
                 'fee_regular'   => $sum('fee_regular'),
                 'fee_session'   => $sum('fee_session'),
                 'fee_transport' => $sum('fee_transport'),
+                'fee_pokok'           => $sum('fee_pokok'),
+                'fee_tunjangan'       => $sum('fee_tunjangan'),
+                'extra_session_count' => $sum('extra_session_count'),
+                'fee_extra_session'   => $sum('fee_extra_session'),
                 'total'         => $sum('total'),
             ],
         ]);
@@ -123,7 +132,8 @@ class ReportController extends BaseApiTutorController
 
         $fee = $tutorFee->only([
             'private_count', 'regular_count', 'session_count', 'day_count',
-            'fee_private', 'fee_regular', 'fee_session', 'fee_transport', 'total',
+            'fee_private', 'fee_regular', 'fee_session', 'fee_transport',
+            'fee_pokok', 'fee_tunjangan', 'extra_session_count', 'fee_extra_session', 'total',
         ]);
 
         $pdf = Pdf::loadView('tutor.reports.pdf.slip-gaji', compact('tutor', 'month', 'fee'))

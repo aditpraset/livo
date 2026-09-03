@@ -27,6 +27,7 @@
                     <th>Email</th>
                     <th>No. Rekening</th>
                     <th>Spesialisasi</th>
+                    <th>Kategori</th>
                     <th width="100" class="text-center">Aksi</th>
                 </tr>
             </thead>
@@ -105,6 +106,35 @@
                         </div>
                     </div>
                     <div class="col-12">
+                        <hr class="my-2">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Kategori Tutor <span class="text-danger">*</span></label>
+                                <select id="field-kategori" class="form-select">
+                                    @foreach(\App\Models\Tutor::KATEGORI_OPTIONS as $value => $label)
+                                        <option value="{{ $value }}">{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="invalid-feedback" id="err-kategori"></div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Gaji Pokok (Rp)</label>
+                                <input type="number" id="field-gaji-pokok" min="0" class="form-control" placeholder="cth: 2000000">
+                                <div class="invalid-feedback" id="err-gaji-pokok"></div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Tunjangan per Bulan (Rp)</label>
+                                <input type="number" id="field-tunjangan" min="0" class="form-control" placeholder="cth: 500000">
+                                <div class="invalid-feedback" id="err-tunjangan"></div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Maks. Sesi Tunjangan / Bulan</label>
+                                <input type="number" id="field-maks-sesi-tunjangan" min="0" class="form-control" placeholder="cth: 20">
+                                <div class="invalid-feedback" id="err-maks-sesi-tunjangan"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12">
                         <label class="form-label fw-semibold">Spesialisasi <span class="text-danger">*</span></label>
                         <select id="field-specialization" class="form-select" multiple size="5">
                             @foreach($subjects as $subject)
@@ -140,6 +170,7 @@ $(function () {
             { data: 'email', defaultContent: '-' },
             { data: 'no_rekening', defaultContent: '-' },
             { data: 'specialization', orderable: false },
+            { data: 'kategori_label', orderable: false },
             { data: 'action', orderable: false, searchable: false, className: 'text-center' },
         ],
         language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json' }
@@ -156,10 +187,11 @@ $(function () {
     }
 
     function resetModal() {
-        $('#tutor-id, #field-name, #field-phone, #field-email, #field-norek, #field-fee, #field-fee-private, #field-fee-student, #field-fee-transport, #field-photo').val('');
+        $('#tutor-id, #field-name, #field-phone, #field-email, #field-norek, #field-fee, #field-fee-private, #field-fee-student, #field-fee-transport, #field-gaji-pokok, #field-tunjangan, #field-maks-sesi-tunjangan, #field-photo').val('');
         $('#field-specialization').val([]);
+        $('#field-kategori').val('freelance');
         $('.form-control, .form-select').removeClass('is-invalid');
-        $('#err-name, #err-phone, #err-email, #err-norek, #err-fee, #err-fee-private, #err-fee-student, #err-fee-transport, #err-photo, #err-specialization').text('');
+        $('#err-name, #err-phone, #err-email, #err-norek, #err-fee, #err-fee-private, #err-fee-student, #err-fee-transport, #err-kategori, #err-gaji-pokok, #err-tunjangan, #err-maks-sesi-tunjangan, #err-photo, #err-specialization').text('');
         showPhoto('');
     }
 
@@ -187,6 +219,10 @@ $(function () {
         $('#field-fee-private').val(btn.data('fee-private'));
         $('#field-fee-student').val(btn.data('fee-student'));
         $('#field-fee-transport').val(btn.data('fee-transport'));
+        $('#field-kategori').val(btn.data('kategori') || 'freelance');
+        $('#field-gaji-pokok').val(btn.data('gaji-pokok'));
+        $('#field-tunjangan').val(btn.data('tunjangan'));
+        $('#field-maks-sesi-tunjangan').val(btn.data('maks-sesi-tunjangan'));
         var specs = btn.data('specialization') || [];
         $('#field-specialization').val(specs);
         showPhoto(btn.data('photo'));
@@ -206,6 +242,10 @@ $(function () {
         fd.append('fee_per_student_private', $('#field-fee-private').val());
         fd.append('fee_per_student', $('#field-fee-student').val());
         fd.append('fee_transport_per_day', $('#field-fee-transport').val());
+        fd.append('kategori', $('#field-kategori').val());
+        fd.append('gaji_pokok', $('#field-gaji-pokok').val());
+        fd.append('tunjangan_per_bulan', $('#field-tunjangan').val());
+        fd.append('maks_sesi_tunjangan_per_bulan', $('#field-maks-sesi-tunjangan').val());
         ($('#field-specialization').val() || []).forEach(function (s) {
             fd.append('specialization[]', s);
         });
@@ -233,6 +273,10 @@ $(function () {
                     if (err.fee_per_student_private){ $('#field-fee-private').addClass('is-invalid');   $('#err-fee-private').text(err.fee_per_student_private[0]); }
                     if (err.fee_per_student){ $('#field-fee-student').addClass('is-invalid');   $('#err-fee-student').text(err.fee_per_student[0]); }
                     if (err.fee_transport_per_day){ $('#field-fee-transport').addClass('is-invalid');   $('#err-fee-transport').text(err.fee_transport_per_day[0]); }
+                    if (err.kategori)       { $('#field-kategori').addClass('is-invalid'); $('#err-kategori').text(err.kategori[0]); }
+                    if (err.gaji_pokok)     { $('#field-gaji-pokok').addClass('is-invalid'); $('#err-gaji-pokok').text(err.gaji_pokok[0]); }
+                    if (err.tunjangan_per_bulan) { $('#field-tunjangan').addClass('is-invalid'); $('#err-tunjangan').text(err.tunjangan_per_bulan[0]); }
+                    if (err.maks_sesi_tunjangan_per_bulan) { $('#field-maks-sesi-tunjangan').addClass('is-invalid'); $('#err-maks-sesi-tunjangan').text(err.maks_sesi_tunjangan_per_bulan[0]); }
                     if (err.photo)          { $('#field-photo').addClass('is-invalid'); $('#err-photo').text(err.photo[0]); }
                     if (err.specialization) { $('#field-specialization').addClass('is-invalid'); $('#err-specialization').text(err.specialization[0]); }
                 } else {

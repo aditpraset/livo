@@ -48,24 +48,39 @@ class TutorFeeController extends Controller
         return DataTables::of($query)
             ->addIndexColumn()
             ->addColumn('tutor_name', fn ($tf) => e($tf->tutor->name ?? '-'))
-            ->addColumn('session', fn ($tf) => $tf->session_count . ' sesi<br><small class="text-muted">' . $rp($tf->fee_session) . '</small>')
-            ->addColumn('private', fn ($tf) => $tf->private_count . ' sesi<br><small class="text-muted">' . $rp($tf->fee_private) . '</small>')
-            ->addColumn('regular', fn ($tf) => $tf->regular_count . ' siswa<br><small class="text-muted">' . $rp($tf->fee_regular) . '</small>')
-            ->addColumn('transport', fn ($tf) => $tf->day_count . ' hari<br><small class="text-muted">' . $rp($tf->fee_transport) . '</small>')
+            ->addColumn('kategori_label', function ($tf) {
+                $kategori = $tf->tutor->kategori ?? 'freelance';
+                $label = \App\Models\Tutor::KATEGORI_OPTIONS[$kategori] ?? '-';
+                $badge = $kategori === 'tetap' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary';
+                return '<span class="badge ' . $badge . '">' . e($label) . '</span>';
+            })
+            ->addColumn('session', fn ($tf) => $tf->tutor?->kategori === 'tetap' ? '-' : ($tf->session_count . ' sesi<br><small class="text-muted">' . $rp($tf->fee_session) . '</small>'))
+            ->addColumn('private', fn ($tf) => $tf->tutor?->kategori === 'tetap' ? '-' : ($tf->private_count . ' sesi<br><small class="text-muted">' . $rp($tf->fee_private) . '</small>'))
+            ->addColumn('regular', fn ($tf) => $tf->tutor?->kategori === 'tetap' ? '-' : ($tf->regular_count . ' siswa<br><small class="text-muted">' . $rp($tf->fee_regular) . '</small>'))
+            ->addColumn('transport', fn ($tf) => $tf->tutor?->kategori === 'tetap' ? '-' : ($tf->day_count . ' hari<br><small class="text-muted">' . $rp($tf->fee_transport) . '</small>'))
+            ->addColumn('pokok_tunjangan', fn ($tf) => $tf->tutor?->kategori === 'tetap'
+                ? ($rp($tf->fee_pokok) . ' + ' . $rp($tf->fee_tunjangan) . '<br><small class="text-muted">gapok + tunjangan</small>')
+                : '-')
+            ->addColumn('extra_session', fn ($tf) => $tf->tutor?->kategori === 'tetap'
+                ? ($tf->extra_session_count . ' sesi<br><small class="text-muted">' . $rp($tf->fee_extra_session) . '</small>')
+                : '-')
             ->addColumn('total', fn ($tf) => '<strong>' . $rp($tf->total) . '</strong>')
             ->addColumn('action', function ($tf) use ($editable) {
                 if (!$editable) return '<span class="text-muted small">Terkunci</span>';
                 return '<button type="button" class="btn btn-sm btn-outline-warning btn-edit-fee"
                         data-id="' . $tf->id . '"
                         data-name="' . e($tf->tutor->name ?? '-') . '"
+                        data-kategori="' . e($tf->tutor->kategori ?? 'freelance') . '"
                         data-private-count="' . $tf->private_count . '" data-fee-private="' . (0 + $tf->fee_private) . '"
                         data-regular-count="' . $tf->regular_count . '" data-fee-regular="' . (0 + $tf->fee_regular) . '"
                         data-session-count="' . $tf->session_count . '" data-fee-session="' . (0 + $tf->fee_session) . '"
                         data-day-count="' . $tf->day_count . '" data-fee-transport="' . (0 + $tf->fee_transport) . '"
+                        data-fee-pokok="' . (0 + $tf->fee_pokok) . '" data-fee-tunjangan="' . (0 + $tf->fee_tunjangan) . '"
+                        data-extra-session-count="' . $tf->extra_session_count . '" data-fee-extra-session="' . (0 + $tf->fee_extra_session) . '"
                         data-total="' . (0 + $tf->total) . '"
                         title="Edit Fee"><i class="bi bi-pencil"></i></button>';
             })
-            ->rawColumns(['session', 'private', 'regular', 'transport', 'total', 'action'])
+            ->rawColumns(['kategori_label', 'session', 'private', 'regular', 'transport', 'pokok_tunjangan', 'extra_session', 'total', 'action'])
             ->make(true);
     }
 
@@ -137,6 +152,10 @@ class TutorFeeController extends Controller
             'fee_regular'   => 'required|numeric|min:0',
             'fee_session'   => 'required|numeric|min:0',
             'fee_transport' => 'required|numeric|min:0',
+            'fee_pokok'            => 'required|numeric|min:0',
+            'fee_tunjangan'        => 'required|numeric|min:0',
+            'extra_session_count'  => 'required|integer|min:0',
+            'fee_extra_session'    => 'required|numeric|min:0',
             'total'         => 'required|numeric|min:0',
         ]);
 

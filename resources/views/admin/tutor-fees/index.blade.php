@@ -78,10 +78,13 @@
                     <tr>
                         <th width="40">#</th>
                         <th>Tutor</th>
+                        <th>Kategori</th>
                         <th class="text-center">Sesi Semi-Privat (b)</th>
                         <th class="text-center">Sesi Privat (a)</th>
                         <th class="text-center">Total Siswa (c)</th>
                         <th class="text-center">Transport (d)</th>
+                        <th class="text-center">Gapok + Tunjangan</th>
+                        <th class="text-center">Sesi Tambahan</th>
                         <th class="text-end">Total Fee</th>
                         <th class="text-center" width="70">Aksi</th>
                     </tr>
@@ -90,6 +93,8 @@
         </div>
         <p class="text-muted small mt-2 mb-0">
             <i class="bi bi-info-circle me-1"></i> Fee dapat diedit manual selama periode masih berstatus draft (belum diterbitkan).
+            Tutor <strong>Freelance</strong> dibayar dari kolom (a)+(b)+(c)+(d); tutor <strong>Tetap</strong> dibayar dari Gaji Pokok + Tunjangan,
+            ditambah fee per sesi (tarif sesi Semi-Privat) untuk tiap sesi yang melebihi batas tunjangan bulanannya.
         </p>
     </div>
 </div>
@@ -137,6 +142,23 @@
                         <label class="form-label fw-semibold">Fee Transport (Rp)</label>
                         <input type="number" min="0" id="edit-fee-transport" class="form-control fee-amount">
                     </div>
+                    <div class="col-12"><hr class="my-1"><small class="text-muted">Khusus tutor kategori Tetap</small></div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Gaji Pokok (Rp)</label>
+                        <input type="number" min="0" id="edit-fee-pokok" class="form-control fee-amount">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Tunjangan (Rp)</label>
+                        <input type="number" min="0" id="edit-fee-tunjangan" class="form-control fee-amount">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Jumlah Sesi Tambahan</label>
+                        <input type="number" min="0" id="edit-extra-session-count" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Fee Sesi Tambahan (Rp)</label>
+                        <input type="number" min="0" id="edit-fee-extra-session" class="form-control fee-amount">
+                    </div>
                     <div class="col-12">
                         <hr>
                         <label class="form-label fw-semibold">Total Fee (Rp)</label>
@@ -166,10 +188,13 @@ $(function () {
         columns: [
             { data: 'DT_RowIndex', orderable: false, searchable: false },
             { data: 'tutor_name' },
+            { data: 'kategori_label', orderable: false },
             { data: 'session', orderable: false, className: 'text-center' },
             { data: 'private', orderable: false, className: 'text-center' },
             { data: 'regular', orderable: false, className: 'text-center' },
             { data: 'transport', orderable: false, className: 'text-center' },
+            { data: 'pokok_tunjangan', orderable: false, className: 'text-center' },
+            { data: 'extra_session', orderable: false, className: 'text-center' },
             { data: 'total', orderable: false, className: 'text-end' },
             { data: 'action', orderable: false, searchable: false, className: 'text-center' },
         ],
@@ -206,6 +231,10 @@ $(function () {
         $('#edit-fee-regular').val(b.data('fee-regular'));
         $('#edit-day-count').val(b.data('day-count'));
         $('#edit-fee-transport').val(b.data('fee-transport'));
+        $('#edit-fee-pokok').val(b.data('fee-pokok'));
+        $('#edit-fee-tunjangan').val(b.data('fee-tunjangan'));
+        $('#edit-extra-session-count').val(b.data('extra-session-count'));
+        $('#edit-fee-extra-session').val(b.data('fee-extra-session'));
         $('#edit-total').val(b.data('total'));
         $('#modal-edit-fee').modal('show');
     });
@@ -226,6 +255,10 @@ $(function () {
                 fee_regular: $('#edit-fee-regular').val(),
                 day_count: $('#edit-day-count').val(),
                 fee_transport: $('#edit-fee-transport').val(),
+                fee_pokok: $('#edit-fee-pokok').val(),
+                fee_tunjangan: $('#edit-fee-tunjangan').val(),
+                extra_session_count: $('#edit-extra-session-count').val(),
+                fee_extra_session: $('#edit-fee-extra-session').val(),
                 total: $('#edit-total').val(),
             },
             success: function (res) {

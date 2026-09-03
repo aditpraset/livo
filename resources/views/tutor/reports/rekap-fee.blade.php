@@ -29,40 +29,81 @@
     </div>
 @endif
 
-@if($rates['session'] <= 0 && $rates['private'] <= 0 && $rates['student'] <= 0 && $rates['transport'] <= 0)
-    <div class="alert alert-warning">
-        <i class="bi bi-exclamation-triangle me-1"></i>
-        Tarif fee Anda belum diatur oleh admin, sehingga nominal fee tampil Rp 0. Hubungi admin untuk pengaturannya.
+@if($rates['kategori'] === 'tetap')
+    @if($rates['gaji_pokok'] <= 0 && $rates['tunjangan'] <= 0)
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Gaji pokok & tunjangan Anda belum diatur oleh admin, sehingga nominal fee tampil Rp 0. Hubungi admin untuk pengaturannya.
+        </div>
+    @endif
+
+    {{-- Tarif fee tutor tetap (dari data tutor) --}}
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3">
+            <div class="card card-sm"><div class="card-body">
+                <div class="text-muted small">Gaji Pokok</div>
+                <div class="fs-4 fw-bold">{{ $rp($rates['gaji_pokok']) }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card card-sm"><div class="card-body">
+                <div class="text-muted small">Tunjangan / Bulan</div>
+                <div class="fs-4 fw-bold">{{ $rp($rates['tunjangan']) }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card card-sm"><div class="card-body">
+                <div class="text-muted small">Maks. Sesi Tunjangan</div>
+                <div class="fs-4 fw-bold">{{ $rates['maks_sesi'] ?? 'Tanpa batas' }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card card-sm"><div class="card-body">
+                <div class="text-muted small">Fee / Sesi Tambahan</div>
+                <div class="fs-4 fw-bold">{{ $rp($rates['session']) }}</div>
+            </div></div>
+        </div>
+    </div>
+    <p class="text-muted small mb-3">
+        <i class="bi bi-info-circle me-1"></i> Anda tutor kategori <strong>Tetap</strong>: fee dihitung dari Gaji Pokok + Tunjangan,
+        ditambah fee per sesi (tarif sesi Semi-Privat) untuk tiap sesi mengajar yang melebihi batas tunjangan bulanan.
+    </p>
+@else
+    @if($rates['session'] <= 0 && $rates['private'] <= 0 && $rates['student'] <= 0 && $rates['transport'] <= 0)
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Tarif fee Anda belum diatur oleh admin, sehingga nominal fee tampil Rp 0. Hubungi admin untuk pengaturannya.
+        </div>
+    @endif
+
+    {{-- Tarif fee (dari data tutor) --}}
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3">
+            <div class="card card-sm"><div class="card-body">
+                <div class="text-muted small">Fee / Sesi Semi-Privat</div>
+                <div class="fs-4 fw-bold">{{ $rp($rates['session']) }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card card-sm"><div class="card-body">
+                <div class="text-muted small">Fee / Sesi Privat</div>
+                <div class="fs-4 fw-bold">{{ $rp($rates['private']) }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card card-sm"><div class="card-body">
+                <div class="text-muted small">Fee / Siswa (semua paket)</div>
+                <div class="fs-4 fw-bold">{{ $rp($rates['student']) }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card card-sm"><div class="card-body">
+                <div class="text-muted small">Fee Transport / Hari</div>
+                <div class="fs-4 fw-bold">{{ $rp($rates['transport']) }}</div>
+            </div></div>
+        </div>
     </div>
 @endif
-
-{{-- Tarif fee (dari data tutor) --}}
-<div class="row g-3 mb-3">
-    <div class="col-6 col-md-3">
-        <div class="card card-sm"><div class="card-body">
-            <div class="text-muted small">Fee / Sesi Semi-Privat</div>
-            <div class="fs-4 fw-bold">{{ $rp($rates['session']) }}</div>
-        </div></div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card card-sm"><div class="card-body">
-            <div class="text-muted small">Fee / Sesi Privat</div>
-            <div class="fs-4 fw-bold">{{ $rp($rates['private']) }}</div>
-        </div></div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card card-sm"><div class="card-body">
-            <div class="text-muted small">Fee / Siswa (semua paket)</div>
-            <div class="fs-4 fw-bold">{{ $rp($rates['student']) }}</div>
-        </div></div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card card-sm"><div class="card-body">
-            <div class="text-muted small">Fee Transport / Hari</div>
-            <div class="fs-4 fw-bold">{{ $rp($rates['transport']) }}</div>
-        </div></div>
-    </div>
-</div>
 
 <div class="card mb-4 border-success">
     <div class="card-body d-flex justify-content-between align-items-center">
@@ -81,6 +122,8 @@
                     <th colspan="2" class="text-center border-start">Sesi Privat (a)</th>
                     <th colspan="2" class="text-center border-start">Total Siswa (c)</th>
                     <th colspan="2" class="text-center border-start">Transport (d)</th>
+                    <th rowspan="2" class="text-center align-middle border-start">Gapok + Tunjangan</th>
+                    <th colspan="2" class="text-center border-start">Sesi Tambahan</th>
                     <th rowspan="2" class="text-end align-middle border-start">Total Fee</th>
                     <th rowspan="2" class="text-center align-middle">Slip</th>
                 </tr>
@@ -89,6 +132,7 @@
                     <th class="text-center border-start">Jml</th><th class="text-end">Fee</th>
                     <th class="text-center border-start">Jml</th><th class="text-end">Fee</th>
                     <th class="text-center border-start">Hari</th><th class="text-end">Fee</th>
+                    <th class="text-center border-start">Jml</th><th class="text-end">Fee</th>
                 </tr>
             </thead>
             <tbody>
@@ -108,6 +152,9 @@
                         <td class="text-end">{{ $rp($row['fee_regular']) }}</td>
                         <td class="text-center border-start">{{ $row['day_count'] }}</td>
                         <td class="text-end">{{ $rp($row['fee_transport']) }}</td>
+                        <td class="text-center border-start small">{{ $rp($row['fee_pokok']) }} + {{ $rp($row['fee_tunjangan']) }}</td>
+                        <td class="text-center border-start">{{ $row['extra_session_count'] }}</td>
+                        <td class="text-end">{{ $rp($row['fee_extra_session']) }}</td>
                         <td class="text-end fw-bold border-start">{{ $rp($row['total']) }}</td>
                         <td class="text-center">
                             @if($row['published'])
@@ -132,6 +179,9 @@
                     <td class="text-end">{{ $rp($totals['fee_regular']) }}</td>
                     <td class="text-center border-start">{{ $totals['day_count'] }}</td>
                     <td class="text-end">{{ $rp($totals['fee_transport']) }}</td>
+                    <td class="text-center border-start small">{{ $rp($totals['fee_pokok']) }} + {{ $rp($totals['fee_tunjangan']) }}</td>
+                    <td class="text-center border-start">{{ $totals['extra_session_count'] }}</td>
+                    <td class="text-end">{{ $rp($totals['fee_extra_session']) }}</td>
                     <td class="text-end text-success border-start">{{ $rp($totals['total']) }}</td>
                     <td></td>
                 </tr>
@@ -143,5 +193,6 @@
 <p class="text-muted small mt-3 mb-0">
     <i class="bi bi-info-circle me-1"></i>
 Sesi Privat (a) & Sesi Semi-Privat (b) dihitung flat per slot (tanggal + jam) — sesi berisi minimal satu siswa Privat dihitung (a), selain itu dihitung (b). Total Siswa (c) dihitung per kehadiran (setiap siswa hadir di setiap sesi, semua paket). Transport (d) dihitung per hari yang ada sesi.
+    Untuk tutor kategori Tetap, hanya kolom Gapok + Tunjangan dan Sesi Tambahan yang dibayarkan (kolom a/b/c/d di atas hanya statistik aktivitas, bernilai Rp 0).
 </p>
 @endsection

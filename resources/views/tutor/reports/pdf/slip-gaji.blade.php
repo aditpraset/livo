@@ -52,30 +52,51 @@
             </tr>
         </thead>
         <tbody>
-            <tr>
-                <td>Fee sesi Semi-Privat (per slot tanggal + jam, tanpa siswa Privat)</td>
-                <td class="text-end">{{ $fee['session_count'] }} sesi</td>
-                <td class="text-end">{{ $rp($tutor->fee_per_session ?? 0) }}</td>
-                <td class="text-end">{{ $rp($fee['fee_session']) }}</td>
-            </tr>
-            <tr>
-                <td>Fee sesi Privat (per slot tanggal + jam, ada siswa Privat)</td>
-                <td class="text-end">{{ $fee['private_count'] }} sesi</td>
-                <td class="text-end">{{ $rp($tutor->fee_per_student_private ?? 0) }}</td>
-                <td class="text-end">{{ $rp($fee['fee_private']) }}</td>
-            </tr>
-            <tr>
-                <td>Fee per siswa (total kehadiran, semua paket)</td>
-                <td class="text-end">{{ $fee['regular_count'] }} siswa</td>
-                <td class="text-end">{{ $rp($tutor->fee_per_student ?? 0) }}</td>
-                <td class="text-end">{{ $rp($fee['fee_regular']) }}</td>
-            </tr>
-            <tr>
-                <td>Fee transport (per hari mengajar)</td>
-                <td class="text-end">{{ $fee['day_count'] }} hari</td>
-                <td class="text-end">{{ $rp($tutor->fee_transport_per_day ?? 0) }}</td>
-                <td class="text-end">{{ $rp($fee['fee_transport']) }}</td>
-            </tr>
+            @if($tutor->kategori === 'tetap')
+                <tr>
+                    <td>Gaji pokok</td>
+                    <td class="text-end">-</td>
+                    <td class="text-end">-</td>
+                    <td class="text-end">{{ $rp($fee['fee_pokok']) }}</td>
+                </tr>
+                <tr>
+                    <td>Tunjangan bulanan</td>
+                    <td class="text-end">-</td>
+                    <td class="text-end">-</td>
+                    <td class="text-end">{{ $rp($fee['fee_tunjangan']) }}</td>
+                </tr>
+                <tr>
+                    <td>Fee sesi tambahan (melebihi maks. {{ $tutor->maks_sesi_tunjangan_per_bulan ?? '-' }} sesi/bulan)</td>
+                    <td class="text-end">{{ $fee['extra_session_count'] }} sesi</td>
+                    <td class="text-end">{{ $rp($tutor->fee_per_session ?? 0) }}</td>
+                    <td class="text-end">{{ $rp($fee['fee_extra_session']) }}</td>
+                </tr>
+            @else
+                <tr>
+                    <td>Fee sesi Semi-Privat (per slot tanggal + jam, tanpa siswa Privat)</td>
+                    <td class="text-end">{{ $fee['session_count'] }} sesi</td>
+                    <td class="text-end">{{ $rp($tutor->fee_per_session ?? 0) }}</td>
+                    <td class="text-end">{{ $rp($fee['fee_session']) }}</td>
+                </tr>
+                <tr>
+                    <td>Fee sesi Privat (per slot tanggal + jam, ada siswa Privat)</td>
+                    <td class="text-end">{{ $fee['private_count'] }} sesi</td>
+                    <td class="text-end">{{ $rp($tutor->fee_per_student_private ?? 0) }}</td>
+                    <td class="text-end">{{ $rp($fee['fee_private']) }}</td>
+                </tr>
+                <tr>
+                    <td>Fee per siswa (total kehadiran, semua paket)</td>
+                    <td class="text-end">{{ $fee['regular_count'] }} siswa</td>
+                    <td class="text-end">{{ $rp($tutor->fee_per_student ?? 0) }}</td>
+                    <td class="text-end">{{ $rp($fee['fee_regular']) }}</td>
+                </tr>
+                <tr>
+                    <td>Fee transport (per hari mengajar)</td>
+                    <td class="text-end">{{ $fee['day_count'] }} hari</td>
+                    <td class="text-end">{{ $rp($tutor->fee_transport_per_day ?? 0) }}</td>
+                    <td class="text-end">{{ $rp($fee['fee_transport']) }}</td>
+                </tr>
+            @endif
             <tr class="total-row">
                 <td colspan="3">TOTAL DITERIMA</td>
                 <td class="text-end">{{ $rp($fee['total']) }}</td>

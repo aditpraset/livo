@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 /**
  * Perhitungan fee tutor per bulan.
  *
+ * Tutor FREELANCE (kategori=freelance): dibayar murni dari aktivitas mengajar.
  * Satu "sesi" = satu slot mengajar (tanggal + jam + tutor), boleh diisi banyak
  * siswa sekaligus. Total fee = a + b + c + d, dengan:
  *   a) fee_per_student_private × jumlah SESI yang berisi minimal satu siswa
@@ -20,9 +21,18 @@ use Illuminate\Support\Collection;
  *      bulan itu, tanpa memandang paket — dikali per kepala di setiap sesi.
  *   d) fee_transport_per_day   × jumlah hari mengajar (hari yang punya minimal satu sesi)
  *
- * Ketentuan:
+ * Tutor TETAP (kategori=tetap): tidak dibayar dari a/b/c/d (semua bernilai 0).
+ * Total fee = gaji_pokok + tunjangan_per_bulan + (kelebihan sesi × fee_per_session), dengan:
+ *   - Kelebihan sesi dihitung dari TOTAL sesi diajar bulan itu (sesi Privat + non-Privat,
+ *     hanya kehadiran "hadir") dikurangi maks_sesi_tunjangan_per_bulan.
+ *   - Jika maks_sesi_tunjangan_per_bulan belum diisi (null), dianggap tidak ada batas →
+ *     tidak pernah ada fee tambahan.
+ *   - Tarif kelebihan sesi memakai fee_per_session (fee per sesi semi-privat), sesuai
+ *     variabel yang sama dipakai tutor freelance untuk sesi non-Privat.
+ *
+ * Ketentuan umum (berlaku untuk hitungan sesi/kehadiran, dipakai kedua kategori):
  *  - Sesi yang dihitung berstatus "done", dan hanya kehadiran "hadir" yang
- *    dihitung (izin/alfa tidak dihitung sama sekali, baik untuk a/b/c).
+ *    dihitung (izin/alfa tidak dihitung sama sekali).
  *  - Sesi CAMPURAN (ada siswa Privat & non-Privat sekaligus) diklasifikasi
  *    sebagai sesi Privat (a) — non-Privat diabaikan untuk komponen (a/b) itu,
  *    tapi tetap ikut dihitung pada komponen (c).
@@ -77,6 +87,8 @@ trait ComputesTutorFee
      *  - session_count/fee_session → jumlah SESI non-Privat (b), bukan seluruh sesi.
      *  - regular_count/fee_regular → TOTAL siswa hadir di seluruh sesi (c), semua paket.
      *  - day_count/fee_transport   → hari mengajar (d), tidak berubah.
+     * Keempat hitungan di atas tetap dihitung apa adanya untuk SEMUA kategori tutor
+     * (murni statistik aktivitas mengajar), tapi hanya freelance yang dibayar dari fee a/b/c/d.
      */
     protected function tutorFeeBreakdown(Tutor $tutor, Collection $schedules): array
     {
@@ -91,6 +103,7 @@ trait ComputesTutorFee
             fn ($s) => $s->contains(fn ($row) => (int) optional($row->student)->package_id === $this->feePackagePrivate)
         )->count();
         $nonPrivateSessionCount = $sessions->count() - $privateSessionCount;
+        $totalSessionCount = $sessions->count();
 
         // (c) Total kehadiran "hadir", dikali per kepala di setiap sesi, tanpa memandang paket.
         $totalStudentCount = $hadir->count();
@@ -103,10 +116,30 @@ trait ComputesTutorFee
         $rSession   = (float) ($tutor->fee_per_session ?? 0);
         $rTransport = (float) ($tutor->fee_transport_per_day ?? 0);
 
-        $a = $privateSessionCount * $rPrivate;
-        $b = $nonPrivateSessionCount * $rSession;
-        $c = $totalStudentCount * $rStudent;
-        $d = $dayCount * $rTransport;
+        $isTetap = $tutor->kategori === 'tetap';
+
+        // a/b/c/d hanya berlaku (dibayar) untuk tutor freelance.
+        $a = $isTetap ? 0.0 : $privateSessionCount * $rPrivate;
+        $b = $isTetap ? 0.0 : $nonPrivateSessionCount * $rSession;
+        $c = $isTetap ? 0.0 : $totalStudentCount * $rStudent;
+        $d = $isTetap ? 0.0 : $dayCount * $rTransport;
+
+        // Gaji pokok + tunjangan + kelebihan sesi hanya berlaku untuk tutor tetap.
+        $feePokok = 0.0;
+        $feeTunjangan = 0.0;
+        $extraSessionCount = 0;
+        $feeExtraSession = 0.0;
+
+        if ($isTetap) {
+            $feePokok = (float) ($tutor->gaji_pokok ?? 0);
+            $feeTunjangan = (float) ($tutor->tunjangan_per_bulan ?? 0);
+
+            $maksSesi = $tutor->maks_sesi_tunjangan_per_bulan;
+            if ($maksSesi !== null && $totalSessionCount > $maksSesi) {
+                $extraSessionCount = $totalSessionCount - $maksSesi;
+                $feeExtraSession = $extraSessionCount * $rSession;
+            }
+        }
 
         return [
             'private_count' => $privateSessionCount,
@@ -117,7 +150,11 @@ trait ComputesTutorFee
             'fee_regular'   => $c,
             'fee_session'   => $b,
             'fee_transport' => $d,
-            'total'         => $a + $b + $c + $d,
+            'fee_pokok'            => $feePokok,
+            'fee_tunjangan'        => $feeTunjangan,
+            'extra_session_count'  => $extraSessionCount,
+            'fee_extra_session'    => $feeExtraSession,
+            'total'         => $a + $b + $c + $d + $feePokok + $feeTunjangan + $feeExtraSession,
         ];
     }
 }

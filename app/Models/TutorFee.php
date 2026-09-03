@@ -19,6 +19,10 @@ class TutorFee extends Model
         'fee_session',
         'fee_transport',
         'total',
+        'fee_pokok',
+        'fee_tunjangan',
+        'extra_session_count',
+        'fee_extra_session',
     ];
 
     public function period()
