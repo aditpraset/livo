@@ -26,13 +26,22 @@ class ScheduleController extends Controller
 {
     public function index()
     {
-        $students         = Student::orderBy('full_name')->get(['id', 'full_name', 'schedule_session_id', 'grade_id']);
+        $students         = Student::orderBy('full_name')->get(['id', 'full_name', 'schedule_session_id', 'grade_id', 'program']);
         $tutors           = Tutor::orderBy('name')->get(['id', 'name']);
         $subjects         = Subject::orderBy('subject_name')->get(['id', 'subject_name', 'grade_ids']);
         $scheduleSessions = ScheduleSession::orderBy('time_start')->get();
         $studentGroups    = StudentGroup::with('session')->orderBy('name')->get();
 
-        return view('admin.schedules.index', compact('students', 'tutors', 'subjects', 'scheduleSessions', 'studentGroups'));
+        // Peta student_id → ID mata pelajaran yang terdaftar untuk siswa tsb (dari `program`,
+        // JSON nama mapel), dipakai JS untuk membatasi dropdown Mata Pelajaran pada form
+        // Tambah/Edit Jadwal supaya jadwal yang dibuat selalu sesuai mapel siswa.
+        $subjectIdByName = $subjects->pluck('id', 'subject_name');
+        $studentSubjectIds = $students->mapWithKeys(function ($s) use ($subjectIdByName) {
+            $ids = collect($s->program_list)->map(fn ($name) => $subjectIdByName[$name] ?? null)->filter()->values();
+            return [$s->id => $ids];
+        });
+
+        return view('admin.schedules.index', compact('students', 'tutors', 'subjects', 'scheduleSessions', 'studentGroups', 'studentSubjectIds'));
     }
 
     public function data()
@@ -504,20 +513,31 @@ class ScheduleController extends Controller
     }
 
     /**
-     * Pastikan mata pelajaran sesuai jenjang siswa. Mengembalikan pesan error
-     * bila tidak cocok, atau null bila valid. Mapel tanpa jenjang (grade_ids
-     * kosong) atau siswa tanpa jenjang dianggap selalu valid.
+     * Pastikan mata pelajaran sesuai jenjang & mata pelajaran terdaftar siswa.
+     * Mengembalikan pesan error bila tidak cocok, atau null bila valid.
+     * Mapel tanpa jenjang (grade_ids kosong), siswa tanpa jenjang, atau siswa
+     * yang belum punya mata pelajaran terdaftar sama sekali dianggap selalu valid
+     * (tidak diblokir) — supaya data lama yang belum lengkap tidak terkunci.
      */
     private function subjectGradeError($subjectId, $studentId): ?string
     {
-        $gradeIds = Subject::find($subjectId)?->grade_ids ?? [];
-        $gradeId  = Student::find($studentId)?->grade_id;
+        $subject = Subject::find($subjectId);
+        $student = Student::find($studentId);
 
-        if (empty($gradeIds) || !$gradeId || in_array($gradeId, $gradeIds)) {
-            return null;
+        $gradeIds = $subject?->grade_ids ?? [];
+        $gradeId  = $student?->grade_id;
+        if (!empty($gradeIds) && $gradeId && !in_array($gradeId, $gradeIds)) {
+            return 'Mata pelajaran ini tidak tersedia untuk jenjang siswa yang dipilih.';
         }
 
-        return 'Mata pelajaran ini tidak tersedia untuk jenjang siswa yang dipilih.';
+        // Mata pelajaran juga harus salah satu yang terdaftar di profil siswa (mata pelajaran
+        // yang dipilih saat pendaftaran/edit siswa), supaya jadwal yang dibuat selalu sesuai.
+        $programNames = $student?->program_list ?? [];
+        if (!empty($programNames) && $subject && !in_array($subject->subject_name, $programNames, true)) {
+            return 'Mata pelajaran ini bukan salah satu mata pelajaran yang terdaftar untuk siswa ini.';
+        }
+
+        return null;
     }
 
     public function show(Schedule $schedule)

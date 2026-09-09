@@ -757,10 +757,20 @@ $(function () {
         @endforeach
     };
 
-    /* Kunci opsi mata pelajaran sesuai jenjang siswa yang dipilih.
-       Mapel tanpa jenjang (grade_ids kosong) tetap tersedia untuk semua. */
+    /* Map student_id → ID mata pelajaran yang terdaftar untuk siswa tsb (dari profil siswa).
+       Array kosong berarti siswa belum punya mata pelajaran terdaftar (tidak dibatasi). */
+    var studentSubjects = {
+        @foreach($students as $s)
+            {{ $s->id }}: @json($studentSubjectIds[$s->id] ?? []),
+        @endforeach
+    };
+
+    /* Kunci opsi mata pelajaran sesuai jenjang & mata pelajaran terdaftar siswa yang dipilih.
+       Mapel tanpa jenjang (grade_ids kosong) atau siswa tanpa mapel terdaftar tetap tersedia semua. */
     function filterSubjectsByStudent() {
-        var gradeId = studentGrade[$('#field-student').val()] || null;
+        var studentId = $('#field-student').val();
+        var gradeId   = studentGrade[studentId] || null;
+        var allowedSubjectIds = studentSubjects[studentId] || [];
         var $subject = $('#field-subject');
         var visibleCount = 0;
 
@@ -770,7 +780,10 @@ $(function () {
 
             var ids = $opt.data('grade-ids') || [];
             // Tersedia bila mapel tak terikat jenjang, atau jenjang siswa cocok.
-            var allowed = (ids.length === 0) || (gradeId !== null && ids.indexOf(gradeId) !== -1);
+            var gradeOk = (ids.length === 0) || (gradeId !== null && ids.indexOf(gradeId) !== -1);
+            // Tersedia bila siswa belum punya mapel terdaftar, atau mapel ini salah satunya.
+            var subjectOk = (allowedSubjectIds.length === 0) || (allowedSubjectIds.indexOf(parseInt($opt.val(), 10)) !== -1);
+            var allowed = gradeOk && subjectOk;
 
             $opt.prop('disabled', !allowed).toggle(allowed);
             if (allowed) visibleCount++;
@@ -784,9 +797,9 @@ $(function () {
 
         $('#subject-grade-hint').text(
             $('#field-student').val()
-                ? (gradeId === null
-                    ? 'Siswa belum memiliki jenjang — semua mapel ditampilkan.'
-                    : visibleCount + ' mata pelajaran tersedia untuk jenjang siswa ini.')
+                ? (gradeId === null && allowedSubjectIds.length === 0
+                    ? 'Siswa belum memiliki jenjang & mata pelajaran terdaftar — semua mapel ditampilkan.'
+                    : visibleCount + ' mata pelajaran tersedia untuk siswa ini.')
                 : ''
         );
     }

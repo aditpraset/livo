@@ -90,12 +90,24 @@
                             <small class="text-muted">Menentukan perhitungan otomatis tanggal expired SPP.</small>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Mata Pelajaran</label>
-                            <input type="text" name="program" class="form-control @error('program') is-invalid @enderror" value="{{ old('program', $student->program) }}">
-                        </div>
-                        <div class="col-md-6">
                             <label class="form-label">Sekolah</label>
                             <input type="text" name="school" class="form-control @error('school') is-invalid @enderror" value="{{ old('school', $student->school) }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Mata Pelajaran</label>
+                            <div class="d-flex flex-wrap gap-3 mt-1" id="subject-list">
+                                @foreach($subjects as $subject)
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="program[]" value="{{ $subject->id }}" id="edit-subj-{{ $subject->id }}"
+                                            {{ collect(old('program', $selectedSubjectIds))->contains($subject->id) ? 'checked' : '' }}>
+                                        <label class="form-check-label fw-semibold" for="edit-subj-{{ $subject->id }}">{{ $subject->subject_name }}</label>
+                                    </div>
+                                @endforeach
+                                @if($subjects->isEmpty())
+                                    <p class="text-muted small mb-0">Belum ada mata pelajaran tersedia.</p>
+                                @endif
+                            </div>
+                            @error('program') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
                         </div>
                     </div>
                 </div>

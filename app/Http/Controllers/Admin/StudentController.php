@@ -462,7 +462,15 @@ class StudentController extends Controller
     {
         $scheduleSessions = \App\Models\ScheduleSession::all();
         $tutors   = \App\Models\Tutor::orderBy('name')->get(['id', 'name']);
-        $subjects = \App\Models\Subject::orderBy('subject_name')->get(['id', 'subject_name']);
+        $allSubjects = \App\Models\Subject::orderBy('subject_name')->get(['id', 'subject_name']);
+
+        // Dropdown "Mata Pelajaran" pada modal Tambah Jadwal dibatasi ke mapel yang sudah
+        // terdaftar untuk siswa ini, supaya jadwal yang dibuat selalu sesuai program siswa.
+        // Bila siswa belum punya mapel terdaftar sama sekali, tampilkan semua (tidak diblokir).
+        $subjects = $student->program_list
+            ? $allSubjects->whereIn('subject_name', $student->program_list)->values()
+            : $allSubjects;
+
         $schedules = $student->schedules()
             ->with(['tutor', 'subject', 'evaluation'])
             ->orderBy('class_date', 'desc')
@@ -474,6 +482,11 @@ class StudentController extends Controller
     {
         $programs = Program::orderBy('program_name')->get(['id', 'program_name', 'duration']);
         $packages = Package::orderBy('package_name')->get(['id', 'package_name']);
+        $subjects = Subject::orderBy('subject_name')->get(['id', 'subject_name']);
+
+        // program disimpan sebagai JSON nama mapel (lihat Student::program_list) — petakan
+        // balik ke ID supaya checkbox mata pelajaran yang sesuai bisa di-pre-check.
+        $selectedSubjectIds = $subjects->whereIn('subject_name', $student->program_list)->pluck('id')->all();
 
         // Maksimum jadwal = frekuensi (x/minggu) dari program yang dipilih siswa
         $program  = $student->program_id ? Program::find($student->program_id) : null;
@@ -486,7 +499,8 @@ class StudentController extends Controller
         $classSchedules = ClassSchedule::with('session')->get();
 
         return view('admin.students.edit', compact(
-            'student', 'program', 'maxSlots', 'programs', 'packages', 'classSchedules', 'selectedScheduleIds'
+            'student', 'program', 'maxSlots', 'programs', 'packages', 'classSchedules', 'selectedScheduleIds',
+            'subjects', 'selectedSubjectIds'
         ));
     }
 
@@ -507,13 +521,24 @@ class StudentController extends Controller
             'quota_sessions' => 'nullable|integer|min:0',
             'class_schedule_ids' => 'nullable|array',
             'class_schedule_ids.*' => 'nullable|exists:class_schedules,id',
-        ], [], ['grade' => 'Kelas', 'package_id' => 'Paket', 'program_id' => 'Program Belajar', 'duration' => 'Durasi Paket']);
+            'program' => 'nullable|array',
+            'program.*' => 'integer|exists:subjects,id',
+        ], [], ['grade' => 'Kelas', 'package_id' => 'Paket', 'program_id' => 'Program Belajar', 'duration' => 'Durasi Paket', 'program' => 'Mata Pelajaran']);
 
-        $data = $request->except(['photo', 'class_schedule_ids']);
+        $data = $request->except(['photo', 'class_schedule_ids', 'program']);
 
         // Selaraskan class_type dengan grade (satu-satunya field "kelas" yang diedit di form
         // ini) agar tidak basi — class_type basi menyebabkan pencocokan master jadwal keliru.
         $data['class_type'] = $data['grade'] ?? $student->class_type;
+
+        // Mata pelajaran (multi-pilih ID) → simpan sebagai JSON nama mapel, sama seperti store().
+        // Kolom `program` di DB bersifat NOT NULL, jadi selalu simpan JSON valid (boleh array
+        // kosong "[]" bila admin tidak mencentang mapel apa pun), bukan null.
+        $programNames = [];
+        if ($request->filled('program')) {
+            $programNames = Subject::whereIn('id', $request->input('program', []))->pluck('subject_name')->toArray();
+        }
+        $data['program'] = json_encode($programNames);
 
         if ($request->hasFile('photo')) {
             if ($student->photo) {
