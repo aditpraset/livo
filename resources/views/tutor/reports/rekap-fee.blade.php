@@ -118,7 +118,7 @@
             <thead>
                 <tr>
                     <th rowspan="2" class="align-middle">Bulan</th>
-                    <th colspan="2" class="text-center border-start">Sesi Semi-Privat (b)</th>
+                    <th colspan="2" class="text-center border-start">Sesi Paket Lain (b)</th>
                     <th colspan="2" class="text-center border-start">Sesi Privat (a)</th>
                     <th colspan="2" class="text-center border-start">Total Siswa (c)</th>
                     <th colspan="2" class="text-center border-start">Transport (d)</th>
@@ -192,7 +192,9 @@
 
 <p class="text-muted small mt-3 mb-0">
     <i class="bi bi-info-circle me-1"></i>
-Sesi Privat (a) & Sesi Semi-Privat (b) dihitung flat per slot (tanggal + jam) — sesi berisi minimal satu siswa Privat dihitung (a), selain itu dihitung (b). Total Siswa (c) dihitung per kehadiran (setiap siswa hadir di setiap sesi, semua paket). Transport (d) dihitung per hari yang ada sesi.
+Sesi Privat (a) & Sesi Paket Lain (b) dihitung flat per slot (tanggal + jam) — sesi berisi minimal satu siswa Privat dihitung (a), selain itu dihitung (b).
+    <strong>Tarif tiap sesi mengikuti paket kelas siswa</strong> (Privat, Semi Privat, TKA Reguler, Privat Khusus, Privat SMA), jadi nominal (b) bisa merupakan gabungan beberapa tarif — rinciannya ada di slip gaji bulan tsb.
+    Total Siswa (c) dihitung per kehadiran, kecuali siswa paket yang dibayar per sesi saja. Transport (d) dihitung per hari yang ada sesi, kecuali hari yang hanya berisi paket per sesi saja.
     Untuk tutor kategori Tetap, hanya kolom Gapok + Tunjangan dan Sesi Tambahan yang dibayarkan (kolom a/b/c/d di atas hanya statistik aktivitas, bernilai Rp 0).
 </p>
 @endsection

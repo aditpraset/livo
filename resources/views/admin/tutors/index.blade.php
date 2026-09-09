@@ -104,6 +104,28 @@
                                 <div class="invalid-feedback" id="err-fee-transport"></div>
                             </div>
                         </div>
+                        <div class="mt-3 row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Fee Private Khusus (Rp)</label>
+                                <input type="number" id="field-fee-private-khusus" min="0" class="form-control" placeholder="cth: 60000">
+                                <div class="invalid-feedback" id="err-fee-private-khusus"></div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Fee TKA Regular (Rp)</label>
+                                <input type="number" id="field-fee-tka-regular" min="0" class="form-control" placeholder="cth: 55000">
+                                <div class="invalid-feedback" id="err-fee-tka-regular"></div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Fee Private SMA (Rp)</label>
+                                <input type="number" id="field-fee-private-sma" min="0" class="form-control" placeholder="cth: 65000">
+                                <div class="invalid-feedback" id="err-fee-private-sma"></div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Fee TKA Visit (Rp)</label>
+                                <input type="number" id="field-fee-tka-visit" min="0" class="form-control" placeholder="cth: 70000">
+                                <div class="invalid-feedback" id="err-fee-tka-visit"></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-12">
                         <hr class="my-2">
@@ -187,11 +209,11 @@ $(function () {
     }
 
     function resetModal() {
-        $('#tutor-id, #field-name, #field-phone, #field-email, #field-norek, #field-fee, #field-fee-private, #field-fee-student, #field-fee-transport, #field-gaji-pokok, #field-tunjangan, #field-maks-sesi-tunjangan, #field-photo').val('');
+        $('#tutor-id, #field-name, #field-phone, #field-email, #field-norek, #field-fee, #field-fee-private, #field-fee-student, #field-fee-transport, #field-fee-private-khusus, #field-fee-tka-regular, #field-fee-private-sma, #field-fee-tka-visit, #field-gaji-pokok, #field-tunjangan, #field-maks-sesi-tunjangan, #field-photo').val('');
         $('#field-specialization').val([]);
         $('#field-kategori').val('freelance');
         $('.form-control, .form-select').removeClass('is-invalid');
-        $('#err-name, #err-phone, #err-email, #err-norek, #err-fee, #err-fee-private, #err-fee-student, #err-fee-transport, #err-kategori, #err-gaji-pokok, #err-tunjangan, #err-maks-sesi-tunjangan, #err-photo, #err-specialization').text('');
+        $('#err-name, #err-phone, #err-email, #err-norek, #err-fee, #err-fee-private, #err-fee-student, #err-fee-transport, #err-fee-private-khusus, #err-fee-tka-regular, #err-fee-private-sma, #err-fee-tka-visit, #err-kategori, #err-gaji-pokok, #err-tunjangan, #err-maks-sesi-tunjangan, #err-photo, #err-specialization').text('');
         showPhoto('');
     }
 
@@ -219,6 +241,10 @@ $(function () {
         $('#field-fee-private').val(btn.data('fee-private'));
         $('#field-fee-student').val(btn.data('fee-student'));
         $('#field-fee-transport').val(btn.data('fee-transport'));
+        $('#field-fee-private-khusus').val(btn.data('fee-private-khusus'));
+        $('#field-fee-tka-regular').val(btn.data('fee-tka-regular'));
+        $('#field-fee-private-sma').val(btn.data('fee-private-sma'));
+        $('#field-fee-tka-visit').val(btn.data('fee-tka-visit'));
         $('#field-kategori').val(btn.data('kategori') || 'freelance');
         $('#field-gaji-pokok').val(btn.data('gaji-pokok'));
         $('#field-tunjangan').val(btn.data('tunjangan'));
@@ -242,6 +268,10 @@ $(function () {
         fd.append('fee_per_student_private', $('#field-fee-private').val());
         fd.append('fee_per_student', $('#field-fee-student').val());
         fd.append('fee_transport_per_day', $('#field-fee-transport').val());
+        fd.append('fee_private_khusus', $('#field-fee-private-khusus').val());
+        fd.append('fee_tka_regular', $('#field-fee-tka-regular').val());
+        fd.append('fee_private_sma', $('#field-fee-private-sma').val());
+        fd.append('fee_tka_visit', $('#field-fee-tka-visit').val());
         fd.append('kategori', $('#field-kategori').val());
         fd.append('gaji_pokok', $('#field-gaji-pokok').val());
         fd.append('tunjangan_per_bulan', $('#field-tunjangan').val());
@@ -273,6 +303,10 @@ $(function () {
                     if (err.fee_per_student_private){ $('#field-fee-private').addClass('is-invalid');   $('#err-fee-private').text(err.fee_per_student_private[0]); }
                     if (err.fee_per_student){ $('#field-fee-student').addClass('is-invalid');   $('#err-fee-student').text(err.fee_per_student[0]); }
                     if (err.fee_transport_per_day){ $('#field-fee-transport').addClass('is-invalid');   $('#err-fee-transport').text(err.fee_transport_per_day[0]); }
+                    if (err.fee_private_khusus) { $('#field-fee-private-khusus').addClass('is-invalid'); $('#err-fee-private-khusus').text(err.fee_private_khusus[0]); }
+                    if (err.fee_tka_regular)    { $('#field-fee-tka-regular').addClass('is-invalid'); $('#err-fee-tka-regular').text(err.fee_tka_regular[0]); }
+                    if (err.fee_private_sma)    { $('#field-fee-private-sma').addClass('is-invalid'); $('#err-fee-private-sma').text(err.fee_private_sma[0]); }
+                    if (err.fee_tka_visit)      { $('#field-fee-tka-visit').addClass('is-invalid'); $('#err-fee-tka-visit').text(err.fee_tka_visit[0]); }
                     if (err.kategori)       { $('#field-kategori').addClass('is-invalid'); $('#err-kategori').text(err.kategori[0]); }
                     if (err.gaji_pokok)     { $('#field-gaji-pokok').addClass('is-invalid'); $('#err-gaji-pokok').text(err.gaji_pokok[0]); }
                     if (err.tunjangan_per_bulan) { $('#field-tunjangan').addClass('is-invalid'); $('#err-tunjangan').text(err.tunjangan_per_bulan[0]); }

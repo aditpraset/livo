@@ -160,7 +160,7 @@ class ReportController extends BaseTutorController
         $fee = $tutorFee->only([
             'private_count', 'regular_count', 'session_count', 'day_count',
             'fee_private', 'fee_regular', 'fee_session', 'fee_transport',
-            'fee_pokok', 'fee_tunjangan', 'extra_session_count', 'fee_extra_session', 'total',
+            'fee_pokok', 'fee_tunjangan', 'extra_session_count', 'fee_extra_session', 'session_breakdown', 'total',
         ]);
 
         $pdf = Pdf::loadView('tutor.reports.pdf.slip-gaji', compact('tutor', 'month', 'fee'))

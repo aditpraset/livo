@@ -79,10 +79,11 @@
                         <th width="40">#</th>
                         <th>Tutor</th>
                         <th>Kategori</th>
-                        <th class="text-center">Sesi Semi-Privat (b)</th>
+                        <th class="text-center">Sesi Paket Lain (b)</th>
                         <th class="text-center">Sesi Privat (a)</th>
                         <th class="text-center">Total Siswa (c)</th>
                         <th class="text-center">Transport (d)</th>
+                        <th>Rincian Sesi per Paket</th>
                         <th class="text-center">Gapok + Tunjangan</th>
                         <th class="text-center">Sesi Tambahan</th>
                         <th class="text-end">Total Fee</th>
@@ -95,6 +96,9 @@
             <i class="bi bi-info-circle me-1"></i> Fee dapat diedit manual selama periode masih berstatus draft (belum diterbitkan).
             Tutor <strong>Freelance</strong> dibayar dari kolom (a)+(b)+(c)+(d); tutor <strong>Tetap</strong> dibayar dari Gaji Pokok + Tunjangan,
             ditambah fee per sesi (tarif sesi Semi-Privat) untuk tiap sesi yang melebihi batas tunjangan bulanannya.
+            <br>Tarif per sesi mengikuti <strong>paket kelas siswa</strong> di sesi tsb (Privat, Semi Privat, TKA Reguler, Privat Khusus, Privat SMA) —
+            lihat kolom <strong>Rincian Sesi per Paket</strong>. Siswa paket <strong>Privat Khusus (sesi saja)</strong> hanya dibayar per sesi,
+            tidak menambah fee per siswa (c) maupun transport (d).
         </p>
     </div>
 </div>
@@ -111,11 +115,11 @@
                 <input type="hidden" id="edit-fee-id">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Jumlah Sesi Semi-Privat (b)</label>
+                        <label class="form-label fw-semibold">Jumlah Sesi Paket Lain (b)</label>
                         <input type="number" min="0" id="edit-session-count" class="form-control fee-count" data-target="edit-fee-session">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Fee Sesi Semi-Privat (Rp)</label>
+                        <label class="form-label fw-semibold">Fee Sesi Paket Lain (Rp)</label>
                         <input type="number" min="0" id="edit-fee-session" class="form-control fee-amount">
                     </div>
                     <div class="col-md-6">
@@ -193,6 +197,7 @@ $(function () {
             { data: 'private', orderable: false, className: 'text-center' },
             { data: 'regular', orderable: false, className: 'text-center' },
             { data: 'transport', orderable: false, className: 'text-center' },
+            { data: 'session_detail', orderable: false, searchable: false },
             { data: 'pokok_tunjangan', orderable: false, className: 'text-center' },
             { data: 'extra_session', orderable: false, className: 'text-center' },
             { data: 'total', orderable: false, className: 'text-end' },

@@ -50,6 +50,10 @@ class TutorController extends Controller
                             data-fee-private="' . e($tutor->fee_per_student_private !== null ? (0 + $tutor->fee_per_student_private) : '') . '"
                             data-fee-student="' . e($tutor->fee_per_student !== null ? (0 + $tutor->fee_per_student) : '') . '"
                             data-fee-transport="' . e($tutor->fee_transport_per_day !== null ? (0 + $tutor->fee_transport_per_day) : '') . '"
+                            data-fee-private-khusus="' . e($tutor->fee_private_khusus !== null ? (0 + $tutor->fee_private_khusus) : '') . '"
+                            data-fee-tka-regular="' . e($tutor->fee_tka_regular !== null ? (0 + $tutor->fee_tka_regular) : '') . '"
+                            data-fee-private-sma="' . e($tutor->fee_private_sma !== null ? (0 + $tutor->fee_private_sma) : '') . '"
+                            data-fee-tka-visit="' . e($tutor->fee_tka_visit !== null ? (0 + $tutor->fee_tka_visit) : '') . '"
                             data-kategori="' . e($tutor->kategori ?? 'freelance') . '"
                             data-gaji-pokok="' . e($tutor->gaji_pokok !== null ? (0 + $tutor->gaji_pokok) : '') . '"
                             data-tunjangan="' . e($tutor->tunjangan_per_bulan !== null ? (0 + $tutor->tunjangan_per_bulan) : '') . '"
@@ -109,6 +113,10 @@ class TutorController extends Controller
             'fee_per_student_private' => 'nullable|numeric|min:0',
             'fee_per_student'         => 'nullable|numeric|min:0',
             'fee_transport_per_day'   => 'nullable|numeric|min:0',
+            'fee_private_khusus'      => 'nullable|numeric|min:0',
+            'fee_tka_regular'         => 'nullable|numeric|min:0',
+            'fee_private_sma'         => 'nullable|numeric|min:0',
+            'fee_tka_visit'           => 'nullable|numeric|min:0',
             'kategori'                      => 'required|in:freelance,tetap',
             'gaji_pokok'                    => 'nullable|numeric|min:0',
             'tunjangan_per_bulan'           => 'nullable|numeric|min:0',

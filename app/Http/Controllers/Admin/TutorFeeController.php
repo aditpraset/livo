@@ -58,6 +58,15 @@ class TutorFeeController extends Controller
             ->addColumn('private', fn ($tf) => $tf->tutor?->kategori === 'tetap' ? '-' : ($tf->private_count . ' sesi<br><small class="text-muted">' . $rp($tf->fee_private) . '</small>'))
             ->addColumn('regular', fn ($tf) => $tf->tutor?->kategori === 'tetap' ? '-' : ($tf->regular_count . ' siswa<br><small class="text-muted">' . $rp($tf->fee_regular) . '</small>'))
             ->addColumn('transport', fn ($tf) => $tf->tutor?->kategori === 'tetap' ? '-' : ($tf->day_count . ' hari<br><small class="text-muted">' . $rp($tf->fee_transport) . '</small>'))
+            ->addColumn('session_detail', function ($tf) use ($rp) {
+                $rows = $tf->session_breakdown ?: [];
+                if (empty($rows)) {
+                    return '<span class="text-muted">-</span>';
+                }
+                return collect($rows)->map(fn ($r) => '<div class="small text-nowrap">'
+                    . e($r['label'] ?? '-') . ': <strong>' . (int) ($r['count'] ?? 0) . '</strong> sesi × '
+                    . $rp($r['rate'] ?? 0) . ' = ' . $rp($r['subtotal'] ?? 0) . '</div>')->implode('');
+            })
             ->addColumn('pokok_tunjangan', fn ($tf) => $tf->tutor?->kategori === 'tetap'
                 ? ($rp($tf->fee_pokok) . ' + ' . $rp($tf->fee_tunjangan) . '<br><small class="text-muted">gapok + tunjangan</small>')
                 : '-')
@@ -80,7 +89,7 @@ class TutorFeeController extends Controller
                         data-total="' . (0 + $tf->total) . '"
                         title="Edit Fee"><i class="bi bi-pencil"></i></button>';
             })
-            ->rawColumns(['kategori_label', 'session', 'private', 'regular', 'transport', 'pokok_tunjangan', 'extra_session', 'total', 'action'])
+            ->rawColumns(['kategori_label', 'session', 'private', 'regular', 'transport', 'session_detail', 'pokok_tunjangan', 'extra_session', 'total', 'action'])
             ->make(true);
     }
 

@@ -72,20 +72,33 @@
                     <td class="text-end">{{ $rp($fee['fee_extra_session']) }}</td>
                 </tr>
             @else
+                @if(!empty($fee['session_breakdown']))
+                    {{-- Tarif per sesi mengikuti paket kelas siswa di sesi tsb. --}}
+                    @foreach($fee['session_breakdown'] as $row)
+                        <tr>
+                            <td>Fee sesi {{ $row['label'] ?? '-' }} (per slot tanggal + jam)</td>
+                            <td class="text-end">{{ $row['count'] ?? 0 }} sesi</td>
+                            <td class="text-end">{{ $rp($row['rate'] ?? 0) }}</td>
+                            <td class="text-end">{{ $rp($row['subtotal'] ?? 0) }}</td>
+                        </tr>
+                    @endforeach
+                @else
+                    {{-- Data lama (sebelum tarif per paket dicatat): tampilkan agregat seperti semula. --}}
+                    <tr>
+                        <td>Fee sesi Semi-Privat / paket lain (per slot tanggal + jam)</td>
+                        <td class="text-end">{{ $fee['session_count'] }} sesi</td>
+                        <td class="text-end">{{ $rp($tutor->fee_per_session ?? 0) }}</td>
+                        <td class="text-end">{{ $rp($fee['fee_session']) }}</td>
+                    </tr>
+                    <tr>
+                        <td>Fee sesi Privat (per slot tanggal + jam, ada siswa Privat)</td>
+                        <td class="text-end">{{ $fee['private_count'] }} sesi</td>
+                        <td class="text-end">{{ $rp($tutor->fee_per_student_private ?? 0) }}</td>
+                        <td class="text-end">{{ $rp($fee['fee_private']) }}</td>
+                    </tr>
+                @endif
                 <tr>
-                    <td>Fee sesi Semi-Privat (per slot tanggal + jam, tanpa siswa Privat)</td>
-                    <td class="text-end">{{ $fee['session_count'] }} sesi</td>
-                    <td class="text-end">{{ $rp($tutor->fee_per_session ?? 0) }}</td>
-                    <td class="text-end">{{ $rp($fee['fee_session']) }}</td>
-                </tr>
-                <tr>
-                    <td>Fee sesi Privat (per slot tanggal + jam, ada siswa Privat)</td>
-                    <td class="text-end">{{ $fee['private_count'] }} sesi</td>
-                    <td class="text-end">{{ $rp($tutor->fee_per_student_private ?? 0) }}</td>
-                    <td class="text-end">{{ $rp($fee['fee_private']) }}</td>
-                </tr>
-                <tr>
-                    <td>Fee per siswa (total kehadiran, semua paket)</td>
+                    <td>Fee per siswa (kehadiran, di luar paket yang dibayar per sesi saja)</td>
                     <td class="text-end">{{ $fee['regular_count'] }} siswa</td>
                     <td class="text-end">{{ $rp($tutor->fee_per_student ?? 0) }}</td>
                     <td class="text-end">{{ $rp($fee['fee_regular']) }}</td>
