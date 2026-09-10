@@ -33,6 +33,7 @@ class Student extends Model
         'kbm_process',
         'package',
         'package_id',
+        'package_ids',
         'pricing_id',
         'program_id',
         'grade_id',
@@ -52,7 +53,30 @@ class Student extends Model
 
     protected $casts = [
         'class_schedule_ids' => 'array',
+        'package_ids'        => 'array',
     ];
+
+    /**
+     * Daftar ID paket siswa (1–3). Fallback ke [package_id] untuk data lama yang
+     * belum ter-backfill, supaya tidak pernah kosong bila paket utama ada.
+     *
+     * @return array<int, int>
+     */
+    public function getPackageIdListAttribute(): array
+    {
+        $ids = is_array($this->package_ids) ? array_values(array_filter($this->package_ids)) : [];
+        if (empty($ids) && $this->package_id) {
+            $ids = [(int) $this->package_id];
+        }
+        return array_map('intval', $ids);
+    }
+
+    /** Nama-nama paket siswa (dipisah koma) untuk tampilan. */
+    public function getPackageNameListAttribute(): string
+    {
+        $names = Package::whereIn('id', $this->package_id_list)->orderBy('id')->pluck('package_name');
+        return $names->isNotEmpty() ? $names->implode(', ') : ($this->package ?: '-');
+    }
 
     /** Program (mata pelajaran) sebagai array, menangani format JSON maupun teks biasa. */
     public function getProgramListAttribute(): array

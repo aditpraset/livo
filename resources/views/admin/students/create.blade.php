@@ -186,15 +186,23 @@
                     </select>
                     @error('duration') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label">Jenis Kelas (Paket) <span class="text-danger">*</span></label>
-                    <select name="package_id" id="reg-package" class="form-select @error('package_id') is-invalid @enderror">
-                        <option value="">-- Pilih Paket --</option>
+                <div class="col-12">
+                    <label class="form-label">Jenis Kelas (Paket) <span class="text-danger">*</span> <span class="text-muted small">(pilih 1–3)</span></label>
+                    <div class="d-flex flex-wrap gap-3 mt-1" id="package-list">
                         @foreach($packages as $pkg)
-                            <option value="{{ $pkg->id }}" {{ old('package_id') == $pkg->id ? 'selected' : '' }}>{{ $pkg->package_name }}</option>
+                            <div class="form-check">
+                                <input class="form-check-input pkg-check" type="checkbox" name="package_ids[]" value="{{ $pkg->id }}"
+                                    id="pkg-{{ $pkg->id }}" {{ collect(old('package_ids', []))->contains($pkg->id) ? 'checked' : '' }}>
+                                <label class="form-check-label fw-semibold" for="pkg-{{ $pkg->id }}">{{ $pkg->package_name }}</label>
+                            </div>
                         @endforeach
-                    </select>
-                    @error('package_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        @if($packages->isEmpty())
+                            <p class="text-muted small mb-0">Belum ada paket tersedia.</p>
+                        @endif
+                    </div>
+                    @error('package_ids') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                    @error('package_ids.*') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                    <small class="text-muted" id="package-hint">Maksimal 3 paket.</small>
                 </div>
                 <div class="col-12">
                     <label class="form-label">Program / Mata Pelajaran yang Dipilih <span class="text-danger">*</span></label>
@@ -289,8 +297,12 @@
     var oldSchedules   = @json(old('class_schedule_ids', []));
 
     var programSelect = document.getElementById('reg-program');
-    var packageSelect = document.getElementById('reg-package'); // dropdown "Paket" → filter jadwal
     var classSelect   = document.getElementById('reg-kelas');   // dropdown "Kelas" (teks) → filter jadwal
+
+    // Paket = checkbox multi-pilih (1–3). Kembalikan array ID paket terpilih (string).
+    function selectedPackageIds() {
+        return Array.prototype.map.call(document.querySelectorAll('.pkg-check:checked'), function (c) { return String(c.value); });
+    }
     var gradeSelect   = document.getElementById('reg-grade');   // dropdown "Jenjang" (master) → filter mapel
     var scheduleBox   = document.getElementById('schedule-container');
     var scheduleHint  = document.getElementById('schedule-hint');
@@ -325,11 +337,11 @@
     }
 
     /* ---- Jadwal: jumlah pilihan mengikuti durasi (x per minggu) program ---- */
-    /* Jadwal difilter berdasarkan kombinasi Kelas + Paket + Program yang dipilih. */
-    function scheduleOptionsHtml(selectedKelas, packageId, programId, selectedId) {
+    /* Jadwal difilter berdasarkan kombinasi Kelas + Paket (salah satu paket terpilih) + Program. */
+    function scheduleOptionsHtml(selectedKelas, packageIds, programId, selectedId) {
         var list = classSchedules.filter(function (s) {
             return s.kelas === selectedKelas
-                && String(s.package_id) === String(packageId)
+                && packageIds.indexOf(String(s.package_id)) !== -1
                 && String(s.program_id) === String(programId);
         });
         var html = '<option value="">-- Pilih Jadwal --</option>';
@@ -350,7 +362,8 @@
             scheduleBox.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">Pilih Kelas terlebih dahulu.</p></div>';
             return;
         }
-        if (!packageSelect || !packageSelect.value) {
+        var pkgs = selectedPackageIds();
+        if (!pkgs.length) {
             scheduleBox.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">Pilih Paket terlebih dahulu.</p></div>';
             return;
         }
@@ -362,7 +375,7 @@
         }
         var available = classSchedules.filter(function (s) {
             return s.kelas === kelas
-                && String(s.package_id) === String(packageSelect.value)
+                && pkgs.indexOf(String(s.package_id)) !== -1
                 && String(s.program_id) === String(programSelect.value);
         });
         if (available.length === 0) {
@@ -377,15 +390,28 @@
             col.className = 'col-md-6';
             col.innerHTML =
                 '<label class="form-label">Pertemuan ' + (i + 1) + '</label>' +
-                '<select name="class_schedule_ids[]" class="form-select sch-select">' + scheduleOptionsHtml(kelas, packageSelect.value, programSelect.value, oldSchedules[i] || '') + '</select>';
+                '<select name="class_schedule_ids[]" class="form-select sch-select">' + scheduleOptionsHtml(kelas, selectedPackageIds(), programSelect.value, oldSchedules[i] || '') + '</select>';
             scheduleBox.appendChild(col);
         }
     }
 
+    // Batasi pilihan paket maksimal 3.
+    $(document).on('change', '.pkg-check', function () {
+        if (document.querySelectorAll('.pkg-check:checked').length > 3) {
+            this.checked = false;
+            var hint = document.getElementById('package-hint');
+            if (hint) { hint.textContent = 'Maksimal 3 paket — pilihan terakhir dibatalkan.'; hint.classList.add('text-danger'); }
+        } else {
+            var hint = document.getElementById('package-hint');
+            if (hint) { hint.textContent = 'Maksimal 3 paket.'; hint.classList.remove('text-danger'); }
+        }
+        renderSchedules();
+    });
+
     // Pakai event jQuery karena <select> di admin diubah menjadi Select2,
     // yang memicu event "change" via jQuery (tidak tertangkap addEventListener native).
     $('#reg-grade').on('change', filterSubjectsByGrade);
-    $('#reg-program, #reg-package, #reg-kelas').on('change', renderSchedules);
+    $('#reg-program, #reg-kelas').on('change', renderSchedules);
 
     filterSubjectsByGrade();
     renderSchedules();

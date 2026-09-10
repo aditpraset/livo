@@ -33,6 +33,7 @@ class StudentRegistration extends Model
         'kbm_process',
         'package',
         'package_id',
+        'package_ids',
         'pricing_id',
         'program_id',
         'grade_id',
@@ -50,6 +51,7 @@ class StudentRegistration extends Model
 
     protected $casts = [
         'class_schedule_ids' => 'array',
+        'package_ids'        => 'array',
     ];
 
     protected static function boot()

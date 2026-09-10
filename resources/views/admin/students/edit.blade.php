@@ -57,15 +57,23 @@
                             </select>
                             @error('grade') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Paket <span class="text-danger">*</span></label>
-                            <select name="package_id" id="edit-package" class="form-select @error('package_id') is-invalid @enderror">
-                                <option value="">-- Pilih Paket --</option>
+                        <div class="col-12">
+                            <label class="form-label">Paket <span class="text-danger">*</span> <span class="text-muted small">(pilih 1–3)</span></label>
+                            <div class="d-flex flex-wrap gap-3 mt-1" id="package-list">
                                 @foreach($packages as $pkg)
-                                    <option value="{{ $pkg->id }}" {{ old('package_id', $student->package_id) == $pkg->id ? 'selected' : '' }}>{{ $pkg->package_name }}</option>
+                                    <div class="form-check">
+                                        <input class="form-check-input pkg-check" type="checkbox" name="package_ids[]" value="{{ $pkg->id }}"
+                                            id="edit-pkg-{{ $pkg->id }}" {{ collect(old('package_ids', $selectedPackageIds))->contains($pkg->id) ? 'checked' : '' }}>
+                                        <label class="form-check-label fw-semibold" for="edit-pkg-{{ $pkg->id }}">{{ $pkg->package_name }}</label>
+                                    </div>
                                 @endforeach
-                            </select>
-                            @error('package_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                @if($packages->isEmpty())
+                                    <p class="text-muted small mb-0">Belum ada paket tersedia.</p>
+                                @endif
+                            </div>
+                            @error('package_ids') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                            @error('package_ids.*') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                            <small class="text-muted" id="package-hint">Maksimal 3 paket.</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Program Belajar <span class="text-danger">*</span></label>
@@ -275,20 +283,24 @@ document.getElementById('photo-input')?.addEventListener('change', function (e) 
     var classSchedules = @json($classSchedules);
 
     var kelasSelect   = document.getElementById('edit-kelas');
-    var packageSelect = document.getElementById('edit-package');
     var programSelect = document.getElementById('edit-program');
     var rows          = document.getElementById('schedule-rows');
     var tpl            = document.getElementById('schedule-row-tpl');
     var addBtn         = document.getElementById('btn-add-schedule');
     var emptyHint      = document.getElementById('schedule-empty-hint');
-    if (!kelasSelect || !packageSelect || !programSelect || !rows || !tpl || !addBtn) return;
+    if (!kelasSelect || !programSelect || !rows || !tpl || !addBtn) return;
+
+    // Paket = checkbox multi-pilih (1–3).
+    function selectedPackageIds() {
+        return Array.prototype.map.call(document.querySelectorAll('.pkg-check:checked'), function (c) { return String(c.value); });
+    }
 
     function availableSchedules() {
-        var kelas = kelasSelect.value, pkg = packageSelect.value, prog = programSelect.value;
-        if (!kelas || !pkg || !prog) return [];
+        var kelas = kelasSelect.value, pkgs = selectedPackageIds(), prog = programSelect.value;
+        if (!kelas || !pkgs.length || !prog) return [];
         return classSchedules.filter(function (s) {
             return s.kelas === kelas
-                && String(s.package_id) === String(pkg)
+                && pkgs.indexOf(String(s.package_id)) !== -1
                 && String(s.program_id) === String(prog);
         });
     }
@@ -307,13 +319,13 @@ document.getElementById('photo-input')?.addEventListener('change', function (e) 
     // TIDAK disentuh sama sekali — data lama tetap seperti semula walau Kelas, Paket,
     // atau Program diubah; filter ini hanya berlaku untuk penambahan jadwal baru.
     function refreshNewRowOptions() {
-        var kelas = kelasSelect.value, pkg = packageSelect.value, prog = programSelect.value;
+        var kelas = kelasSelect.value, pkgs = selectedPackageIds(), prog = programSelect.value;
         var list  = availableSchedules();
 
         var tplSelect = tpl.content.querySelector('select');
         if (tplSelect) tplSelect.innerHTML = optionsHtml(list);
 
-        if (!kelas || !pkg || !prog) {
+        if (!kelas || !pkgs.length || !prog) {
             emptyHint.textContent = 'Pilih Kelas, Paket, & Program Belajar terlebih dahulu untuk menambahkan jadwal baru.';
             emptyHint.classList.remove('d-none');
             addBtn.disabled = true;
@@ -336,9 +348,21 @@ document.getElementById('photo-input')?.addEventListener('change', function (e) 
         if (btn) btn.closest('.schedule-row').remove();
     });
 
+    // Batasi pilihan paket maksimal 3.
+    $(document).on('change', '.pkg-check', function () {
+        var hint = document.getElementById('package-hint');
+        if (document.querySelectorAll('.pkg-check:checked').length > 3) {
+            this.checked = false;
+            if (hint) { hint.textContent = 'Maksimal 3 paket — pilihan terakhir dibatalkan.'; hint.classList.add('text-danger'); }
+        } else if (hint) {
+            hint.textContent = 'Maksimal 3 paket.'; hint.classList.remove('text-danger');
+        }
+        refreshNewRowOptions();
+    });
+
     // Select2 (dipasang global oleh layout admin) memicu event "change" lewat jQuery,
     // tidak tertangkap addEventListener native.
-    $('#edit-kelas, #edit-package, #edit-program').on('change', refreshNewRowOptions);
+    $('#edit-kelas, #edit-program').on('change', refreshNewRowOptions);
 
     // Siapkan opsi jadwal baru sesuai kombinasi saat ini terlebih dahulu...
     refreshNewRowOptions();

@@ -275,14 +275,23 @@
                                 <option value="12">12 Bulan</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label-livo">Jenis Kelas</label>
-                            <select name="package_id" id="reg-package" class="form-control-livo">
-                                <option value="">-- Pilih Paket --</option>
+                        <div class="col-12">
+                            <label class="form-label-livo">Jenis Kelas (Paket) <span style="color:#dc3545;">(pilih 1–3)</span></label>
+                            <div class="d-flex flex-wrap gap-3 mt-1" id="package-list">
                                 @foreach($packages as $package)
-                                    <option value="{{ $package->id }}">{{ $package->package_name }}</option>
+                                    <div class="form-check" style="min-width: 160px;">
+                                        <input class="form-check-input pkg-check" type="checkbox" name="package_ids[]"
+                                            value="{{ $package->id }}" id="pkg-{{ $package->id }}">
+                                        <label class="form-check-label fw-semibold" for="pkg-{{ $package->id }}" style="font-size:14px; color: var(--livo-dark);">
+                                            {{ $package->package_name }}
+                                        </label>
+                                    </div>
                                 @endforeach
-                            </select>
+                                @if($packages->isEmpty())
+                                    <p class="text-muted small mb-0">Belum ada paket tersedia.</p>
+                                @endif
+                            </div>
+                            <small class="text-muted" id="package-hint">Maksimal 3 paket.</small>
                         </div>
                         <div class="col-12">
                             <label class="form-label-livo">Program / Mata Pelajaran yang Dipilih</label>
@@ -395,13 +404,28 @@
     var classSchedules = @json($classSchedules);
 
     var programSelect  = document.getElementById('reg-program');
-    var packageSelect  = document.getElementById('reg-package');
     var scheduleBox    = document.getElementById('schedule-container');
     var scheduleHint   = document.getElementById('schedule-hint');
     var classSelect    = document.getElementById('reg-kelas');
 
+    // Paket = checkbox multi-pilih (1–3).
+    function selectedPackageIds() {
+        return Array.prototype.map.call(document.querySelectorAll('.pkg-check:checked'), function (c) { return String(c.value); });
+    }
+
     programSelect.addEventListener('change', renderSchedules);
-    packageSelect.addEventListener('change', renderSchedules);
+    document.querySelectorAll('.pkg-check').forEach(function (c) {
+        c.addEventListener('change', function () {
+            var hint = document.getElementById('package-hint');
+            if (document.querySelectorAll('.pkg-check:checked').length > 3) {
+                this.checked = false;
+                if (hint) { hint.textContent = 'Maksimal 3 paket — pilihan terakhir dibatalkan.'; hint.style.color = '#dc3545'; }
+            } else if (hint) {
+                hint.textContent = 'Maksimal 3 paket.'; hint.style.color = '';
+            }
+            renderSchedules();
+        });
+    });
 
     /* ---- Mata pelajaran tampil sesuai jenjang yang dipilih ---- */
     var gradeSelect = document.getElementById('reg-grade');
@@ -443,10 +467,10 @@
 
     /* ---- Jadwal: jumlah pilihan mengikuti durasi (x per minggu) program ---- */
     /* Jadwal difilter berdasarkan kombinasi Kelas + Paket + Program yang dipilih. */
-    function scheduleOptionsHtml(selectedKelas, packageId, programId) {
+    function scheduleOptionsHtml(selectedKelas, packageIds, programId) {
         var list = classSchedules.filter(function (s) {
             return s.kelas === selectedKelas
-                && String(s.package_id) === String(packageId)
+                && packageIds.indexOf(String(s.package_id)) !== -1
                 && String(s.program_id) === String(programId);
         });
         var html = '<option value="">-- Pilih Jadwal --</option>';
@@ -467,7 +491,8 @@
             return;
         }
 
-        if (!packageSelect.value) {
+        var pkgs = selectedPackageIds();
+        if (!pkgs.length) {
             scheduleBox.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">Pilih Paket terlebih dahulu.</p></div>';
             return;
         }
@@ -481,7 +506,7 @@
 
         var available = classSchedules.filter(function (s) {
             return s.kelas === kelas
-                && String(s.package_id) === String(packageSelect.value)
+                && pkgs.indexOf(String(s.package_id)) !== -1
                 && String(s.program_id) === String(programSelect.value);
         });
         if (available.length === 0) {
@@ -492,7 +517,7 @@
         scheduleHint.textContent = 'Program ini ' + duration + 'x per minggu. Silakan pilih ' + duration + ' jadwal pertemuan.';
         scheduleHint.style.display = 'block';
 
-        var optionsHtml = scheduleOptionsHtml(kelas, packageSelect.value, programSelect.value);
+        var optionsHtml = scheduleOptionsHtml(kelas, pkgs, programSelect.value);
         for (var i = 1; i <= duration; i++) {
             var col = document.createElement('div');
             col.className = 'col-md-6';
@@ -557,8 +582,7 @@
         school_origin: 'Asal Sekolah',
         program_id:    'Program Belajar',
         grade_id:      'Jenjang',
-        duration:      'Durasi',
-        package_id:    'Paket'
+        duration:      'Durasi'
     };
     // Grup "minimal salah satu"
     var eitherGroups = [
@@ -581,8 +605,8 @@
     function addAsterisks() {
         var names = Object.keys(requiredFields);
         eitherGroups.forEach(function (g) { names = names.concat(g.names); });
-        // mata pelajaran (grup khusus)
-        ['program[]'].forEach(function (n) { names.push(n); });
+        // grup checkbox khusus (mata pelajaran & paket)
+        ['program[]', 'package_ids[]'].forEach(function (n) { names.push(n); });
         names.forEach(function (n) {
             var el = form.querySelector('[name="' + n + '"]');
             var lbl = el ? labelOf(el) : null;
@@ -622,6 +646,11 @@
         // minimal 1 mata pelajaran
         var subjects = form.querySelectorAll('input[name="program[]"]:checked');
         if (subjects.length === 0) missing.push('Mata Pelajaran (pilih minimal 1)');
+
+        // paket: 1–3
+        var pkgChecked = form.querySelectorAll('input[name="package_ids[]"]:checked');
+        if (pkgChecked.length === 0) missing.push('Paket (pilih 1–3)');
+        else if (pkgChecked.length > 3) missing.push('Paket maksimal 3 pilihan');
 
         if (missing.length) {
             e.preventDefault();

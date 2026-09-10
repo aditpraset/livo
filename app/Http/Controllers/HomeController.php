@@ -117,13 +117,12 @@ class HomeController extends Controller
             }
         }
 
-        // Nama paket untuk kolom `package` (tanpa cek ke master harga)
-        $packageName = null;
-        if (!empty($validated['package_id'])) {
-            $pkg  = Package::find($validated['package_id']);
-            $prog = !empty($validated['program_id']) ? Program::find($validated['program_id']) : null;
-            $packageName = trim(($pkg?->package_name ?? '') . ' - ' . ($prog?->program_name ?? ''), ' -');
-        }
+        // Paket (multi-pilih, 1–3). package_id lama = paket pertama (utama).
+        $packageIds       = array_map('intval', array_values(array_filter($validated['package_ids'] ?? [], 'is_numeric')));
+        $primaryPackageId = $packageIds[0] ?? null;
+        $pkgNames         = Package::whereIn('id', $packageIds)->orderBy('id')->pluck('package_name')->all();
+        $prog             = !empty($validated['program_id']) ? Program::find($validated['program_id']) : null;
+        $packageName      = trim(implode(', ', $pkgNames) . ' - ' . ($prog?->program_name ?? ''), ' -') ?: null;
 
         // Resolve jadwal dari master jadwal yang dipilih (bisa lebih dari satu sesuai durasi program)
         $scheduleIds      = array_values(array_filter($validated['class_schedule_ids'] ?? []));
@@ -136,6 +135,8 @@ class HomeController extends Controller
             'status'              => 'Baru',
             'registration_code'   => 'REG-' . strtoupper(str_replace(' ', '', substr($request->full_name, 0, 3))) . '-' . date('YmdHis'),
             'program'             => !empty($programNames) ? json_encode($programNames) : null,
+            'package_ids'         => $packageIds ?: null,
+            'package_id'          => $primaryPackageId,
             'package'             => $packageName,
             'promo_id'            => $promoId,
             'class_schedule_ids'  => !empty($scheduleIds) ? $scheduleIds : null,

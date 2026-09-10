@@ -140,13 +140,13 @@ class StudentController extends Controller
             $programNames = \App\Models\Subject::whereIn('id', $subjectIds)->pluck('subject_name')->toArray();
         }
 
-        // Nama paket untuk kolom `package` (paket + program)
-        $packageName = null;
-        if (!empty($validated['package_id'])) {
-            $pkg  = Package::find($validated['package_id']);
-            $prog = !empty($validated['program_id']) ? Program::find($validated['program_id']) : null;
-            $packageName = trim(($pkg?->package_name ?? '') . ' - ' . ($prog?->program_name ?? ''), ' -');
-        }
+        // Paket (multi-pilih, 1–3). package_id lama tetap diisi = paket pertama (utama)
+        // supaya perhitungan fee, filter jadwal, & pembayaran tetap jalan.
+        $packageIds       = array_map('intval', array_values(array_filter($validated['package_ids'] ?? [], 'is_numeric')));
+        $primaryPackageId = $packageIds[0] ?? null;
+        $pkgNames         = Package::whereIn('id', $packageIds)->orderBy('id')->pluck('package_name')->all();
+        $prog             = !empty($validated['program_id']) ? Program::find($validated['program_id']) : null;
+        $packageName      = trim(implode(', ', $pkgNames) . ' - ' . ($prog?->program_name ?? ''), ' -') ?: null;
 
         // Resolve jadwal dari master jadwal yang dipilih (bisa lebih dari satu sesuai durasi program)
         $scheduleIds    = array_values(array_filter($validated['class_schedule_ids'] ?? []));
@@ -159,6 +159,8 @@ class StudentController extends Controller
             'registration_date'   => $validated['registration_date'] ?? now()->toDateString(),
             'class_type'          => $validated['grade'] ?? null,
             'program'             => !empty($programNames) ? json_encode($programNames) : null,
+            'package_ids'         => $packageIds ?: null,
+            'package_id'          => $primaryPackageId,
             'package'             => $packageName,
             'class_schedule_ids'  => !empty($scheduleIds) ? $scheduleIds : null,
             'selected_days'       => $selectedDays ?: null,
@@ -190,7 +192,7 @@ class StudentController extends Controller
         'Email', 'No. Telp', 'No. WhatsApp',
         'Kelas/Jenjang', 'Proses KBM',
         'ID Program (Master Program)', 'ID Jenjang (Master Jenjang)', 'Durasi (bulan: 1/3/6/12)',
-        'ID Paket (Master Paket)', 'ID Mapel (pisah koma, Master Mapel)', 'ID Jadwal (pisah koma, Master Jadwal)',
+        'ID Paket (pisah koma, maks 3, Master Paket)', 'ID Mapel (pisah koma, Master Mapel)', 'ID Jadwal (pisah koma, Master Jadwal)',
         'Kurikulum Sekolah', 'Materi Pembelajaran',
         'Info Pendaftaran', 'PIC Marketing', 'Status (1=Aktif, 2=Non-Aktif, 3=Cuti)',
     ];
@@ -350,15 +352,21 @@ class StudentController extends Controller
             }
 
             // Master: Paket
-            $packageId = ($get(20) !== '' && Package::whereKey($get(20))->exists()) ? (int) $get(20) : null;
-            if ($get(20) !== '' && $packageId === null) {
-                $errors[] = "Baris {$line}: ID Paket '{$get(20)}' tidak ditemukan (dikosongkan).";
+            // Paket: boleh lebih dari satu (pisah koma, maks 3). package_id = paket pertama.
+            $packageIds = [];
+            if ($get(20) !== '') {
+                $rawIds = array_slice(array_filter(array_map('trim', explode(',', $get(20))), 'is_numeric'), 0, 3);
+                $packageIds = Package::whereIn('id', $rawIds)->orderBy('id')->pluck('id')->map(fn ($v) => (int) $v)->all();
+                if (empty($packageIds)) {
+                    $errors[] = "Baris {$line}: ID Paket '{$get(20)}' tidak ditemukan (dikosongkan).";
+                }
             }
+            $packageId = $packageIds[0] ?? null;
 
-            // Nama paket gabungan "Paket - Program" untuk kolom `package`
+            // Nama paket gabungan "Paket(-paket) - Program" untuk kolom `package`
             $packageName = null;
-            if ($packageId || $programId) {
-                $pkgName  = $packageId ? (Package::find($packageId)?->package_name ?? '') : '';
+            if (!empty($packageIds) || $programId) {
+                $pkgName  = Package::whereIn('id', $packageIds)->orderBy('id')->pluck('package_name')->implode(', ');
                 $progName = $programId ? (Program::find($programId)?->program_name ?? '') : '';
                 $packageName = trim($pkgName . ' - ' . $progName, ' -') ?: null;
             }
@@ -411,6 +419,7 @@ class StudentController extends Controller
                 'grade_id'            => $gradeId,
                 'duration'            => $duration,
                 'package_id'          => $packageId,
+                'package_ids'         => $packageIds ?: null,
                 'package'             => $packageName,
                 'program'             => $programJson,
                 'class_schedule_ids'  => !empty($scheduleIds) ? $scheduleIds : null,
@@ -488,6 +497,9 @@ class StudentController extends Controller
         // balik ke ID supaya checkbox mata pelajaran yang sesuai bisa di-pre-check.
         $selectedSubjectIds = $subjects->whereIn('subject_name', $student->program_list)->pluck('id')->all();
 
+        // Paket siswa (fallback ke [package_id] untuk data lama).
+        $selectedPackageIds = $student->package_id_list;
+
         // Maksimum jadwal = frekuensi (x/minggu) dari program yang dipilih siswa
         $program  = $student->program_id ? Program::find($student->program_id) : null;
         $maxSlots = (int) ($program->duration ?? 0);
@@ -500,7 +512,7 @@ class StudentController extends Controller
 
         return view('admin.students.edit', compact(
             'student', 'program', 'maxSlots', 'programs', 'packages', 'classSchedules', 'selectedScheduleIds',
-            'subjects', 'selectedSubjectIds'
+            'subjects', 'selectedSubjectIds', 'selectedPackageIds'
         ));
     }
 
@@ -514,7 +526,8 @@ class StudentController extends Controller
             'phone' => 'nullable|string',
             'whatsapp' => 'nullable|string',
             'grade' => 'required|string|in:' . implode(',', ClassScheduleController::KELAS),
-            'package_id' => 'required|exists:packages,id',
+            'package_ids' => 'required|array|min:1|max:3',
+            'package_ids.*' => 'integer|exists:packages,id',
             'program_id' => 'required|exists:programs,id',
             'duration' => 'required|integer|in:1,3,6,12',
             'photo' => 'nullable|image|max:5120', // semua tipe foto, maks 5 MB
@@ -523,9 +536,11 @@ class StudentController extends Controller
             'class_schedule_ids.*' => 'nullable|exists:class_schedules,id',
             'program' => 'nullable|array',
             'program.*' => 'integer|exists:subjects,id',
-        ], [], ['grade' => 'Kelas', 'package_id' => 'Paket', 'program_id' => 'Program Belajar', 'duration' => 'Durasi Paket', 'program' => 'Mata Pelajaran']);
+        ], [
+            'package_ids.max' => 'Paket maksimal 3 pilihan.',
+        ], ['grade' => 'Kelas', 'package_ids' => 'Paket', 'program_id' => 'Program Belajar', 'duration' => 'Durasi Paket', 'program' => 'Mata Pelajaran']);
 
-        $data = $request->except(['photo', 'class_schedule_ids', 'program']);
+        $data = $request->except(['photo', 'class_schedule_ids', 'program', 'package_ids']);
 
         // Selaraskan class_type dengan grade (satu-satunya field "kelas" yang diedit di form
         // ini) agar tidak basi — class_type basi menyebabkan pencocokan master jadwal keliru.
@@ -539,6 +554,14 @@ class StudentController extends Controller
             $programNames = Subject::whereIn('id', $request->input('program', []))->pluck('subject_name')->toArray();
         }
         $data['program'] = json_encode($programNames);
+
+        // Paket (multi-pilih, 1–3). package_id tetap diisi = paket pertama (utama).
+        $packageIds = array_map('intval', array_values(array_filter($request->input('package_ids', []), 'is_numeric')));
+        $pkgNames   = Package::whereIn('id', $packageIds)->orderBy('id')->pluck('package_name')->all();
+        $prog       = Program::find($request->input('program_id'));
+        $data['package_ids'] = $packageIds ?: null;
+        $data['package_id']  = $packageIds[0] ?? null;
+        $data['package']     = trim(implode(', ', $pkgNames) . ' - ' . ($prog?->program_name ?? ''), ' -') ?: null;
 
         if ($request->hasFile('photo')) {
             if ($student->photo) {
