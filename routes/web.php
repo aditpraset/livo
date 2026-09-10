@@ -133,6 +133,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/data/administrasi/outstanding', [\App\Http\Controllers\Admin\AdministrasiDashboardController::class, 'dataOutstanding'])->name('administrasi.dashboard.data-outstanding');
         Route::get('/data/administrasi/multi-month', [\App\Http\Controllers\Admin\AdministrasiDashboardController::class, 'dataMultiMonth'])->name('administrasi.dashboard.data-multi-month');
         Route::get('/data/administrasi/pending-evaluations', [\App\Http\Controllers\Admin\AdministrasiDashboardController::class, 'dataPendingEvaluations'])->name('administrasi.dashboard.data-pending-evaluations');
+        Route::get('/data/administrasi/pending-evaluations-detail', [\App\Http\Controllers\Admin\AdministrasiDashboardController::class, 'dataPendingEvaluationsDetail'])->name('administrasi.dashboard.data-pending-evaluations-detail');
         Route::get('/students/create', [StudentController::class, 'create'])->name('students.create');
         Route::get('/students/template', [StudentController::class, 'template'])->name('students.template');
         Route::post('/students/import', [StudentController::class, 'import'])->name('students.import');

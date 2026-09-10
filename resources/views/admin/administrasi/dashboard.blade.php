@@ -15,26 +15,28 @@
     </div>
 </div>
 
+@include('admin.partials.dashboard-date-filter', ['filterRoute' => 'admin.administrasi.dashboard'])
+
 {{-- ══════════ (a) Pembayaran ══════════ --}}
 <div class="mb-2"><h3 class="fs-5 fw-bold mb-0">a. Pembayaran</h3></div>
 <div class="row g-3 mb-3">
     <div class="col-lg-4 col-sm-6 col-12">
         <div class="card p-3 bg-success-subtle border-0 rounded-3 h-100">
-            <div class="subheader text-success mb-1">Total Keseluruhan</div>
+            <div class="subheader text-success mb-1">Total dalam Rentang</div>
             <div class="h2 fw-bold mb-0">Rp {{ number_format($totalPembayaran, 0, ',', '.') }}</div>
-            <div class="small text-muted">Semua transaksi, semua kategori</div>
+            <div class="small text-muted">Semua kategori, {{ $rangeStart->translatedFormat('d M Y') }} – {{ $rangeEnd->translatedFormat('d M Y') }}</div>
         </div>
     </div>
     <div class="col-lg-4 col-sm-6 col-12">
         <div class="card p-3 bg-primary-subtle border-0 rounded-3 h-100">
-            <div class="subheader text-primary mb-1">Bulan Ini</div>
+            <div class="subheader text-primary mb-1">Bulan Berjalan</div>
             <div class="h2 fw-bold mb-0">Rp {{ number_format($revenueThisMonth, 0, ',', '.') }}</div>
             <div class="small text-muted">{{ $monthLabel }}</div>
         </div>
     </div>
 </div>
 <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white px-4 py-3"><h4 class="mb-0 h5">Pembayaran per Bulan (12 Bulan Terakhir)</h4></div>
+    <div class="card-header bg-white px-4 py-3"><h4 class="mb-0 h5">Pembayaran per Bulan (sepanjang rentang)</h4></div>
     <div class="card-body"><div id="chart-revenue"></div></div>
 </div>
 
@@ -59,7 +61,7 @@
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-white px-4 py-3">
         <h4 class="mb-0 h5">Daftar Piutang (dari data Pengingat Pembayaran)</h4>
-        <p class="text-muted small mb-0">Estimasi memakai nominal pembayaran SPP terakhir siswa — bukan tagihan pasti.</p>
+        <p class="text-muted small mb-0">Kondisi terkini — tidak terpengaruh rentang tanggal. Estimasi memakai nominal pembayaran SPP terakhir siswa, bukan tagihan pasti.</p>
     </div>
     <div class="table-responsive p-3">
         <table class="table table-hover align-middle mb-0" id="outstanding-table" style="width:100%">
@@ -79,13 +81,13 @@
 </div>
 
 {{-- ══════════ (c) Breakdown Paket Multi-Bulan ══════════ --}}
-<div class="mb-2"><h3 class="fs-5 fw-bold mb-0">c. Breakdown Pembayaran Paket Multi-Bulan (3/6/12 Bulan)</h3></div>
+<div class="mb-2"><h3 class="fs-5 fw-bold mb-0">c. Breakdown Pembayaran Paket Multi-Bulan (2/3/6/12 Bulan)</h3></div>
 <div class="row g-3 mb-3">
     <div class="col-lg-4 col-sm-6 col-12">
         <div class="card p-3 bg-info-subtle border-0 rounded-3 h-100">
             <div class="subheader text-info mb-1">Jumlah Transaksi</div>
             <div class="h2 fw-bold mb-0">{{ number_format($multiMonthCount) }}</div>
-            <div class="small text-muted">Periode &gt; 1 bulan</div>
+            <div class="small text-muted">Periode &gt; 1 bulan, dalam rentang</div>
         </div>
     </div>
     <div class="col-lg-4 col-sm-6 col-12">
@@ -122,9 +124,9 @@
 <div class="mb-2 d-flex justify-content-between align-items-end flex-wrap gap-2">
     <h3 class="fs-5 fw-bold mb-0">d. Kepadatan Siswa per Sesi (Mingguan)</h3>
     <div class="btn-group">
-        <a href="{{ route('admin.administrasi.dashboard', ['week' => $prevWeek]) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i> Minggu Lalu</a>
-        <a href="{{ route('admin.administrasi.dashboard') }}" class="btn btn-outline-primary btn-sm">Minggu Ini</a>
-        <a href="{{ route('admin.administrasi.dashboard', ['week' => $nextWeek]) }}" class="btn btn-outline-secondary btn-sm">Minggu Depan <i class="bi bi-chevron-right"></i></a>
+        <a href="{{ request()->fullUrlWithQuery(['week' => $prevWeek]) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i> Minggu Lalu</a>
+        <a href="{{ request()->fullUrlWithQuery(['week' => now()->toDateString()]) }}" class="btn btn-outline-primary btn-sm">Minggu Ini</a>
+        <a href="{{ request()->fullUrlWithQuery(['week' => $nextWeek]) }}" class="btn btn-outline-secondary btn-sm">Minggu Depan <i class="bi bi-chevron-right"></i></a>
     </div>
 </div>
 <div class="card border-0 shadow-sm mb-4">
@@ -165,33 +167,69 @@
     </div>
 </div>
 
-{{-- ══════════ (e) Reminder Evaluasi Belum Diisi ══════════ --}}
-<div class="mb-2"><h3 class="fs-5 fw-bold mb-0">e. Reminder Evaluasi Belum Diisi</h3></div>
+{{-- ══════════ (e) Reminder Evaluasi Belum Diisi — per Tutor ══════════ --}}
+<div class="mb-2"><h3 class="fs-5 fw-bold mb-0">e. Reminder Evaluasi Belum Diisi (per Tutor)</h3></div>
 <div class="row g-3 mb-3">
     <div class="col-lg-4 col-sm-6 col-12">
         <div class="card p-3 bg-warning-subtle border-0 rounded-3 h-100">
             <div class="subheader text-warning mb-1">Sesi Belum Dievaluasi</div>
             <div class="h2 fw-bold mb-0">{{ number_format($pendingEvalCount) }}</div>
-            <div class="small text-muted">Selesai / sudah lewat, seluruh tutor</div>
+            <div class="small text-muted">Selesai / sudah lewat, dalam rentang</div>
+        </div>
+    </div>
+    <div class="col-lg-4 col-sm-6 col-12">
+        <div class="card p-3 bg-warning-subtle border-0 rounded-3 h-100">
+            <div class="subheader text-warning mb-1">Tutor Terkait</div>
+            <div class="h2 fw-bold mb-0">{{ number_format($pendingEvalTutorCount) }}</div>
+            <div class="small text-muted">Tutor yang punya sesi belum dievaluasi</div>
         </div>
     </div>
 </div>
 <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white px-4 py-3"><h4 class="mb-0 h5">Daftar Sesi Belum Dievaluasi</h4></div>
+    <div class="card-header bg-white px-4 py-3">
+        <h4 class="mb-0 h5">Rekap per Tutor</h4>
+        <p class="text-muted small mb-0">Klik "Lihat Detail" untuk daftar hari &amp; siswa yang belum dievaluasi tutor tsb.</p>
+    </div>
     <div class="table-responsive p-3">
         <table class="table table-hover align-middle mb-0" id="pending-eval-table" style="width:100%">
             <thead class="table-light">
                 <tr>
                     <th width="40">#</th>
-                    <th>Tanggal</th>
-                    <th>Siswa</th>
                     <th>Tutor</th>
-                    <th>Mapel</th>
-                    <th>Terlambat</th>
+                    <th>Jumlah Sesi</th>
+                    <th>Sesi Terlama</th>
+                    <th class="text-center" width="140">Detail</th>
                 </tr>
             </thead>
             <tbody></tbody>
         </table>
+    </div>
+</div>
+
+{{-- Modal detail per tutor --}}
+<div class="modal fade" id="modal-eval-detail" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-clipboard-x me-2 text-warning"></i>Belum Dievaluasi — <span id="eval-detail-tutor">—</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-2">Rentang: {{ $rangeStart->translatedFormat('d M Y') }} – {{ $rangeEnd->translatedFormat('d M Y') }}</p>
+                <table class="table table-sm table-striped align-middle mb-0" id="eval-detail-table" style="width:100%">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="40">#</th>
+                            <th>Hari / Tanggal</th>
+                            <th>Siswa</th>
+                            <th>Mapel</th>
+                            <th>Terlambat</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 @endsection
@@ -199,6 +237,11 @@
 @push('js')
 <script>
 $(function () {
+    var filterParams = function (d) {
+        d.start_date = $('#dashboard-date-filter [name=start_date]').val();
+        d.end_date   = $('#dashboard-date-filter [name=end_date]').val();
+    };
+
     $('#outstanding-table').DataTable({
         processing: true, serverSide: true,
         ajax: "{{ route('admin.administrasi.dashboard.data-outstanding') }}",
@@ -215,7 +258,7 @@ $(function () {
 
     $('#multi-month-table').DataTable({
         processing: true, serverSide: true,
-        ajax: "{{ route('admin.administrasi.dashboard.data-multi-month') }}",
+        ajax: { url: "{{ route('admin.administrasi.dashboard.data-multi-month') }}", data: filterParams },
         columns: [
             { data: 'DT_RowIndex', orderable: false, searchable: false },
             { data: 'full_name' },
@@ -224,21 +267,48 @@ $(function () {
             { data: 'per_month_label', orderable: false, className: 'text-end' },
             { data: 'coverage', orderable: false },
         ],
-        language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json', emptyTable: 'Belum ada pembayaran paket multi-bulan.' }
+        language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json', emptyTable: 'Belum ada pembayaran paket multi-bulan pada rentang ini.' }
     });
 
     $('#pending-eval-table').DataTable({
         processing: true, serverSide: true,
-        ajax: "{{ route('admin.administrasi.dashboard.data-pending-evaluations') }}",
+        ajax: { url: "{{ route('admin.administrasi.dashboard.data-pending-evaluations') }}", data: filterParams },
+        columns: [
+            { data: 'DT_RowIndex', orderable: false, searchable: false },
+            { data: 'tutor_label', orderable: false },
+            { data: 'total_label', orderable: false },
+            { data: 'oldest_label', orderable: false },
+            { data: 'action', orderable: false, searchable: false, className: 'text-center' },
+        ],
+        language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json', emptyTable: 'Semua sesi sudah dievaluasi pada rentang ini. 🎉' }
+    });
+
+    var detailTable = $('#eval-detail-table').DataTable({
+        processing: true, serverSide: true,
+        ajax: {
+            url: "{{ route('admin.administrasi.dashboard.data-pending-evaluations-detail') }}",
+            data: function (d) {
+                filterParams(d);
+                d.tutor_id = $('#modal-eval-detail').data('tutor-id');
+            }
+        },
         columns: [
             { data: 'DT_RowIndex', orderable: false, searchable: false },
             { data: 'class_date', orderable: false },
             { data: 'student_name', orderable: false },
-            { data: 'tutor_name', orderable: false },
             { data: 'subject_name', orderable: false },
             { data: 'days_overdue', orderable: false },
         ],
-        language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json', emptyTable: 'Semua sesi sudah dievaluasi. 🎉' }
+        language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json', emptyTable: 'Tidak ada sesi.' },
+        order: [[1, 'asc']],
+    });
+
+    $(document).on('click', '.btn-eval-detail', function () {
+        var $b = $(this);
+        $('#modal-eval-detail').data('tutor-id', $b.data('tutor-id'));
+        $('#eval-detail-tutor').text($b.data('tutor-name'));
+        $('#modal-eval-detail').modal('show');
+        detailTable.ajax.reload();
     });
 
     var brand = '#2C3E73';

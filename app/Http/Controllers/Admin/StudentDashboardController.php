@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\ResolvesDashboardDateRange;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Student;
@@ -12,19 +13,26 @@ use Yajra\DataTables\Facades\DataTables;
 /**
  * Dashboard Siswa — akumulasi status, pembayaran bulan berjalan,
  * pertumbuhan siswa baru, dan sebaran per jenjang.
+ *
+ * Rentang tanggal (default: 1 tahun penuh tahun berjalan) memengaruhi bagian
+ * "penambahan siswa baru" (berdasarkan registration_date). Akumulasi status &
+ * sebaran jenjang tetap kondisi terkini.
  */
 class StudentDashboardController extends Controller
 {
+    use ResolvesDashboardDateRange;
+
     // Urutan jenjang yang dikenal, dari yang termuda — pakai daftar resmi yang
     // sama dengan Master Jadwal (ClassScheduleController::KELAS: TK, SD 1-6,
     // SMP 7-9, SMA 10-12) supaya konsisten. Jenjang di luar daftar ini (data
     // tidak baku) tetap ditampilkan, ditaruh di akhir.
 
-    public function index()
+    public function index(Request $request)
     {
         $now = now();
+        [$start, $end] = $this->resolveDashboardRange($request);
 
-        // ── (a) Akumulasi siswa: total & status ──
+        // ── (a) Akumulasi siswa: total & status (kondisi terkini) ──
         $statusCounts = Student::selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
         $stats = [
             'total'      => Student::count(),
@@ -42,20 +50,15 @@ class StudentDashboardController extends Controller
             })
             ->count();
 
-        // ── (b) Penambahan siswa baru: bulan berjalan, tahun berjalan, keseluruhan ──
+        // ── (b) Penambahan siswa baru: dalam rentang, tahun berjalan, keseluruhan ──
+        $newInRange = Student::whereBetween('registration_date', [$start->toDateString(), $end->toDateString()])->count();
         $newThisMonth = Student::whereYear('registration_date', $now->year)
             ->whereMonth('registration_date', $now->month)->count();
         $newThisYear = Student::whereYear('registration_date', $now->year)->count();
 
-        // Tren 12 bulan terakhir (termasuk bulan berjalan).
-        // startOfMonth() dipanggil SEBELUM subMonths() — mengurangi bulan dari
-        // tanggal akhir bulan (mis. 31) bisa overflow/duplikat kalau urutannya dibalik
-        // (subMonths dulu baru startOfMonth), krn bulan tujuan belum tentu punya tgl segitu.
-        $monthsRange = collect(range(11, 0))->map(fn ($i) => $now->copy()->startOfMonth()->subMonths($i));
-        $byMonthRaw = Student::whereBetween('registration_date', [
-                $monthsRange->first()->toDateString(),
-                $now->copy()->endOfMonth()->toDateString(),
-            ])
+        // Tren per bulan sepanjang rentang.
+        $monthsRange = $this->monthsBetween($start, $end);
+        $byMonthRaw = Student::whereBetween('registration_date', [$start->toDateString(), $end->toDateString()])
             ->selectRaw("DATE_FORMAT(registration_date, '%Y-%m') as ym, count(*) as total")
             ->groupBy('ym')->pluck('total', 'ym');
         $newPerMonth = $monthsRange->map(fn ($m) => [
@@ -63,14 +66,14 @@ class StudentDashboardController extends Controller
             'total' => (int) ($byMonthRaw[$m->format('Y-m')] ?? 0),
         ]);
 
-        // Tren 5 tahun terakhir (termasuk tahun berjalan)
+        // Tren 5 tahun terakhir (termasuk tahun berjalan) — tampilan jangka panjang, lepas dari rentang.
         $yearsRange = collect(range(4, 0))->map(fn ($i) => $now->year - $i);
         $byYearRaw = Student::whereYear('registration_date', '>=', $yearsRange->first())
             ->selectRaw('YEAR(registration_date) as y, count(*) as total')
             ->groupBy('y')->pluck('total', 'y');
         $newPerYear = $yearsRange->map(fn ($y) => ['label' => (string) $y, 'total' => (int) ($byYearRaw[$y] ?? 0)]);
 
-        // ── (c) Jumlah siswa per jenjang ──
+        // ── (c) Jumlah siswa per jenjang (kondisi terkini) ──
         $byGradeRaw = Student::whereNotNull('grade')->where('grade', '!=', '')
             ->selectRaw('grade, count(*) as total')->groupBy('grade')->pluck('total', 'grade');
         $knownOrder = array_flip(ClassScheduleController::KELAS);
@@ -84,8 +87,11 @@ class StudentDashboardController extends Controller
             ->map(fn ($grade) => ['label' => $grade, 'total' => (int) $byGradeRaw[$grade]]);
 
         return view('admin.students.dashboard', [
+            'rangeStart'   => $start,
+            'rangeEnd'     => $end,
             'stats'        => $stats,
             'unpaidCount'  => $unpaidCount,
+            'newInRange'   => $newInRange,
             'newThisMonth' => $newThisMonth,
             'newThisYear'  => $newThisYear,
             'newPerMonth'  => $newPerMonth,

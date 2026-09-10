@@ -17,8 +17,10 @@
     </div>
 </div>
 
+@include('admin.partials.dashboard-date-filter', ['filterRoute' => 'admin.students.dashboard'])
+
 {{-- ══════════ (a) Akumulasi Siswa & Status Pembayaran ══════════ --}}
-<div class="mb-2"><h3 class="fs-5 fw-bold mb-0">Akumulasi Siswa</h3></div>
+<div class="mb-2"><h3 class="fs-5 fw-bold mb-0">Akumulasi Siswa <span class="text-muted fw-normal fs-6">(kondisi terkini)</span></h3></div>
 <div class="row g-3 mb-4">
     <div class="col-lg col-sm-6 col-12">
         <div class="card p-3 bg-secondary-subtle border-0 rounded-3 h-100">
@@ -82,21 +84,28 @@
 {{-- ══════════ (b) Pertumbuhan Siswa Baru ══════════ --}}
 <div class="mb-2"><h3 class="fs-5 fw-bold mb-0">Penambahan Siswa Baru</h3></div>
 <div class="row g-3 mb-3">
-    <div class="col-lg-4 col-sm-6 col-12">
+    <div class="col-lg-3 col-sm-6 col-12">
+        <div class="card p-3 bg-primary-subtle border-0 rounded-3 h-100">
+            <div class="subheader text-primary mb-1">Dalam Rentang</div>
+            <div class="h2 fw-bold mb-0">{{ number_format($newInRange) }}</div>
+            <div class="small text-muted">{{ $rangeStart->translatedFormat('d M Y') }} – {{ $rangeEnd->translatedFormat('d M Y') }}</div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-sm-6 col-12">
         <div class="card p-3 bg-primary-subtle border-0 rounded-3 h-100">
             <div class="subheader text-primary mb-1">Bulan Ini</div>
             <div class="h2 fw-bold mb-0">{{ number_format($newThisMonth) }}</div>
             <div class="small text-muted">{{ $monthLabel }}</div>
         </div>
     </div>
-    <div class="col-lg-4 col-sm-6 col-12">
+    <div class="col-lg-3 col-sm-6 col-12">
         <div class="card p-3 bg-info-subtle border-0 rounded-3 h-100">
             <div class="subheader text-info mb-1">Tahun Ini</div>
             <div class="h2 fw-bold mb-0">{{ number_format($newThisYear) }}</div>
             <div class="small text-muted">{{ now()->format('Y') }}</div>
         </div>
     </div>
-    <div class="col-lg-4 col-sm-6 col-12">
+    <div class="col-lg-3 col-sm-6 col-12">
         <div class="card p-3 bg-secondary-subtle border-0 rounded-3 h-100">
             <div class="subheader text-secondary mb-1">Keseluruhan</div>
             <div class="h2 fw-bold mb-0">{{ number_format($stats['total']) }}</div>
@@ -108,20 +117,20 @@
 <div class="row g-3 mb-4">
     <div class="col-lg-8 col-12">
         <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-white px-4 py-3"><h4 class="mb-0 h5">Siswa Baru per Bulan (12 Bulan Terakhir)</h4></div>
+            <div class="card-header bg-white px-4 py-3"><h4 class="mb-0 h5">Siswa Baru per Bulan (sepanjang rentang)</h4></div>
             <div class="card-body"><div id="chart-per-month"></div></div>
         </div>
     </div>
     <div class="col-lg-4 col-12">
         <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-white px-4 py-3"><h4 class="mb-0 h5">Siswa Baru per Tahun</h4></div>
+            <div class="card-header bg-white px-4 py-3"><h4 class="mb-0 h5">Siswa Baru per Tahun <span class="text-muted fw-normal small">(5 thn terakhir)</span></h4></div>
             <div class="card-body"><div id="chart-per-year"></div></div>
         </div>
     </div>
 </div>
 
 {{-- ══════════ (c) Sebaran per Jenjang ══════════ --}}
-<div class="mb-2"><h3 class="fs-5 fw-bold mb-0">Sebaran Siswa per Jenjang</h3></div>
+<div class="mb-2"><h3 class="fs-5 fw-bold mb-0">Sebaran Siswa per Jenjang <span class="text-muted fw-normal fs-6">(kondisi terkini)</span></h3></div>
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-white px-4 py-3"><h4 class="mb-0 h5">Jumlah Siswa per Jenjang / Kelas</h4></div>
     <div class="card-body"><div id="chart-per-grade"></div></div>
