@@ -874,6 +874,21 @@ $(function () {
         });
     }
 
+    /* Tampilkan pesan error AJAX secara eksplisit — termasuk 419 (sesi/token basi,
+       mis. halaman kalender dibiarkan terbuka lama) yang sebelumnya gagal SENYAP
+       tanpa pesan apa pun ke admin (tombol terlihat diklik tapi status tak berubah). */
+    function showAjaxError(xhr) {
+        if (xhr.status === 419) {
+            Swal.fire({
+                icon: 'warning', title: 'Sesi Berakhir',
+                text: 'Sesi Anda sudah kadaluarsa. Muat ulang halaman lalu coba lagi.',
+                confirmButtonText: 'Muat Ulang', showCancelButton: true, cancelButtonText: 'Tutup'
+            }).then(function (r) { if (r.isConfirmed) location.reload(); });
+            return;
+        }
+        Swal.fire('Gagal', xhr.responseJSON?.message ?? 'Terjadi kesalahan. Silakan coba lagi.', 'error');
+    }
+
     function doMarkDone(id) {
         Swal.fire({
             title: 'Tandai Sesi Selesai?',
@@ -887,8 +902,10 @@ $(function () {
                 data: { status: 'done', _token: '{{ csrf_token() }}' },
                 success: function (res) {
                     calendar.refetchEvents();
+                    if (groupedTable) groupedTable.ajax.reload(null, false);
                     Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2000, showConfirmButton: false });
-                }
+                },
+                error: showAjaxError
             });
         });
     }
@@ -906,8 +923,10 @@ $(function () {
                 data: { status: 'canceled', _token: '{{ csrf_token() }}' },
                 success: function (res) {
                     calendar.refetchEvents();
+                    if (groupedTable) groupedTable.ajax.reload(null, false);
                     Swal.fire({ icon: 'success', title: 'Dibatalkan', text: res.message, timer: 2000, showConfirmButton: false });
-                }
+                },
+                error: showAjaxError
             });
         });
     }

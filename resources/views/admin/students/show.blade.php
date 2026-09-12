@@ -767,6 +767,21 @@ $(function () {
         });
     });
 
+    /* Tampilkan pesan error AJAX secara eksplisit — termasuk 419 (sesi/token basi,
+       mis. halaman dibiarkan terbuka lama) yang sebelumnya gagal SENYAP tanpa pesan
+       apa pun ke admin (tombol terlihat diklik tapi status jadwal tak berubah). */
+    function showAjaxError(xhr) {
+        if (xhr.status === 419) {
+            Swal.fire({
+                icon: 'warning', title: 'Sesi Berakhir',
+                text: 'Sesi Anda sudah kadaluarsa. Muat ulang halaman lalu coba lagi.',
+                confirmButtonText: 'Muat Ulang', showCancelButton: true, cancelButtonText: 'Tutup'
+            }).then(function (r) { if (r.isConfirmed) location.reload(); });
+            return;
+        }
+        Swal.fire('Gagal', xhr.responseJSON?.message ?? 'Terjadi kesalahan. Silakan coba lagi.', 'error');
+    }
+
     /* ---- Tandai Selesai ---- */
     $(document).on('click', '.btn-done-student', function () {
         var id = $(this).data('id');
@@ -783,7 +798,8 @@ $(function () {
                     success: function (res) {
                         Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2000, showConfirmButton: false })
                             .then(function () { location.reload(); });
-                    }
+                    },
+                    error: showAjaxError
                 });
             }
         });
@@ -800,7 +816,8 @@ $(function () {
                 $.ajax({
                     url: '/admin/schedules/' + id + '/status', type: 'PUT',
                     data: { status: 'canceled', _token: '{{ csrf_token() }}' },
-                    success: function () { location.reload(); }
+                    success: function () { location.reload(); },
+                    error: showAjaxError
                 });
             }
         });
