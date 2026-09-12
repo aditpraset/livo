@@ -148,6 +148,28 @@
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+    {{-- Method spoofing Laravel untuk SEMUA AJAX PUT/PATCH/DELETE — lihat catatan
+         lengkap di admin/layouts/app.blade.php. Sebagian server tidak meneruskan body
+         request PUT/DELETE ke PHP, sehingga field & _token hilang. --}}
+    <script>
+        $.ajaxPrefilter(function (options) {
+            var method = (options.type || options.method || 'GET').toUpperCase();
+            if (method !== 'PUT' && method !== 'PATCH' && method !== 'DELETE') return;
+
+            options.type = options.method = 'POST';
+
+            if (options.data instanceof FormData) {
+                options.data.append('_method', method);
+            } else if (typeof options.data === 'string') {
+                options.data += (options.data.length ? '&' : '') + '_method=' + method;
+            } else if (options.data && typeof options.data === 'object') {
+                options.data = $.extend({}, options.data, { _method: method });
+            } else {
+                options.data = '_method=' + method;
+            }
+        });
+    </script>
+
     {{-- Flash messages --}}
     @if(session('success'))
     <script>

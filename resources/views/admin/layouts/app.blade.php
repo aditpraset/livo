@@ -83,6 +83,34 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
+    {{-- Method spoofing Laravel untuk SEMUA AJAX PUT/PATCH/DELETE.
+         Sebagian web server / WAF (Apache, LiteSpeed, proxy hosting) tidak meneruskan
+         body request PUT/DELETE ke PHP, atau mengubah Content-Type-nya. Akibatnya field
+         di body hilang: validasi gagal ("The status field is required") atau CSRF _token
+         hilang ("Page Expired" 419) — padahal tombolnya sudah diklik.
+         Dikirim sebagai POST + _method supaya body SELALU terbaca di semua server;
+         Laravel tetap meneruskannya ke route PUT/PATCH/DELETE yang sama. --}}
+    <script>
+        $.ajaxPrefilter(function (options) {
+            var method = (options.type || options.method || 'GET').toUpperCase();
+            if (method !== 'PUT' && method !== 'PATCH' && method !== 'DELETE') return;
+
+            options.type = options.method = 'POST';
+
+            // options.data bisa berupa FormData / string (sudah diserialisasi jQuery) /
+            // objek / kosong — tangani semuanya agar urutan internal jQuery tidak jadi masalah.
+            if (options.data instanceof FormData) {
+                options.data.append('_method', method);
+            } else if (typeof options.data === 'string') {
+                options.data += (options.data.length ? '&' : '') + '_method=' + method;
+            } else if (options.data && typeof options.data === 'object') {
+                options.data = $.extend({}, options.data, { _method: method });
+            } else {
+                options.data = '_method=' + method;
+            }
+        });
+    </script>
+
     {{-- Global Select2: ubah seluruh dropdown <select> menjadi Select2 --}}
     <script>
         // Inisialisasi (atau re-init) semua <select> dalam sebuah scope menjadi Select2.
