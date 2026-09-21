@@ -51,8 +51,8 @@ trait ComputesTutorFee
      */
     protected const PACKAGE_FEE_FIELD = [
         5  => 'fee_per_student_private', // Kelas Privat
-        7  => 'fee_private_khusus',      // Privat Khusus — per sesi saja, lihat PACKAGE_SESSION_ONLY
-        9  => 'fee_private_khusus',      // Privat Khusus
+        7  => 'fee_tka_visit',          // Kelas TKA Visit — per sesi saja, lihat PACKAGE_SESSION_ONLY
+        9  => 'fee_private_khusus',      // Kelas Private Khusus
         10 => 'fee_private_sma',         // Privat SMA
         8  => 'fee_tka_regular',         // TKA Reguler
         6  => 'fee_per_session',         // Kelas Semi Privat
