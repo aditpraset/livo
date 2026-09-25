@@ -27,13 +27,17 @@ use Illuminate\Support\Collection;
  * masing-masing mengambil kolom tarif yang berbeda di data tutor. Rincian jumlah sesi
  * & tarif per paket disimpan di kolom `session_breakdown` supaya bisa diaudit admin.
  *
- * Tutor TETAP (kategori=tetap): tidak dibayar dari a/b/c/d (semua bernilai 0).
- * Total fee = gaji_pokok + tunjangan_per_bulan + (kelebihan sesi × fee_per_session), dengan:
- *   - Kelebihan sesi dihitung dari TOTAL sesi diajar bulan itu (semua paket,
- *     hanya kehadiran "hadir") dikurangi maks_sesi_tunjangan_per_bulan.
+ * Tutor TETAP (kategori=tetap): tidak dibayar dari a/c/d.
+ * Total fee = gaji_pokok + tunjangan_per_bulan + (kelebihan sesi × fee_per_session)
+ *             + (sesi paket "sesi saja" × tarif paketnya sendiri), dengan:
+ *   - Kelebihan sesi dihitung dari sesi diajar bulan itu (hanya kehadiran "hadir")
+ *     dikurangi maks_sesi_tunjangan_per_bulan. Sesi paket "sesi saja"
+ *     (PACKAGE_SESSION_ONLY, mis. TKA Visit) TIDAK ikut membebani kuota ini.
  *   - Jika maks_sesi_tunjangan_per_bulan belum diisi (null), dianggap tidak ada batas →
  *     tidak pernah ada fee tambahan.
  *   - Tarif kelebihan sesi memakai fee_per_session (fee per sesi semi-privat).
+ *   - Paket "sesi saja" tetap dibayar penuh per sesi memakai tarif paketnya sendiri
+ *     (mis. fee_tka_visit), karena beban mengajarnya di luar jadwal rutin.
  *
  * Ketentuan umum (berlaku untuk hitungan sesi/kehadiran, dipakai kedua kategori):
  *  - Sesi yang dihitung berstatus "done", dan hanya kehadiran "hadir" yang
@@ -155,13 +159,27 @@ trait ComputesTutorFee
         $isTetap = $tutor->kategori === 'tetap';
 
         // (a & b) Fee sesi: tiap paket memakai kolom tarif tutor yang berbeda.
+        //
+        // Paket "sesi saja" (PACKAGE_SESSION_ONLY, mis. TKA Visit) dibayar per sesi
+        // dengan tarifnya sendiri untuk KEDUA kategori tutor — termasuk tutor tetap —
+        // dan sesinya TIDAK membebani kuota tunjangan bulanan. Paket lain hanya
+        // dibayar untuk freelance; bagi tutor tetap sudah tercakup gaji pokok.
         $a = 0.0;
         $b = 0.0;
         $breakdown = [];
+        $quotaSessionCount = 0; // sesi yang diperhitungkan terhadap maks_sesi_tunjangan_per_bulan
+
         foreach ($sessionPackages->countBy()->sortKeys() as $packageId => $count) {
-            $packageId = (int) $packageId;
-            $rate      = $this->packageSessionRate($tutor, $packageId);
-            $subtotal  = $isTetap ? 0.0 : $count * $rate;
+            $packageId   = (int) $packageId;
+            $sessionOnly = $isSessionOnly($packageId);
+            $dibayar     = !$isTetap || $sessionOnly;
+
+            $rate     = $dibayar ? $this->packageSessionRate($tutor, $packageId) : 0.0;
+            $subtotal = $count * $rate;
+
+            if (!$sessionOnly) {
+                $quotaSessionCount += $count;
+            }
 
             if ($packageId === self::PACKAGE_PRIVATE) {
                 $a += $subtotal;
@@ -170,11 +188,12 @@ trait ComputesTutorFee
             }
 
             $breakdown[] = [
-                'package_id' => $packageId,
-                'label'      => $this->packageLabel($packageId),
-                'count'      => $count,
-                'rate'       => $isTetap ? 0.0 : $rate,
-                'subtotal'   => $subtotal,
+                'package_id'   => $packageId,
+                'label'        => $this->packageLabel($packageId),
+                'count'        => $count,
+                'rate'         => $rate,
+                'subtotal'     => $subtotal,
+                'session_only' => $sessionOnly,
             ];
         }
 
@@ -193,8 +212,8 @@ trait ComputesTutorFee
             $feeTunjangan = (float) ($tutor->tunjangan_per_bulan ?? 0);
 
             $maksSesi = $tutor->maks_sesi_tunjangan_per_bulan;
-            if ($maksSesi !== null && $totalSessionCount > $maksSesi) {
-                $extraSessionCount = $totalSessionCount - $maksSesi;
+            if ($maksSesi !== null && $quotaSessionCount > $maksSesi) {
+                $extraSessionCount = $quotaSessionCount - $maksSesi;
                 $feeExtraSession = $extraSessionCount * $rSession;
             }
         }
@@ -213,7 +232,7 @@ trait ComputesTutorFee
             'extra_session_count'  => $extraSessionCount,
             'fee_extra_session'    => $feeExtraSession,
             // Rincian sesi per paket (audit tarif a+b). Tutor tetap tidak dibayar per sesi.
-            'session_breakdown'    => $isTetap ? null : ($breakdown ?: null),
+            'session_breakdown'    => $breakdown ?: null,
             'total'         => $a + $b + $c + $d + $feePokok + $feeTunjangan + $feeExtraSession,
         ];
     }

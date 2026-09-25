@@ -23,6 +23,7 @@ class TutorFee extends Model
         'fee_tunjangan',
         'extra_session_count',
         'fee_extra_session',
+        'fee_insentif',
         'session_breakdown',
     ];
 

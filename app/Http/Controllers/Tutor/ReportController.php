@@ -90,7 +90,7 @@ class ReportController extends BaseTutorController
 
         $empty = ['private_count' => 0, 'regular_count' => 0, 'session_count' => 0, 'day_count' => 0,
             'fee_private' => 0, 'fee_regular' => 0, 'fee_session' => 0, 'fee_transport' => 0,
-            'fee_pokok' => 0, 'fee_tunjangan' => 0, 'extra_session_count' => 0, 'fee_extra_session' => 0, 'total' => 0];
+            'fee_pokok' => 0, 'fee_tunjangan' => 0, 'extra_session_count' => 0, 'fee_extra_session' => 0, 'fee_insentif' => 0, 'total' => 0];
 
         $rows = collect(range(1, 12))->map(function ($m) use ($published, $year, $empty) {
             $tf = $published->get($m);
@@ -129,6 +129,7 @@ class ReportController extends BaseTutorController
                 'fee_tunjangan'       => $sum('fee_tunjangan'),
                 'extra_session_count' => $sum('extra_session_count'),
                 'fee_extra_session'   => $sum('fee_extra_session'),
+                'fee_insentif'        => $sum('fee_insentif'),
                 'total'         => $sum('total'),
             ],
         ]);
@@ -160,7 +161,7 @@ class ReportController extends BaseTutorController
         $fee = $tutorFee->only([
             'private_count', 'regular_count', 'session_count', 'day_count',
             'fee_private', 'fee_regular', 'fee_session', 'fee_transport',
-            'fee_pokok', 'fee_tunjangan', 'extra_session_count', 'fee_extra_session', 'session_breakdown', 'total',
+            'fee_pokok', 'fee_tunjangan', 'extra_session_count', 'fee_extra_session', 'fee_insentif', 'session_breakdown', 'total',
         ]);
 
         $pdf = Pdf::loadView('tutor.reports.pdf.slip-gaji', compact('tutor', 'month', 'fee'))

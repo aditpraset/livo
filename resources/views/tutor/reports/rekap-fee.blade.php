@@ -67,6 +67,7 @@
     <p class="text-muted small mb-3">
         <i class="bi bi-info-circle me-1"></i> Anda tutor kategori <strong>Tetap</strong>: fee dihitung dari Gaji Pokok + Tunjangan,
         ditambah fee per sesi (tarif sesi Semi-Privat) untuk tiap sesi mengajar yang melebihi batas tunjangan bulanan.
+        Sesi paket <strong>TKA Visit</strong> dibayar terpisah dengan tarifnya sendiri dan <strong>tidak</strong> menghabiskan kuota tunjangan Anda.
     </p>
 @else
     @if($rates['session'] <= 0 && $rates['private'] <= 0 && $rates['student'] <= 0 && $rates['transport'] <= 0)
@@ -124,6 +125,7 @@
                     <th colspan="2" class="text-center border-start">Transport (d)</th>
                     <th rowspan="2" class="text-center align-middle border-start">Gapok + Tunjangan</th>
                     <th colspan="2" class="text-center border-start">Sesi Tambahan</th>
+                    <th rowspan="2" class="text-center align-middle border-start">Insentif</th>
                     <th rowspan="2" class="text-end align-middle border-start">Total Fee</th>
                     <th rowspan="2" class="text-center align-middle">Slip</th>
                 </tr>
@@ -155,6 +157,7 @@
                         <td class="text-center border-start small">{{ $rp($row['fee_pokok']) }} + {{ $rp($row['fee_tunjangan']) }}</td>
                         <td class="text-center border-start">{{ $row['extra_session_count'] }}</td>
                         <td class="text-end">{{ $rp($row['fee_extra_session']) }}</td>
+                        <td class="text-center border-start">{{ $rp($row['fee_insentif']) }}</td>
                         <td class="text-end fw-bold border-start">{{ $rp($row['total']) }}</td>
                         <td class="text-center">
                             @if($row['published'])
@@ -182,6 +185,7 @@
                     <td class="text-center border-start small">{{ $rp($totals['fee_pokok']) }} + {{ $rp($totals['fee_tunjangan']) }}</td>
                     <td class="text-center border-start">{{ $totals['extra_session_count'] }}</td>
                     <td class="text-end">{{ $rp($totals['fee_extra_session']) }}</td>
+                    <td class="text-center border-start">{{ $rp($totals['fee_insentif']) }}</td>
                     <td class="text-end text-success border-start">{{ $rp($totals['total']) }}</td>
                     <td></td>
                 </tr>
@@ -195,6 +199,8 @@
 Sesi Privat (a) & Sesi Paket Lain (b) dihitung flat per slot (tanggal + jam) — sesi berisi minimal satu siswa Privat dihitung (a), selain itu dihitung (b).
     <strong>Tarif tiap sesi mengikuti paket kelas siswa</strong> (Privat, Semi Privat, TKA Reguler, Privat Khusus, Privat SMA), jadi nominal (b) bisa merupakan gabungan beberapa tarif — rinciannya ada di slip gaji bulan tsb.
     Total Siswa (c) dihitung per kehadiran, kecuali siswa paket yang dibayar per sesi saja. Transport (d) dihitung per hari yang ada sesi, kecuali hari yang hanya berisi paket per sesi saja.
-    Untuk tutor kategori Tetap, hanya kolom Gapok + Tunjangan dan Sesi Tambahan yang dibayarkan (kolom a/b/c/d di atas hanya statistik aktivitas, bernilai Rp 0).
+    Untuk tutor kategori Tetap, yang dibayarkan adalah Gapok + Tunjangan, Sesi Tambahan (sesi melebihi kuota tunjangan),
+    ditambah sesi paket "sesi saja" seperti TKA Visit yang dibayar penuh per sesi dengan tarifnya sendiri dan tidak membebani kuota.
+    Kolom (a), (c), dan (d) untuk tutor Tetap hanya statistik aktivitas, bernilai Rp 0.
 </p>
 @endsection

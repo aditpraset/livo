@@ -86,6 +86,7 @@
                         <th>Rincian Sesi per Paket</th>
                         <th class="text-center">Gapok + Tunjangan</th>
                         <th class="text-center">Sesi Tambahan</th>
+                        <th class="text-center">Insentif</th>
                         <th class="text-end">Total Fee</th>
                         <th class="text-center" width="70">Aksi</th>
                     </tr>
@@ -94,11 +95,14 @@
         </div>
         <p class="text-muted small mt-2 mb-0">
             <i class="bi bi-info-circle me-1"></i> Fee dapat diedit manual selama periode masih berstatus draft (belum diterbitkan).
+            <strong>Insentif</strong> diisi manual per bulan lewat tombol Edit — berlaku untuk tutor Freelance maupun Tetap,
+            dan nilainya tetap aman saat Anda menekan Generate / Hitung Ulang.
             Tutor <strong>Freelance</strong> dibayar dari kolom (a)+(b)+(c)+(d); tutor <strong>Tetap</strong> dibayar dari Gaji Pokok + Tunjangan,
             ditambah fee per sesi (tarif sesi Semi-Privat) untuk tiap sesi yang melebihi batas tunjangan bulanannya.
+            <br>Paket <strong>&quot;sesi saja&quot;</strong> (mis. TKA Visit) dibayar terpisah per sesi dengan tarif paketnya sendiri —
+            berlaku untuk freelance <em>maupun</em> tutor tetap — dan sesinya <strong>tidak</strong> membebani kuota tunjangan tutor tetap.
             <br>Tarif per sesi mengikuti <strong>paket kelas siswa</strong> di sesi tsb (Privat, Semi Privat, TKA Reguler, Privat Khusus, Privat SMA) —
-            lihat kolom <strong>Rincian Sesi per Paket</strong>. Siswa paket <strong>Privat Khusus (sesi saja)</strong> hanya dibayar per sesi,
-            tidak menambah fee per siswa (c) maupun transport (d).
+            lihat kolom <strong>Rincian Sesi per Paket</strong>. Sesi paket &quot;sesi saja&quot; tidak menambah fee per siswa (c) maupun transport (d).
         </p>
     </div>
 </div>
@@ -163,6 +167,12 @@
                         <label class="form-label fw-semibold">Fee Sesi Tambahan (Rp)</label>
                         <input type="number" min="0" id="edit-fee-extra-session" class="form-control fee-amount">
                     </div>
+                    <div class="col-12"><hr class="my-1"><small class="text-muted">Berlaku untuk semua kategori tutor</small></div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Insentif (Rp)</label>
+                        <input type="number" min="0" id="edit-fee-insentif" class="form-control fee-amount">
+                        <small class="text-muted">Diisi manual tiap bulan. Nilainya dipertahankan saat Hitung Ulang.</small>
+                    </div>
                     <div class="col-12">
                         <hr>
                         <label class="form-label fw-semibold">Total Fee (Rp)</label>
@@ -200,6 +210,7 @@ $(function () {
             { data: 'session_detail', orderable: false, searchable: false },
             { data: 'pokok_tunjangan', orderable: false, className: 'text-center' },
             { data: 'extra_session', orderable: false, className: 'text-center' },
+            { data: 'insentif', orderable: false, className: 'text-center' },
             { data: 'total', orderable: false, className: 'text-end' },
             { data: 'action', orderable: false, searchable: false, className: 'text-center' },
         ],
@@ -240,6 +251,7 @@ $(function () {
         $('#edit-fee-tunjangan').val(b.data('fee-tunjangan'));
         $('#edit-extra-session-count').val(b.data('extra-session-count'));
         $('#edit-fee-extra-session').val(b.data('fee-extra-session'));
+        $('#edit-fee-insentif').val(b.data('fee-insentif'));
         $('#edit-total').val(b.data('total'));
         $('#modal-edit-fee').modal('show');
     });
@@ -264,6 +276,7 @@ $(function () {
                 fee_tunjangan: $('#edit-fee-tunjangan').val(),
                 extra_session_count: $('#edit-extra-session-count').val(),
                 fee_extra_session: $('#edit-fee-extra-session').val(),
+                fee_insentif: $('#edit-fee-insentif').val(),
                 total: $('#edit-total').val(),
             },
             success: function (res) {
