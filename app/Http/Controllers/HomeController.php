@@ -130,10 +130,14 @@ class HomeController extends Controller
         $selectedDays     = $classSchedules->pluck('hari')->implode(', ');
         $firstSessionId   = $classSchedules->first()?->session_id;
 
+        // Kode pendaftaran TIDAK dibuat di sini: StudentRegistration::boot() yang
+        // menghasilkannya (format ymd + urutan, mis. 2609290001). Dulu kode versi
+        // "REG-..." dibuat di sini lalu ditimpa hook, sehingga student_registrations
+        // dan students menyimpan kode BERBEDA — akibatnya saat admin memproses
+        // pembayaran, siswa lama tidak ditemukan dan datanya jadi dobel.
         $data = array_merge($validated, [
             'class_type'          => $validated['grade'] ?? null,
             'status'              => 'Baru',
-            'registration_code'   => 'REG-' . strtoupper(str_replace(' ', '', substr($request->full_name, 0, 3))) . '-' . date('YmdHis'),
             'program'             => !empty($programNames) ? json_encode($programNames) : null,
             'package_ids'         => $packageIds ?: null,
             'package_id'          => $primaryPackageId,
@@ -146,12 +150,17 @@ class HomeController extends Controller
 
         $registration = StudentRegistration::create($data);
 
-        // Simpan ke tabel students (status 2 = Non Aktif)
+        // Simpan ke tabel students (status 2 = Non Aktif).
+        // Kode diambil dari registrasi yang BARU tersimpan agar kedua tabel identik.
         $studentData = array_merge($data, [
+            'registration_code' => $registration->registration_code,
             'status'            => 2,
             'registration_date' => $registration->registration_date ?? date('Y-m-d'),
         ]);
         $student = Student::create($studentData);
+
+        // Tautkan sejak awal supaya admin tidak perlu mengandalkan pencocokan kode.
+        $registration->update(['student_id' => $student->id]);
 
         // Simpan setiap jadwal terpilih ke ScheduleStudent (satu baris per pertemuan)
         foreach ($classSchedules as $cs) {
