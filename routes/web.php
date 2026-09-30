@@ -46,6 +46,13 @@ Route::prefix('tutor')->name('tutor.')->middleware(['auth', 'role:tutor'])->grou
     // Jadwal mingguan
     Route::get('/jadwal', [\App\Http\Controllers\Tutor\ScheduleController::class, 'week'])->name('schedules.week');
 
+    // Jadwal dari pola: konfirmasi jadwal bawaan & pilih slot yang dibuka
+    Route::get('/jadwal-tersedia', [\App\Http\Controllers\Tutor\ScheduleSlotController::class, 'index'])->name('schedule-slots.index');
+    Route::post('/jadwal-tersedia/{scheduleSlot}/pilih', [\App\Http\Controllers\Tutor\ScheduleSlotController::class, 'apply'])->name('schedule-slots.apply');
+    Route::put('/jadwal-tersedia/{scheduleSlot}/batal', [\App\Http\Controllers\Tutor\ScheduleSlotController::class, 'withdraw'])->name('schedule-slots.withdraw');
+    Route::put('/jadwal-tersedia/{scheduleSlot}/konfirmasi', [\App\Http\Controllers\Tutor\ScheduleSlotController::class, 'confirm'])->name('schedule-slots.confirm');
+    Route::put('/jadwal-tersedia/{scheduleSlot}/izin', [\App\Http\Controllers\Tutor\ScheduleSlotController::class, 'izin'])->name('schedule-slots.izin');
+
     // Data siswa aktif + history evaluasi
     Route::get('/siswa', [\App\Http\Controllers\Tutor\StudentController::class, 'index'])->name('students.index');
     Route::get('/data/siswa', [\App\Http\Controllers\Tutor\StudentController::class, 'data'])->name('students.data-list');
@@ -274,6 +281,24 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('/schedules/{schedule}', [ScheduleController::class, 'update'])->name('schedules.update');
         Route::put('/schedules/{schedule}/status', [ScheduleController::class, 'updateStatus'])->name('schedules.updateStatus');
         Route::delete('/schedules/{schedule}', [ScheduleController::class, 'destroy'])->name('schedules.destroy');
+
+        // Pola jadwal mingguan (template hari + sesi + mapel + group siswa)
+        Route::get('/schedule-patterns', [\App\Http\Controllers\Admin\SchedulePatternController::class, 'index'])->name('schedule-patterns.index');
+        Route::post('/schedule-patterns', [\App\Http\Controllers\Admin\SchedulePatternController::class, 'store'])->name('schedule-patterns.store');
+        Route::put('/schedule-patterns/{schedulePattern}', [\App\Http\Controllers\Admin\SchedulePatternController::class, 'update'])->name('schedule-patterns.update');
+        Route::delete('/schedule-patterns/{schedulePattern}', [\App\Http\Controllers\Admin\SchedulePatternController::class, 'destroy'])->name('schedule-patterns.destroy');
+        Route::post('/schedule-patterns/{schedulePattern}/items', [\App\Http\Controllers\Admin\SchedulePatternController::class, 'storeItem'])->name('schedule-patterns.items.store');
+        Route::delete('/schedule-pattern-items/{item}', [\App\Http\Controllers\Admin\SchedulePatternController::class, 'destroyItem'])->name('schedule-patterns.items.destroy');
+
+        // Siapkan jadwal mingguan dari pola + kelola slot & pelamar
+        Route::get('/schedule-slots', [\App\Http\Controllers\Admin\ScheduleSlotController::class, 'index'])->name('schedule-slots.index');
+        Route::post('/schedule-slots/prepare', [\App\Http\Controllers\Admin\ScheduleSlotController::class, 'prepare'])->name('schedule-slots.prepare');
+        Route::get('/schedule-slots/{scheduleSlot}/applicants', [\App\Http\Controllers\Admin\ScheduleSlotController::class, 'applicants'])->name('schedule-slots.applicants');
+        Route::get('/schedule-slots/{scheduleSlot}/tutor-pengganti', [\App\Http\Controllers\Admin\ScheduleSlotController::class, 'qualifiedTutors'])->name('schedule-slots.tutor-pengganti');
+        Route::put('/schedule-slots/{scheduleSlot}/assign', [\App\Http\Controllers\Admin\ScheduleSlotController::class, 'assign'])->name('schedule-slots.assign');
+        Route::put('/schedule-slots/{scheduleSlot}/unassign', [\App\Http\Controllers\Admin\ScheduleSlotController::class, 'unassign'])->name('schedule-slots.unassign');
+        Route::put('/schedule-slots/{scheduleSlot}/close', [\App\Http\Controllers\Admin\ScheduleSlotController::class, 'close'])->name('schedule-slots.close');
+        Route::put('/schedule-slots/{scheduleSlot}/reopen', [\App\Http\Controllers\Admin\ScheduleSlotController::class, 'reopen'])->name('schedule-slots.reopen');
 
         // ── Evaluasi ──────────────────────────────────────────────────
         Route::get('/evaluations', [EvaluationController::class, 'index'])->name('evaluations.index');

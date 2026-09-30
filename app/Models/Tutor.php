@@ -46,4 +46,29 @@ class Tutor extends Model
     {
         return $this->hasMany(TutorFee::class);
     }
+
+    /**
+     * Apakah tutor ini memenuhi kualifikasi mengajar mapel tsb?
+     * Kualifikasi disimpan di `specialization` sebagai array NAMA mapel.
+     */
+    public function isQualifiedFor(?Subject $subject): bool
+    {
+        if (!$subject) {
+            return false;
+        }
+
+        $specs = is_array($this->specialization) ? $this->specialization : [];
+
+        return in_array($subject->subject_name, $specs, true);
+    }
+
+    /** Tutor yang berkualifikasi untuk suatu nama mata pelajaran. */
+    public function scopeQualifiedFor($query, ?string $subjectName)
+    {
+        if (!$subjectName) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereJsonContains('specialization', $subjectName);
+    }
 }

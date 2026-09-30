@@ -19,6 +19,7 @@ class Schedule extends Model
     protected $fillable = [
         'student_id',
         'tutor_id',
+        'schedule_slot_id',
         'subject_id',
         'room',
         'class_date',
@@ -46,6 +47,12 @@ class Schedule extends Model
     public function subject()
     {
         return $this->belongsTo(Subject::class);
+    }
+
+    /** Slot pola jadwal yang melahirkan jadwal ini (null bila dibuat manual). */
+    public function slot()
+    {
+        return $this->belongsTo(ScheduleSlot::class, 'schedule_slot_id');
     }
 
     public function evaluation()

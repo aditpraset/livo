@@ -56,6 +56,12 @@
                   <span class="nav-link-title"> Jadwal Mingguan </span>
                 </a>
               </li>
+              <li class="nav-item {{ request()->routeIs('tutor.schedule-slots*') ? 'active' : '' }}">
+                <a class="nav-link" href="{{ route('tutor.schedule-slots.index') }}">
+                  <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="bi bi-calendar-plus fs-2"></i></span>
+                  <span class="nav-link-title"> Jadwal Tersedia </span>
+                </a>
+              </li>
               <li class="nav-item {{ request()->routeIs('tutor.students*') ? 'active' : '' }}">
                 <a class="nav-link" href="{{ route('tutor.students.index') }}">
                   <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="bi bi-people fs-2"></i></span>
