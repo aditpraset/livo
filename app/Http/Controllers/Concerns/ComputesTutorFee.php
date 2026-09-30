@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Models\ClassSchedule;
 use App\Models\Package;
 use App\Models\Schedule;
 use App\Models\Tutor;
@@ -46,6 +47,16 @@ use Illuminate\Support\Collection;
  *    satu paket saja, memakai prioritas sesuai URUTAN PACKAGE_FEE_FIELD.
  *  - Siswa dengan package_id kosong/paket yang belum dipetakan memakai tarif
  *    fallback (fee_per_session), supaya tidak ada sesi/siswa yang "hilang".
+ *  - Siswa yang memilih Privat (5) DAN Semi Privat (6) sekaligus: package_id
+ *    utama yang tersimpan tidak mewakili aktivitas sebenarnya (selalu ikut nilai
+ *    yang tersimpan saat pendaftaran, biasanya Privat). Tiap SESI-nya dipetakan
+ *    dulu ke program JADWAL KELAS yang terdaftar untuk siswa tsb pada hari itu
+ *    (class_schedule_ids → ClassSchedule.hari/package_id — lihat dualPackageHariMap());
+ *    kalau harinya tidak terdaftar (mis. sesi pengganti), baru jatuh ke MAYORITAS
+ *    jenis sesi bulan itu: sesi SENDIRIAN (tanpa siswa lain di slot yang sama)
+ *    dihitung Privat, sesi RAMAI (2+ siswa) dihitung Semi Privat — lihat
+ *    resolveDualPackageStudents(). Kalau keduanya tidak bisa menentukan, package_id
+ *    yang tersimpan tetap dipakai.
  */
 trait ComputesTutorFee
 {
@@ -73,6 +84,14 @@ trait ComputesTutorFee
 
     /** Paket Privat — penentu apakah suatu sesi masuk komponen (a) atau (b). */
     protected const PACKAGE_PRIVATE = 5;
+
+    /** Paket Semi Privat — dipakai untuk resolusi siswa dual-paket (lihat resolveDualPackageStudents). */
+    protected const PACKAGE_SEMI_PRIVATE = 6;
+
+    /** Nama hari Indonesia per dayOfWeekIso Carbon (1=Senin .. 7=Minggu), dipakai untuk cocokkan ClassSchedule.hari. */
+    protected const HARI_INDONESIA = [
+        1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu',
+    ];
 
     /** Cache nama paket (id => nama) untuk label rincian sesi. */
     private ?Collection $feePackageNames = null;
@@ -105,7 +124,7 @@ trait ComputesTutorFee
     private function feeScheduleQuery(Tutor $tutor)
     {
         return Schedule::with([
-                'student:id,package_id',
+                'student:id,package_id,package_ids,class_schedule_ids',
                 'evaluation:id,schedule_id,student_attendance',
             ])
             ->where('tutor_id', $tutor->id)
@@ -130,7 +149,6 @@ trait ComputesTutorFee
     protected function tutorFeeBreakdown(Tutor $tutor, Collection $schedules): array
     {
         $slotKey = fn ($s) => $s->class_date->toDateString() . '|' . $s->start_time . '|' . $s->end_time;
-        $packageOf = fn ($s) => (int) (optional($s->student)->package_id ?? 0);
         $isSessionOnly = fn (int $packageId) => in_array($packageId, self::PACKAGE_SESSION_ONLY, true);
 
         $hadir = $schedules->filter(fn ($s) => optional($s->evaluation)->student_attendance === 'hadir');
@@ -138,6 +156,21 @@ trait ComputesTutorFee
         // (a & b) Klasifikasi per SESI ke satu paket. Sesi campuran memakai paket dengan
         // prioritas tertinggi sesuai urutan PACKAGE_FEE_FIELD (Privat menang lebih dulu).
         $sessions = $hadir->groupBy($slotKey);
+
+        // Siswa dual-paket (Privat + Semi Privat sekaligus): tiap sesi dicocokkan dulu
+        // ke jadwal kelas terdaftar siswa pada hari itu (paling akurat), baru jatuh ke
+        // mayoritas sesi bulan ini bila harinya tidak terdaftar (mis. sesi pengganti).
+        $paketHariTerjadwal = $this->dualPackageHariMap($sessions);
+        $paketDualMayoritas = $this->resolveDualPackageStudents($sessions);
+
+        $packageOf = function ($s) use ($paketHariTerjadwal, $paketDualMayoritas) {
+            $hari = self::HARI_INDONESIA[(int) $s->class_date->dayOfWeekIso] ?? null;
+
+            return $paketHariTerjadwal[$s->student_id][$hari]
+                ?? $paketDualMayoritas[$s->student_id]
+                ?? (int) (optional($s->student)->package_id ?? 0);
+        };
+
         $sessionPackages = $sessions->map(fn ($rows) => $this->resolveSessionPackage($rows->map($packageOf)));
 
         $totalSessionCount   = $sessions->count();
@@ -235,6 +268,112 @@ trait ComputesTutorFee
             'session_breakdown'    => $breakdown ?: null,
             'total'         => $a + $b + $c + $d + $feePokok + $feeTunjangan + $feeExtraSession,
         ];
+    }
+
+    /**
+     * Untuk siswa dual-paket (Privat + Semi Privat), peta HARI → package_id dari
+     * jadwal kelas yang benar-benar terdaftar untuk siswa itu (class_schedule_ids
+     * → ClassSchedule.hari/package_id). Ini sinyal paling akurat karena mencerminkan
+     * program yang memang direncanakan per hari, bukan tebakan dari kehadiran.
+     * Hari yang ClassSchedule-nya bukan Privat/Semi Privat tidak ikut dipetakan
+     * (biar jatuh ke fallback mayoritas / package_id tersimpan).
+     *
+     * @param Collection<string, Collection<int, Schedule>> $sessions sesi (slotKey => baris kehadiran)
+     * @return array<int, array<string, int>> student_id => [hari => package_id]
+     */
+    private function dualPackageHariMap(Collection $sessions): array
+    {
+        $students = [];
+        foreach ($sessions as $rows) {
+            foreach ($rows as $row) {
+                $student = $row->student;
+                if ($student) {
+                    $students[$student->id] ??= $student;
+                }
+            }
+        }
+
+        $map = [];
+        foreach ($students as $studentId => $student) {
+            $ids = $student->package_id_list;
+            if (!in_array(self::PACKAGE_PRIVATE, $ids, true) || !in_array(self::PACKAGE_SEMI_PRIVATE, $ids, true)) {
+                continue; // bukan kasus dual Privat+Semi Privat
+            }
+
+            $scheduleIds = is_array($student->class_schedule_ids) ? array_filter($student->class_schedule_ids) : [];
+            if (empty($scheduleIds)) {
+                continue;
+            }
+
+            $hariPaket = ClassSchedule::whereIn('id', $scheduleIds)
+                ->whereIn('package_id', [self::PACKAGE_PRIVATE, self::PACKAGE_SEMI_PRIVATE])
+                ->get(['hari', 'package_id'])
+                ->mapWithKeys(fn ($cs) => [$cs->hari => (int) $cs->package_id]);
+
+            if ($hariPaket->isNotEmpty()) {
+                $map[$studentId] = $hariPaket->all();
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Paket efektif untuk siswa yang memilih Privat DAN Semi Privat sekaligus,
+     * ditentukan dari mayoritas jenis sesi yang benar-benar mereka jalani bulan
+     * ini: sesi SENDIRIAN (tidak ada siswa lain di slot yang sama) dihitung
+     * Privat, sesi RAMAI (2+ siswa dalam satu slot) dihitung Semi Privat. Seri
+     * (jumlah sama) → tidak di-override, tetap pakai package_id yang tersimpan.
+     * Siswa dengan satu paket saja / kombinasi paket lain tidak disentuh.
+     *
+     * Dipakai sebagai FALLBACK untuk sesi yang harinya tidak ada di jadwal kelas
+     * terdaftar siswa (lihat dualPackageHariMap) — mis. sesi pengganti/tambahan.
+     *
+     * @param Collection<string, Collection<int, Schedule>> $sessions sesi (slotKey => baris kehadiran)
+     * @return array<int, int> student_id => package_id efektif
+     */
+    private function resolveDualPackageStudents(Collection $sessions): array
+    {
+        $solo = [];
+        $group = [];
+        $students = [];
+
+        foreach ($sessions as $rows) {
+            $ramai = $rows->count() > 1;
+
+            foreach ($rows as $row) {
+                $student = $row->student;
+                if (!$student) {
+                    continue;
+                }
+
+                $students[$student->id] ??= $student;
+                if ($ramai) {
+                    $group[$student->id] = ($group[$student->id] ?? 0) + 1;
+                } else {
+                    $solo[$student->id] = ($solo[$student->id] ?? 0) + 1;
+                }
+            }
+        }
+
+        $effective = [];
+        foreach ($students as $studentId => $student) {
+            $ids = $student->package_id_list;
+            if (!in_array(self::PACKAGE_PRIVATE, $ids, true) || !in_array(self::PACKAGE_SEMI_PRIVATE, $ids, true)) {
+                continue; // bukan kasus dual Privat+Semi Privat — package_id tersimpan tetap dipakai
+            }
+
+            $soloN  = $solo[$studentId] ?? 0;
+            $groupN = $group[$studentId] ?? 0;
+
+            if ($soloN > $groupN) {
+                $effective[$studentId] = self::PACKAGE_PRIVATE;
+            } elseif ($groupN > $soloN) {
+                $effective[$studentId] = self::PACKAGE_SEMI_PRIVATE;
+            }
+        }
+
+        return $effective;
     }
 
     /**
