@@ -143,51 +143,7 @@ class AdminController extends Controller
             'quota' => 'nullable|integer',
         ]);
 
-        // Create student if not exists
-        $student = null;
-        if ($registration->nis) {
-            $student = \App\Models\Student::where('nis', $registration->nis)->first();
-        }
-
-        if (!$student) {
-            $student = \App\Models\Student::where('registration_code', $registration->registration_code)->first();
-        }
-
-        if ($student) {
-            $student->update(['status' => 1]);
-        } else {
-            $student = \App\Models\Student::create([
-                'registration_code' => $registration->registration_code,
-                'nis' => $registration->nis,
-                'status' => 1, // aktif
-                'registration_date' => $registration->registration_date ?? now(),
-                'full_name' => $registration->full_name,
-                'nickname' => $registration->nickname,
-                'birth_date' => $registration->birth_date,
-                'religion' => $registration->religion,
-                'gender' => $registration->gender,
-                'grade' => $registration->grade,
-                'school_origin' => $registration->school_origin,
-                'father_name' => $registration->father_name,
-                'mother_name' => $registration->mother_name,
-                'guardian_name' => $registration->guardian_name,
-                'address' => $registration->address,
-                'email' => $registration->email,
-                'phone' => $registration->phone,
-                'whatsapp' => $registration->whatsapp,
-                'class_type' => $registration->class_type,
-                'kbm_process' => $registration->kbm_process,
-                'package' => $registration->package,
-                'program' => $registration->program,
-                'selected_days' => $registration->selected_days,
-                'schedule_session_id' => $registration->schedule_session_id,
-                'school_curriculum' => $registration->school_curriculum,
-                'learning_material' => $registration->learning_material,
-                'promo_code' => $registration->promo_code,
-                'registration_info' => $registration->registration_info,
-                'marketing_pic' => $registration->marketing_pic,
-            ]);
-        }
+        $student = $this->resolveOrCreateStudent($registration);
 
         // Tautkan siswa ke pendaftaran lebih dulu agar pembayaran bisa direference via student_id
         if ($registration->student_id !== $student->id) {
@@ -244,51 +200,7 @@ class AdminController extends Controller
 
         // If status changed to Lunas, create Student and Payment
         if ($request->status === 'Lunas' && $oldStatus !== 'Lunas') {
-            // 1. Create or update Student
-            $student = null;
-            if ($registration->nis) {
-                $student = \App\Models\Student::where('nis', $registration->nis)->first();
-            }
-
-            if (!$student) {
-                $student = \App\Models\Student::where('registration_code', $registration->registration_code)->first();
-            }
-
-            if ($student) {
-                $student->update(['status' => 1]);
-            } else {
-                $student = \App\Models\Student::create([
-                    'registration_code' => $registration->registration_code,
-                    'nis' => $registration->nis,
-                    'status' => 1, // aktif
-                    'registration_date' => $registration->registration_date ?? now(),
-                    'full_name' => $registration->full_name,
-                    'nickname' => $registration->nickname,
-                    'birth_date' => $registration->birth_date,
-                    'religion' => $registration->religion,
-                    'gender' => $registration->gender,
-                    'grade' => $registration->grade,
-                    'school_origin' => $registration->school_origin,
-                    'father_name' => $registration->father_name,
-                    'mother_name' => $registration->mother_name,
-                    'guardian_name' => $registration->guardian_name,
-                    'address' => $registration->address,
-                    'email' => $registration->email,
-                    'phone' => $registration->phone,
-                    'whatsapp' => $registration->whatsapp,
-                    'class_type' => $registration->class_type,
-                    'kbm_process' => $registration->kbm_process,
-                    'package' => $registration->package,
-                    'program' => $registration->program,
-                    'selected_days' => $registration->selected_days,
-                    'schedule_session_id' => $registration->schedule_session_id,
-                    'school_curriculum' => $registration->school_curriculum,
-                    'learning_material' => $registration->learning_material,
-                    'promo_code' => $registration->promo_code,
-                    'registration_info' => $registration->registration_info,
-                    'marketing_pic' => $registration->marketing_pic,
-                ]);
-            }
+            $student = $this->resolveOrCreateStudent($registration);
 
             // Tautkan siswa ke pendaftaran untuk reference pembayaran/receipt
             if ($registration->student_id !== $student->id) {
@@ -354,5 +266,74 @@ class AdminController extends Controller
             $temp = $this->terbilang($nilai / 1000000) . " Juta" . $this->terbilang($nilai % 1000000);
         }
         return $temp;
+    }
+
+    /**
+     * Cari siswa milik sebuah pendaftaran, buat baru hanya bila benar-benar belum ada.
+     *
+     * Urutan pencocokan sengaja berlapis — dulu hanya mengandalkan registration_code,
+     * dan ketika kodenya tidak sinkron antara student_registrations dan students,
+     * siswa lama tidak ketemu sehingga terbentuk data DOBEL:
+     *   1. student_id pada pendaftaran (paling andal, diisi sejak form dikirim)
+     *   2. NIS (bila ada)
+     *   3. registration_code
+     */
+    private function resolveOrCreateStudent(StudentRegistration $registration): \App\Models\Student
+    {
+        $student = $registration->student_id
+            ? \App\Models\Student::find($registration->student_id)
+            : null;
+
+        if (!$student && $registration->nis) {
+            $student = \App\Models\Student::where('nis', $registration->nis)->first();
+        }
+
+        if (!$student) {
+            $student = \App\Models\Student::where('registration_code', $registration->registration_code)->first();
+        }
+
+        if ($student) {
+            $student->update(['status' => 1]);
+
+            return $student;
+        }
+
+        return \App\Models\Student::create([
+            'registration_code' => $registration->registration_code,
+            'nis' => $registration->nis,
+            'status' => 1, // aktif
+            'registration_date' => $registration->registration_date ?? now(),
+            'full_name' => $registration->full_name,
+            'nickname' => $registration->nickname,
+            'birth_date' => $registration->birth_date,
+            'religion' => $registration->religion,
+            'gender' => $registration->gender,
+            'grade' => $registration->grade,
+            'school_origin' => $registration->school_origin,
+            'father_name' => $registration->father_name,
+            'mother_name' => $registration->mother_name,
+            'guardian_name' => $registration->guardian_name,
+            'address' => $registration->address,
+            'email' => $registration->email,
+            'phone' => $registration->phone,
+            'whatsapp' => $registration->whatsapp,
+            'class_type' => $registration->class_type,
+            'kbm_process' => $registration->kbm_process,
+            'package' => $registration->package,
+            'package_id' => $registration->package_id,
+            'package_ids' => $registration->package_ids,
+            'program' => $registration->program,
+            'program_id' => $registration->program_id,
+            'grade_id' => $registration->grade_id,
+            'duration' => $registration->duration,
+            'selected_days' => $registration->selected_days,
+            'schedule_session_id' => $registration->schedule_session_id,
+            'class_schedule_ids' => $registration->class_schedule_ids,
+            'school_curriculum' => $registration->school_curriculum,
+            'learning_material' => $registration->learning_material,
+            'promo_code' => $registration->promo_code,
+            'registration_info' => $registration->registration_info,
+            'marketing_pic' => $registration->marketing_pic,
+        ]);
     }
 }

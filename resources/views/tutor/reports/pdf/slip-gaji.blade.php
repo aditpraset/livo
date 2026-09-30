@@ -71,6 +71,16 @@
                     <td class="text-end">{{ $rp($tutor->fee_per_session ?? 0) }}</td>
                     <td class="text-end">{{ $rp($fee['fee_extra_session']) }}</td>
                 </tr>
+                {{-- Paket "sesi saja" (mis. TKA Visit): dibayar terpisah per sesi dengan
+                     tarif paketnya sendiri, dan tidak membebani kuota tunjangan di atas. --}}
+                @foreach(collect($fee['session_breakdown'] ?? [])->where('session_only', true)->where('count', '>', 0) as $row)
+                    <tr>
+                        <td>Fee sesi {{ $row['label'] ?? '-' }} (di luar kuota tunjangan)</td>
+                        <td class="text-end">{{ $row['count'] ?? 0 }} sesi</td>
+                        <td class="text-end">{{ $rp($row['rate'] ?? 0) }}</td>
+                        <td class="text-end">{{ $rp($row['subtotal'] ?? 0) }}</td>
+                    </tr>
+                @endforeach
             @else
                 @if(!empty($fee['session_breakdown']))
                     {{-- Tarif per sesi mengikuti paket kelas siswa di sesi tsb. --}}
@@ -108,6 +118,14 @@
                     <td class="text-end">{{ $fee['day_count'] }} hari</td>
                     <td class="text-end">{{ $rp($tutor->fee_transport_per_day ?? 0) }}</td>
                     <td class="text-end">{{ $rp($fee['fee_transport']) }}</td>
+                </tr>
+            @endif
+            @if((float) ($fee['fee_insentif'] ?? 0) > 0)
+                <tr>
+                    <td>Insentif</td>
+                    <td class="text-end">-</td>
+                    <td class="text-end">-</td>
+                    <td class="text-end">{{ $rp($fee['fee_insentif']) }}</td>
                 </tr>
             @endif
             <tr class="total-row">

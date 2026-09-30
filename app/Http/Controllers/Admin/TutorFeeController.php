@@ -54,7 +54,11 @@ class TutorFeeController extends Controller
                 $badge = $kategori === 'tetap' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary';
                 return '<span class="badge ' . $badge . '">' . e($label) . '</span>';
             })
-            ->addColumn('session', fn ($tf) => $tf->tutor?->kategori === 'tetap' ? '-' : ($tf->session_count . ' sesi<br><small class="text-muted">' . $rp($tf->fee_session) . '</small>'))
+            // Tutor tetap: '-' hanya bila memang tidak ada fee sesi. Paket "sesi saja"
+            // (mis. TKA Visit) dibayar juga untuk tutor tetap, jadi nominalnya harus tampil.
+            ->addColumn('session', fn ($tf) => ($tf->tutor?->kategori === 'tetap' && (float) $tf->fee_session == 0.0)
+                ? '-'
+                : ($tf->session_count . ' sesi<br><small class="text-muted">' . $rp($tf->fee_session) . '</small>'))
             ->addColumn('private', fn ($tf) => $tf->tutor?->kategori === 'tetap' ? '-' : ($tf->private_count . ' sesi<br><small class="text-muted">' . $rp($tf->fee_private) . '</small>'))
             ->addColumn('regular', fn ($tf) => $tf->tutor?->kategori === 'tetap' ? '-' : ($tf->regular_count . ' siswa<br><small class="text-muted">' . $rp($tf->fee_regular) . '</small>'))
             ->addColumn('transport', fn ($tf) => $tf->tutor?->kategori === 'tetap' ? '-' : ($tf->day_count . ' hari<br><small class="text-muted">' . $rp($tf->fee_transport) . '</small>'))
@@ -73,6 +77,9 @@ class TutorFeeController extends Controller
             ->addColumn('extra_session', fn ($tf) => $tf->tutor?->kategori === 'tetap'
                 ? ($tf->extra_session_count . ' sesi<br><small class="text-muted">' . $rp($tf->fee_extra_session) . '</small>')
                 : '-')
+            ->addColumn('insentif', fn ($tf) => (float) $tf->fee_insentif > 0
+                ? '<span class="fw-semibold text-success">' . $rp($tf->fee_insentif) . '</span>'
+                : '<span class="text-muted">-</span>')
             ->addColumn('total', fn ($tf) => '<strong>' . $rp($tf->total) . '</strong>')
             ->addColumn('action', function ($tf) use ($editable) {
                 if (!$editable) return '<span class="text-muted small">Terkunci</span>';
@@ -86,10 +93,11 @@ class TutorFeeController extends Controller
                         data-day-count="' . $tf->day_count . '" data-fee-transport="' . (0 + $tf->fee_transport) . '"
                         data-fee-pokok="' . (0 + $tf->fee_pokok) . '" data-fee-tunjangan="' . (0 + $tf->fee_tunjangan) . '"
                         data-extra-session-count="' . $tf->extra_session_count . '" data-fee-extra-session="' . (0 + $tf->fee_extra_session) . '"
+                        data-fee-insentif="' . (0 + $tf->fee_insentif) . '"
                         data-total="' . (0 + $tf->total) . '"
                         title="Edit Fee"><i class="bi bi-pencil"></i></button>';
             })
-            ->rawColumns(['kategori_label', 'session', 'private', 'regular', 'transport', 'session_detail', 'pokok_tunjangan', 'extra_session', 'total', 'action'])
+            ->rawColumns(['kategori_label', 'session', 'private', 'regular', 'transport', 'session_detail', 'pokok_tunjangan', 'extra_session', 'insentif', 'total', 'action'])
             ->make(true);
     }
 
@@ -113,17 +121,27 @@ class TutorFeeController extends Controller
                 ['status' => 'draft', 'generated_at' => now(), 'generated_by' => auth()->id()]
             );
 
+            // Insentif diisi MANUAL oleh admin, bukan dihitung sistem — simpan dulu
+            // sebelum baris lama dihapus, lalu kembalikan agar tidak hilang saat hitung ulang.
+            $insentif = TutorFee::where('fee_period_id', $period->id)
+                ->pluck('fee_insentif', 'tutor_id');
+
             // Hitung ulang dari awal agar tidak ada sisa data tutor yang sudah tidak aktif.
             TutorFee::where('fee_period_id', $period->id)->delete();
 
             $tutors = Tutor::all();
             foreach ($tutors as $tutor) {
                 $breakdown = $this->tutorFeeForMonth($tutor, $month);
+                $feeInsentif = (float) ($insentif[$tutor->id] ?? 0);
 
-                // Lewati tutor tanpa aktivitas & tanpa fee sama sekali pada bulan ini.
-                if ($breakdown['session_count'] == 0 && $breakdown['total'] == 0) {
+                // Lewati tutor tanpa aktivitas & tanpa fee sama sekali bulan ini —
+                // kecuali ia punya insentif manual, yang tetap harus dibayarkan.
+                if ($breakdown['session_count'] == 0 && $breakdown['total'] == 0 && $feeInsentif == 0.0) {
                     continue;
                 }
+
+                $breakdown['fee_insentif'] = $feeInsentif;
+                $breakdown['total'] = $breakdown['total'] + $feeInsentif;
 
                 TutorFee::create(array_merge(
                     ['fee_period_id' => $period->id, 'tutor_id' => $tutor->id],
@@ -165,6 +183,7 @@ class TutorFeeController extends Controller
             'fee_tunjangan'        => 'required|numeric|min:0',
             'extra_session_count'  => 'required|integer|min:0',
             'fee_extra_session'    => 'required|numeric|min:0',
+            'fee_insentif'         => 'required|numeric|min:0',
             'total'         => 'required|numeric|min:0',
         ]);
 
