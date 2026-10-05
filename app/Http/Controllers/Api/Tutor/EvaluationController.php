@@ -12,7 +12,11 @@ class EvaluationController extends BaseApiTutorController
 {
     use ManagesEvaluations;
 
-    /** Daftar sesi yang evaluasinya harus diisi (selesai / sudah lewat, belum ada evaluasi), dipaginasi. */
+    /**
+     * Daftar sesi yang evaluasinya harus diisi, dipaginasi. Sesi "scheduled" boleh
+     * langsung dievaluasi tutor kapan saja — tidak perlu menunggu tanggalnya lewat
+     * atau ditandai selesai dulu. Yang tidak boleh dievaluasi hanya sesi yang batal.
+     */
     public function index(Request $request)
     {
         $tutor = $this->tutor();
@@ -20,13 +24,7 @@ class EvaluationController extends BaseApiTutorController
         $pending = Schedule::with(['student', 'subject'])
             ->where('tutor_id', $tutor->id)
             ->whereDoesntHave('evaluation')
-            ->where(function ($q) {
-                $q->where('status_schedule', 'done')
-                    ->orWhere(function ($q) {
-                        $q->where('status_schedule', 'scheduled')
-                            ->whereDate('class_date', '<', now()->toDateString());
-                    });
-            })
+            ->whereIn('status_schedule', ['done', 'scheduled'])
             ->when($request->filled('search'), fn ($q) => $q->whereHas(
                 'student',
                 fn ($qq) => $qq->where('full_name', 'like', '%' . $request->input('search') . '%')

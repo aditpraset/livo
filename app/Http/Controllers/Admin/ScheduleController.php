@@ -507,9 +507,41 @@ class ScheduleController extends Controller
             return response()->json(['message' => $error, 'errors' => ['subject_id' => [$error]]], 422);
         }
 
+        if ($error = $this->quotaError($validated['student_id'])) {
+            return response()->json(['message' => $error, 'errors' => ['student_id' => [$error]]], 422);
+        }
+
         // Tutor boleh dipilih di berbagai siswa (tanpa cek bentrok waktu).
         Schedule::create($validated + ['status_schedule' => 'scheduled']);
         return response()->json(['success' => true, 'message' => 'Jadwal berhasil ditambahkan.']);
+    }
+
+    /**
+     * Pastikan kuota sesi siswa masih cukup untuk jadwal baru: kuota dikurangi
+     * jadwal yang sudah ada tapi belum dievaluasi & belum dibatalkan (konsisten
+     * dengan generateByGroup()). Mengembalikan pesan error bila kuota sudah
+     * habis/terpakai oleh jadwal pending, null bila masih ada sisa.
+     */
+    private function quotaError(int $studentId): ?string
+    {
+        $student = Student::find($studentId);
+        if (!$student) {
+            return null;
+        }
+
+        $pendingCount = Schedule::where('student_id', $studentId)
+            ->where('status_schedule', '!=', 'canceled')
+            ->whereDoesntHave('evaluation')
+            ->count();
+
+        $remaining = (int) ($student->quota_sessions ?? 0) - $pendingCount;
+
+        if ($remaining <= 0) {
+            return 'Kuota sesi siswa ini sudah habis (kuota: ' . (int) ($student->quota_sessions ?? 0)
+                . ', jadwal belum dievaluasi: ' . $pendingCount . '). Tambah kuota terlebih dahulu sebelum membuat jadwal baru.';
+        }
+
+        return null;
     }
 
     /**

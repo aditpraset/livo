@@ -35,14 +35,11 @@ class EvaluationController extends BaseTutorController
         if ($mode === 'done') {
             $query->whereHas('evaluation');
         } else {
+            // Sesi yang sudah dijadwalkan ("scheduled") boleh langsung dievaluasi tutor
+            // kapan saja — tidak perlu menunggu tanggalnya lewat atau ditandai selesai
+            // dulu. Yang tidak boleh dievaluasi hanya sesi yang sudah dibatalkan.
             $query->whereDoesntHave('evaluation')
-                ->where(function ($q) {
-                    $q->where('status_schedule', 'done')
-                        ->orWhere(function ($q) {
-                            $q->where('status_schedule', 'scheduled')
-                                ->whereDate('class_date', '<', now()->toDateString());
-                        });
-                });
+                ->whereIn('status_schedule', ['done', 'scheduled']);
         }
 
         $schedules = $query->orderBy('class_date')->orderBy('start_time')->get();
