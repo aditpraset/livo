@@ -10,6 +10,11 @@ use App\Models\TutorFee;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Yajra\DataTables\Facades\DataTables;
 
 /**
@@ -37,10 +42,14 @@ class TutorFeeController extends Controller
         $period = FeePeriod::where('month', $month->toDateString())->first();
 
         if (!$period) {
-            return DataTables::of(collect())->make(true);
+            return DataTables::of(collect())->with('grand_total', 0)->make(true);
         }
 
         $query = TutorFee::with('tutor')->where('fee_period_id', $period->id)->orderByDesc('total');
+
+        // Total seluruh tutor bulan ini — dihitung terpisah dari query berpaginasi
+        // di atas, supaya benar walau tabelnya dipaginasi server-side.
+        $grandTotal = (float) TutorFee::where('fee_period_id', $period->id)->sum('total');
 
         $rp = fn ($v) => 'Rp ' . number_format($v, 0, ',', '.');
         $editable = !$period->isPublished();
@@ -98,6 +107,7 @@ class TutorFeeController extends Controller
                         title="Edit Fee"><i class="bi bi-pencil"></i></button>';
             })
             ->rawColumns(['kategori_label', 'session', 'private', 'regular', 'transport', 'session_detail', 'pokok_tunjangan', 'extra_session', 'insentif', 'total', 'action'])
+            ->with('grand_total', $grandTotal)
             ->make(true);
     }
 
@@ -229,6 +239,95 @@ class TutorFeeController extends Controller
         $period->update(['status' => 'draft', 'published_at' => null, 'published_by' => null]);
 
         return response()->json(['success' => true, 'message' => 'Penerbitan dibatalkan. Periode kembali berstatus draft dan tidak terlihat oleh tutor.']);
+    }
+
+    /** Download rekap fee tutor bulan terpilih sebagai Excel (.xlsx). */
+    public function exportExcel(Request $request)
+    {
+        $month = $this->resolveMonth($request);
+        $period = FeePeriod::where('month', $month->toDateString())->first();
+
+        $rows = $period
+            ? TutorFee::with('tutor')->where('fee_period_id', $period->id)->orderByDesc('total')->get()
+            : collect();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Rekap Fee Tutor');
+
+        $monthLabel = $month->locale('id')->translatedFormat('F Y');
+        $statusLabel = $period
+            ? ($period->isPublished() ? 'Sudah Diterbitkan' : 'Draft (belum terbit)')
+            : 'Belum Digenerate';
+
+        $sheet->setCellValue('A1', 'Rekap Fee Tutor');
+        $sheet->setCellValue('A2', 'Bulan');
+        $sheet->setCellValue('B2', $monthLabel);
+        $sheet->setCellValue('A3', 'Status');
+        $sheet->setCellValue('B3', $statusLabel);
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('A2:A3')->getFont()->setBold(true);
+
+        $headers = [
+            'No', 'Tutor', 'Kategori',
+            'Sesi Paket Lain (Jumlah)', 'Fee Sesi Paket Lain (Rp)',
+            'Sesi Privat (Jumlah)', 'Fee Sesi Privat (Rp)',
+            'Total Siswa (Jumlah)', 'Fee Total Siswa (Rp)',
+            'Transport (Hari)', 'Fee Transport (Rp)',
+            'Gaji Pokok (Rp)', 'Tunjangan (Rp)',
+            'Sesi Tambahan (Jumlah)', 'Fee Sesi Tambahan (Rp)',
+            'Insentif (Rp)', 'Total Fee (Rp)',
+        ];
+        $headerRow = 5;
+        $sheet->fromArray($headers, null, 'A' . $headerRow);
+
+        $r = $headerRow + 1;
+        $no = 1;
+        $kategoriLabel = Tutor::KATEGORI_OPTIONS;
+        foreach ($rows as $tf) {
+            $sheet->fromArray([[
+                $no++,
+                $tf->tutor->name ?? '-',
+                $kategoriLabel[$tf->tutor->kategori ?? 'freelance'] ?? '-',
+                $tf->session_count, (float) $tf->fee_session,
+                $tf->private_count, (float) $tf->fee_private,
+                $tf->regular_count, (float) $tf->fee_regular,
+                $tf->day_count, (float) $tf->fee_transport,
+                (float) $tf->fee_pokok, (float) $tf->fee_tunjangan,
+                $tf->extra_session_count, (float) $tf->fee_extra_session,
+                (float) $tf->fee_insentif, (float) $tf->total,
+            ]], null, 'A' . $r++);
+        }
+
+        if ($rows->isEmpty()) {
+            $sheet->setCellValue('A' . $r, 'Belum ada data fee untuk bulan ini.');
+            $r++;
+        } else {
+            // Baris total, sejajar kolom Total Fee — sama seperti tampilan di layar.
+            $sheet->setCellValue('P' . $r, 'TOTAL');
+            $sheet->setCellValue('Q' . $r, (float) $rows->sum('total'));
+            $sheet->getStyle('P' . $r . ':Q' . $r)->getFont()->setBold(true);
+            $r++;
+        }
+
+        $lastCol = $sheet->getHighestColumn();
+        $sheet->getStyle('A' . $headerRow . ':' . $lastCol . $headerRow)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A' . $headerRow . ':' . $lastCol . $headerRow)->getFill()
+            ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('2C3E73');
+        $sheet->getStyle('A' . $headerRow . ':' . $lastCol . $headerRow)->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        for ($c = 1; $c <= Coordinate::columnIndexFromString($lastCol); $c++) {
+            $sheet->getColumnDimensionByColumn($c)->setWidth(20);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'rekap-fee-tutor-' . $month->format('Y-m') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     private function resolveMonth(Request $request): Carbon

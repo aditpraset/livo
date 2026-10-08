@@ -37,6 +37,16 @@
             </div>
         </div>
 
+        <div class="row g-3 mt-1">
+            <div class="col-md-4 col-12">
+                <div class="card p-3 bg-primary-subtle border-0 rounded-3 h-100">
+                    <div class="subheader text-primary mb-1">Total Fee — <span id="summary-month">{{ $month->locale('id')->translatedFormat('F Y') }}</span></div>
+                    <div class="h2 fw-bold mb-0" id="summary-total-fee">Rp 0</div>
+                    <div class="small text-muted">Gabungan seluruh tutor pada bulan terpilih</div>
+                </div>
+            </div>
+        </div>
+
         @if($period)
             <div class="text-muted small mt-3">
                 Digenerate: {{ $period->generated_at?->translatedFormat('d M Y H:i') ?? '-' }} oleh {{ $period->generatedBy?->name ?? '-' }}
@@ -68,8 +78,11 @@
 </div>
 
 <div class="card border-0 shadow-sm">
-    <div class="card-header bg-white">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 class="mb-0">Review Fee per Tutor — <span id="header-month">{{ $month->locale('id')->translatedFormat('F Y') }}</span></h5>
+        <a href="{{ route('admin.tutor-fees.export-excel', ['month' => $month->format('Y-m')]) }}" class="btn btn-outline-success btn-sm" id="btn-export-excel">
+            <i class="bi bi-file-earmark-excel me-1"></i> Download Excel
+        </a>
     </div>
     <div class="card-body">
         <div class="table-responsive">
@@ -91,6 +104,13 @@
                         <th class="text-center" width="70">Aksi</th>
                     </tr>
                 </thead>
+                <tfoot>
+                    <tr class="fw-bold table-light">
+                        <td colspan="11" class="text-end">TOTAL FEE — <span id="footer-month">{{ $month->locale('id')->translatedFormat('F Y') }}</span></td>
+                        <td class="text-end" id="footer-total-fee">Rp 0</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
         <p class="text-muted small mt-2 mb-0">
@@ -195,10 +215,21 @@
 $(function () {
     var currentMonth = $('#field-month').val();
 
+    function formatRupiah(v) {
+        return 'Rp ' + Math.round(v || 0).toLocaleString('id-ID');
+    }
+
     var table = $('#tutor-fees-table').DataTable({
         processing: true,
         serverSide: true,
-        ajax: { url: "{{ route('admin.tutor-fees.data') }}", data: function (d) { d.month = currentMonth; } },
+        ajax: {
+            url: "{{ route('admin.tutor-fees.data') }}",
+            data: function (d) { d.month = currentMonth; },
+            dataSrc: function (json) {
+                $('#summary-total-fee, #footer-total-fee').text(formatRupiah(json.grand_total));
+                return json.data;
+            }
+        },
         columns: [
             { data: 'DT_RowIndex', orderable: false, searchable: false },
             { data: 'tutor_name' },
