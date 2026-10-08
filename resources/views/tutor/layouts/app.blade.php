@@ -74,6 +74,12 @@
                   <span class="nav-link-title"> Evaluasi Siswa </span>
                 </a>
               </li>
+              <li class="nav-item {{ request()->routeIs('tutor.modules*') ? 'active' : '' }}">
+                <a class="nav-link" href="{{ route('tutor.modules.index') }}">
+                  <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="bi bi-folder2-open fs-2"></i></span>
+                  <span class="nav-link-title"> Modul Belajar </span>
+                </a>
+              </li>
               <li class="nav-item {{ request()->routeIs('tutor.rekap-pengajaran') ? 'active' : '' }}">
                 <a class="nav-link" href="{{ route('tutor.rekap-pengajaran') }}">
                   <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="bi bi-journal-text fs-2"></i></span>

@@ -49,7 +49,8 @@ class ScheduleSlotController extends Controller
         $patterns = SchedulePattern::orderByDesc('is_active')->orderBy('name')->get();
 
         $slots = ScheduleSlot::with([
-                'session', 'subject', 'studentGroup', 'assignedTutor',
+                'session', 'subject', 'assignedTutor',
+                'studentGroup.students' => fn ($q) => $q->where('status', 1),
                 'applications.tutor', 'patternItem',
             ])
             ->whereDate('week_start', $weekStart->toDateString())

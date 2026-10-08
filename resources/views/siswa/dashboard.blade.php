@@ -148,6 +148,56 @@
     </div>
 </div>
 
+{{-- ── Rekap izin & alfa per bulan ── --}}
+<div class="card mt-4">
+    <div class="card-header bg-white">
+        <h3 class="card-title fw-bold mb-0">Rekap Izin &amp; Alfa per Bulan</h3>
+        <div class="text-muted small">Tahun {{ $tahunRekap }}</div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-vcenter card-table mb-0">
+            <thead>
+                <tr>
+                    <th>Bulan</th>
+                    <th class="text-center">Izin</th>
+                    <th class="text-center">Alfa</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($izinAlfaPerBulan as $rekap)
+                    <tr class="{{ $rekap['bulan']->isSameMonth(now()) ? 'table-active' : '' }}">
+                        <td>
+                            {{ $rekap['bulan']->translatedFormat('F') }}
+                            @if($rekap['bulan']->isSameMonth(now()))<span class="badge bg-primary ms-1">Bulan Ini</span>@endif
+                        </td>
+                        <td class="text-center">
+                            @if($rekap['izin'] > 0)
+                                <span class="badge bg-warning text-dark">{{ $rekap['izin'] }}</span>
+                            @else
+                                <span class="text-muted">—</span>
+                            @endif
+                        </td>
+                        <td class="text-center">
+                            @if($rekap['alfa'] > 0)
+                                <span class="badge bg-danger">{{ $rekap['alfa'] }}</span>
+                            @else
+                                <span class="text-muted">—</span>
+                            @endif
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold">
+                    <td>Total</td>
+                    <td class="text-center">{{ $izinAlfaPerBulan->sum('izin') }}</td>
+                    <td class="text-center">{{ $izinAlfaPerBulan->sum('alfa') }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
 {{-- ── Evaluasi terbaru ── --}}
 <div class="card mt-4">
     <div class="card-header bg-white d-flex justify-content-between align-items-center">

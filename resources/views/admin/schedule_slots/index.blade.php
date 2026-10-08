@@ -7,8 +7,8 @@
     <div>
         <h2 class="page-title">Siapkan Jadwal Mingguan</h2>
         <p class="text-muted mb-0 small">
-            Slot yang tutornya sudah ada dari minggu sebelumnya tinggal dikonfirmasi tutor;
-            slot baru dibuka untuk dilamar, lalu Anda yang menetapkan.
+            Jadwal yang tutornya sudah ada dari minggu sebelumnya tinggal dikonfirmasi tutor;
+            jadwal baru dibuka untuk dilamar, lalu Anda yang menetapkan.
         </p>
     </div>
     <button class="btn btn-primary" id="btn-prepare"><i class="bi bi-magic me-1"></i> Siapkan Jadwal Minggu Ini</button>
@@ -43,102 +43,121 @@
     @endforeach
 </div>
 
-<div class="card border-0 shadow-sm">
-    <div class="card-header bg-white px-4 py-3"><h4 class="mb-0 h5">Daftar Slot</h4></div>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>Hari / Tanggal</th>
-                    <th>Sesi</th>
-                    <th>Mata Pelajaran</th>
-                    <th>Group Siswa</th>
-                    <th>Status</th>
-                    <th>Tutor</th>
-                    <th class="text-center">Pelamar</th>
-                    <th class="text-end" style="min-width:210px">Aksi</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($slots as $slot)
-                    @php
-                        $badge = match($slot->status) {
-                            'open' => 'bg-primary',
-                            'pending_confirmation' => 'bg-warning text-dark',
-                            'assigned' => 'bg-success',
-                            'vacant' => 'bg-danger',
-                            default => 'bg-secondary',
-                        };
-                        $pelamar = $slot->applications->whereIn('status', ['pending','accepted'])->count();
-                    @endphp
-                    <tr>
-                        <td>
-                            <div class="fw-semibold">{{ $slot->hari }}</div>
-                            <small class="text-muted">{{ $slot->class_date->translatedFormat('d M Y') }}</small>
-                        </td>
-                        <td>
-                            {{ $slot->session->name ?? '-' }}
-                            <br><small class="text-muted">{{ substr($slot->session->time_start ?? '', 0, 5) }}–{{ substr($slot->session->time_end ?? '', 0, 5) }}</small>
-                        </td>
-                        <td>{{ $slot->subject->subject_name ?? '-' }}</td>
-                        <td>{{ $slot->studentGroup->name ?? '-' }}</td>
-                        <td>
-                            <span class="badge {{ $badge }}">{{ $slot->statusLabel() }}</span>
-                            @if($slot->carried_from_slot_id)
-                                <br><small class="text-muted"><i class="bi bi-arrow-repeat me-1"></i>bawaan minggu lalu</small>
-                            @endif
-                        </td>
-                        <td>
-                            @if($slot->status === 'vacant')
-                                <span class="text-danger">{{ $slot->assignedTutor->name ?? '-' }} (izin)</span>
-                            @elseif($slot->filled_by_tutor_id)
-                                {{ $slot->filledByTutor->name }}
-                                <br><small class="text-muted">pengganti {{ $slot->assignedTutor->name ?? '-' }}</small>
-                            @elseif($slot->assignedTutor)
-                                {{ $slot->assignedTutor->name }}
-                                @if($slot->confirmed_at)<br><small class="text-success">dikonfirmasi tutor</small>@endif
-                            @else
-                                <span class="text-muted">—</span>
-                            @endif
-                        </td>
-                        <td class="text-center">
-                            @if($pelamar > 0)
-                                <button class="btn btn-sm btn-outline-primary btn-applicants" data-id="{{ $slot->id }}">
-                                    <i class="bi bi-people me-1"></i>{{ $pelamar }}
-                                </button>
-                            @else
-                                <span class="text-muted">0</span>
-                            @endif
-                        </td>
-                        <td class="text-end">
-                            <div class="btn-group btn-group-sm">
-                                @if($slot->status === 'assigned')
-                                    <button class="btn btn-outline-danger btn-unassign" data-id="{{ $slot->id }}">Batalkan</button>
-                                @else
-                                    @if($pelamar > 0)
-                                        <button class="btn btn-outline-success btn-applicants" data-id="{{ $slot->id }}">Tetapkan</button>
-                                    @endif
-                                    @if($slot->status === 'vacant')
-                                        <button class="btn btn-outline-danger btn-pengganti" data-id="{{ $slot->id }}">Pilih Pengganti</button>
-                                    @endif
-                                    @if($slot->status === 'closed')
-                                        <button class="btn btn-outline-primary btn-reopen" data-id="{{ $slot->id }}">Buka</button>
-                                    @else
-                                        <button class="btn btn-outline-secondary btn-close-slot" data-id="{{ $slot->id }}">Tutup</button>
-                                    @endif
-                                @endif
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr><td colspan="8" class="text-center text-muted py-4">
-                        Belum ada slot untuk minggu ini. Klik <strong>Siapkan Jadwal</strong> di atas.
-                    </td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+<div class="row g-3">
+    @php $hariList = \App\Models\SchedulePatternItem::HARI; @endphp
+    @for($i = 0; $i < 7; $i++)
+        @php
+            $tanggal = $weekStart->copy()->addDays($i);
+            $namaHari = $hariList[$i];
+            $jadwalHariIni = $slots->where('hari', $namaHari);
+            $isToday = $tanggal->isToday();
+            $totalSiswa = $jadwalHariIni->sum(fn ($s) => $s->studentGroup?->students->count() ?? 0);
+        @endphp
+        <div class="col-12">
+            <div class="card border-0 shadow-sm {{ $isToday ? 'border-primary border' : '' }}">
+                <div class="card-header bg-white py-2">
+                    <h3 class="card-title mb-0 {{ $isToday ? 'text-primary' : '' }}">
+                        {{ $tanggal->translatedFormat('l, d M Y') }}
+                        @if($isToday)<span class="badge bg-primary ms-2">Hari Ini</span>@endif
+                        <span class="text-muted small ms-2">{{ $jadwalHariIni->count() }} jadwal · {{ $totalSiswa }} siswa</span>
+                    </h3>
+                </div>
+                @if($jadwalHariIni->isEmpty())
+                    <div class="card-body py-3 text-muted small">Tidak ada jadwal.</div>
+                @else
+                    <div class="table-responsive">
+                        <table class="table table-vcenter card-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width:130px">Sesi (Jam)</th>
+                                    <th>Mata Pelajaran</th>
+                                    <th>Group Siswa</th>
+                                    <th style="width:170px">Status</th>
+                                    <th>Tutor</th>
+                                    <th class="text-center" style="width:100px">Pelamar</th>
+                                    <th class="text-end" style="min-width:210px">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($jadwalHariIni as $slot)
+                                    @php
+                                        $badge = match($slot->status) {
+                                            'open' => 'bg-primary',
+                                            'pending_confirmation' => 'bg-warning text-dark',
+                                            'assigned' => 'bg-success',
+                                            'vacant' => 'bg-danger',
+                                            default => 'bg-secondary',
+                                        };
+                                        $pelamar = $slot->applications->whereIn('status', ['pending','accepted'])->count();
+                                    @endphp
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-secondary-subtle text-secondary">{{ substr($slot->session->time_start ?? '', 0, 5) }}–{{ substr($slot->session->time_end ?? '', 0, 5) }}</span>
+                                            <div class="small text-muted mt-1">{{ $slot->session->name ?? '-' }}</div>
+                                        </td>
+                                        <td>{{ $slot->subject->subject_name ?? '-' }}</td>
+                                        <td>{{ $slot->studentGroup->name ?? '-' }}</td>
+                                        <td>
+                                            <span class="badge {{ $badge }}">{{ $slot->statusLabel() }}</span>
+                                            @if($slot->carried_from_slot_id)
+                                                <br><small class="text-muted"><i class="bi bi-arrow-repeat me-1"></i>bawaan minggu lalu</small>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($slot->status === 'vacant')
+                                                <span class="text-danger">{{ $slot->assignedTutor->name ?? '-' }} (izin)</span>
+                                            @elseif($slot->filled_by_tutor_id)
+                                                {{ $slot->filledByTutor->name }}
+                                                <br><small class="text-muted">pengganti {{ $slot->assignedTutor->name ?? '-' }}</small>
+                                            @elseif($slot->assignedTutor)
+                                                {{ $slot->assignedTutor->name }}
+                                                @if($slot->confirmed_at)<br><small class="text-success">dikonfirmasi tutor</small>@endif
+                                            @else
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-center">
+                                            @if($pelamar > 0)
+                                                <button class="btn btn-sm btn-outline-primary btn-applicants" data-id="{{ $slot->id }}">
+                                                    <i class="bi bi-people me-1"></i>{{ $pelamar }}
+                                                </button>
+                                            @else
+                                                <span class="text-muted">0</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group btn-group-sm">
+                                                @if($slot->status === 'assigned')
+                                                    <button class="btn btn-outline-danger btn-unassign" data-id="{{ $slot->id }}">Batalkan</button>
+                                                @else
+                                                    @if($pelamar > 0)
+                                                        <button class="btn btn-outline-success btn-applicants" data-id="{{ $slot->id }}">Tetapkan</button>
+                                                    @endif
+                                                    @if($slot->status === 'vacant')
+                                                        <button class="btn btn-outline-danger btn-pengganti" data-id="{{ $slot->id }}">Pilih Pengganti</button>
+                                                    @endif
+                                                    @if($slot->status === 'closed')
+                                                        <button class="btn btn-outline-primary btn-reopen" data-id="{{ $slot->id }}">Buka</button>
+                                                    @else
+                                                        <button class="btn btn-outline-secondary btn-close-slot" data-id="{{ $slot->id }}">Tutup</button>
+                                                    @endif
+                                                @endif
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </div>
+        </div>
+    @endfor
 </div>
+
+@if($slots->isEmpty())
+    <p class="text-muted small mt-3">Belum ada jadwal untuk minggu ini. Klik <strong>Siapkan Jadwal</strong> di atas.</p>
+@endif
 
 {{-- Modal: siapkan jadwal --}}
 <div class="modal fade" id="modal-prepare" tabindex="-1" aria-hidden="true">

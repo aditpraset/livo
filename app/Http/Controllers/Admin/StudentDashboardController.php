@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Concerns\ResolvesDashboardDateRange;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Models\Schedule;
 use App\Models\Student;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -31,6 +32,7 @@ class StudentDashboardController extends Controller
     {
         $now = now();
         [$start, $end] = $this->resolveDashboardRange($request);
+        $bulanRekap = $this->resolveBulanRekap($request);
 
         // ── (a) Akumulasi siswa: total & status (kondisi terkini) ──
         $statusCounts = Student::selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
@@ -98,7 +100,72 @@ class StudentDashboardController extends Controller
             'newPerYear'   => $newPerYear,
             'perGrade'     => $perGrade,
             'monthLabel'   => $now->translatedFormat('F Y'),
+            'bulanRekap'   => $bulanRekap,
+            'bulanRekapPrev' => $bulanRekap->copy()->subMonthNoOverflow()->format('Y-m'),
+            'bulanRekapNext' => $bulanRekap->copy()->addMonthNoOverflow()->format('Y-m'),
         ]);
+    }
+
+    /** Bulan (awal bulan) untuk rekap izin & alfa, dari ?bulan=YYYY-MM (default bulan berjalan). */
+    private function resolveBulanRekap(Request $request): Carbon
+    {
+        try {
+            return $request->filled('bulan')
+                ? Carbon::createFromFormat('Y-m', $request->input('bulan'))->startOfMonth()
+                : now()->startOfMonth();
+        } catch (\Throwable) {
+            return now()->startOfMonth();
+        }
+    }
+
+    /**
+     * Data server-side: rekap izin & alfa seluruh siswa untuk satu bulan
+     * (satu baris per siswa, diurutkan dari yang paling sering tidak hadir).
+     */
+    public function dataIzinAlfa(Request $request)
+    {
+        $bulan = $this->resolveBulanRekap($request);
+
+        $rows = Schedule::with('student:id,full_name,grade', 'evaluation:id,schedule_id,student_attendance')
+            ->whereHas('evaluation', fn ($q) => $q->whereIn('student_attendance', ['izin', 'alfa']))
+            ->whereYear('class_date', $bulan->year)
+            ->whereMonth('class_date', $bulan->month)
+            ->get(['id', 'student_id', 'class_date'])
+            ->filter(fn ($s) => $s->student)
+            ->groupBy('student_id')
+            ->map(function ($items) {
+                $student = $items->first()->student;
+                $izin = $items->filter(fn ($s) => $s->evaluation->student_attendance === 'izin')->count();
+                $alfa = $items->filter(fn ($s) => $s->evaluation->student_attendance === 'alfa')->count();
+
+                return [
+                    'student_id'   => $student->id,
+                    'student_name' => $student->full_name,
+                    'grade'        => $student->grade,
+                    'izin'         => $izin,
+                    'alfa'         => $alfa,
+                    'total'        => $izin + $alfa,
+                ];
+            })
+            ->sortByDesc('total')
+            ->values();
+
+        return DataTables::of($rows)
+            ->addIndexColumn()
+            ->addColumn('student_name', fn ($r) => '<span class="fw-semibold">' . e($r['student_name']) . '</span>')
+            ->addColumn('grade', fn ($r) => $r['grade']
+                ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle">' . e($r['grade']) . '</span>'
+                : '<span class="text-muted">—</span>')
+            ->addColumn('izin_label', fn ($r) => $r['izin'] > 0
+                ? '<span class="badge bg-warning text-dark">' . $r['izin'] . '</span>'
+                : '<span class="text-muted">0</span>')
+            ->addColumn('alfa_label', fn ($r) => $r['alfa'] > 0
+                ? '<span class="badge bg-danger">' . $r['alfa'] . '</span>'
+                : '<span class="text-muted">0</span>')
+            ->addColumn('action', fn ($r) => '<a href="' . route('admin.evaluations.student', $r['student_id'])
+                . '" class="btn btn-sm btn-outline-primary" title="Lihat Laporan Siswa"><i class="bi bi-clipboard2-data"></i></a>')
+            ->rawColumns(['student_name', 'grade', 'izin_label', 'alfa_label', 'action'])
+            ->make(true);
     }
 
     /** Data server-side: daftar siswa aktif yang belum bayar SPP bulan berjalan. */

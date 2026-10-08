@@ -81,6 +81,41 @@
     </div>
 </div>
 
+{{-- ══════════ (a2) Rekap Izin & Alfa Seluruh Siswa ══════════ --}}
+@php
+    $bulanLinkParams = fn ($bulan) => array_merge(request()->only(['start_date', 'end_date']), ['bulan' => $bulan]);
+@endphp
+<div class="mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h3 class="fs-5 fw-bold mb-0">Rekap Izin &amp; Alfa Seluruh Siswa</h3>
+    <div class="btn-group">
+        <a href="{{ route('admin.students.dashboard', $bulanLinkParams($bulanRekapPrev)) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i> Bulan Lalu</a>
+        <a href="{{ route('admin.students.dashboard', request()->only(['start_date', 'end_date'])) }}" class="btn btn-outline-primary btn-sm">Bulan Ini</a>
+        <a href="{{ route('admin.students.dashboard', $bulanLinkParams($bulanRekapNext)) }}" class="btn btn-outline-secondary btn-sm">Bulan Depan <i class="bi bi-chevron-right"></i></a>
+    </div>
+</div>
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white px-4 py-3">
+        <h4 class="mb-0 h5">{{ $bulanRekap->translatedFormat('F Y') }}</h4>
+        <p class="text-muted small mb-0">Satu baris per siswa, dari sesi yang sudah dievaluasi bulan ini. Diurutkan dari yang paling sering tidak hadir.</p>
+    </div>
+    <div class="table-responsive p-3">
+        <table class="table table-hover align-middle mb-0" id="izin-alfa-table" style="width:100%">
+            <thead class="table-light">
+                <tr>
+                    <th width="40">#</th>
+                    <th>Nama Siswa</th>
+                    <th>Kelas</th>
+                    <th class="text-center">Izin</th>
+                    <th class="text-center">Alfa</th>
+                    <th class="text-center">Total</th>
+                    <th width="60" class="text-center">Aksi</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
 {{-- ══════════ (b) Pertumbuhan Siswa Baru ══════════ --}}
 <div class="mb-2"><h3 class="fs-5 fw-bold mb-0">Penambahan Siswa Baru</h3></div>
 <div class="row g-3 mb-3">
@@ -155,6 +190,29 @@ $(function () {
         language: {
             url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json',
             emptyTable: 'Semua siswa aktif sudah bayar SPP bulan ini. 🎉'
+        }
+    });
+
+    var izinAlfaTable = $('#izin-alfa-table').DataTable({
+        processing: true,
+        serverSide: true,
+        ajax: {
+            url: "{{ route('admin.students.dashboard.data-izin-alfa') }}",
+            data: function (d) { d.bulan = '{{ $bulanRekap->format('Y-m') }}'; }
+        },
+        order: [],
+        columns: [
+            { data: 'DT_RowIndex', orderable: false, searchable: false },
+            { data: 'student_name', name: 'student_name' },
+            { data: 'grade', name: 'grade', className: 'text-center', orderable: false },
+            { data: 'izin_label', name: 'izin', className: 'text-center' },
+            { data: 'alfa_label', name: 'alfa', className: 'text-center' },
+            { data: 'total', name: 'total', className: 'text-center' },
+            { data: 'action', orderable: false, searchable: false, className: 'text-center' },
+        ],
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json',
+            emptyTable: 'Tidak ada siswa izin/alfa bulan ini.'
         }
     });
 

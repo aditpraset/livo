@@ -49,6 +49,24 @@ class DashboardController extends BaseSiswaController
 
         $recentEvaluations = $evaluations->sortByDesc(fn ($s) => $s->class_date->toDateString())->take(5);
 
-        return view('siswa.dashboard', compact('student', 'stats', 'lastPayment', 'upcoming', 'recentEvaluations'));
+        // Rekap izin & alfa per bulan, tahun berjalan — supaya orang tua/siswa bisa
+        // lihat pola ketidakhadiran per bulan, bukan cuma total keseluruhan.
+        $tahunRekap = now()->year;
+        $izinAlfaPerBulan = collect(range(1, 12))->map(function ($m) use ($evaluations, $tahunRekap) {
+            $sesiBulanIni = $evaluations->filter(
+                fn ($s) => $s->class_date->year === $tahunRekap && $s->class_date->month === $m
+            );
+
+            return [
+                'bulan' => \Carbon\Carbon::create($tahunRekap, $m, 1),
+                'izin'  => $sesiBulanIni->filter(fn ($s) => $s->evaluation->student_attendance === 'izin')->count(),
+                'alfa'  => $sesiBulanIni->filter(fn ($s) => $s->evaluation->student_attendance === 'alfa')->count(),
+            ];
+        });
+
+        return view('siswa.dashboard', compact(
+            'student', 'stats', 'lastPayment', 'upcoming', 'recentEvaluations',
+            'tahunRekap', 'izinAlfaPerBulan'
+        ));
     }
 }

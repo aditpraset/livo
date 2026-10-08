@@ -65,6 +65,10 @@ Route::prefix('tutor')->name('tutor.')->middleware(['auth', 'role:tutor'])->grou
     Route::post('/evaluasi/{schedule}', [\App\Http\Controllers\Tutor\EvaluationController::class, 'store'])->name('evaluations.store');
     Route::put('/evaluasi/{schedule}/feedback', [\App\Http\Controllers\Tutor\EvaluationController::class, 'updateFeedback'])->name('evaluations.feedback');
 
+    // Modul belajar (lihat & unduh saja)
+    Route::get('/modul', [\App\Http\Controllers\Tutor\ModuleController::class, 'index'])->name('modules.index');
+    Route::get('/modul/{module}/download', [\App\Http\Controllers\Tutor\ModuleController::class, 'download'])->name('modules.download');
+
     // Profil tutor
     Route::get('/profil', [\App\Http\Controllers\Tutor\ProfileController::class, 'show'])->name('profile');
     Route::put('/profil', [\App\Http\Controllers\Tutor\ProfileController::class, 'update'])->name('profile.update');
@@ -134,6 +138,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/data/students', [StudentController::class, 'dataStudents'])->name('data.students');
         Route::get('/students/dashboard', [\App\Http\Controllers\Admin\StudentDashboardController::class, 'index'])->name('students.dashboard');
         Route::get('/data/students-dashboard/unpaid', [\App\Http\Controllers\Admin\StudentDashboardController::class, 'dataUnpaid'])->name('students.dashboard.data-unpaid');
+        Route::get('/data/students-dashboard/izin-alfa', [\App\Http\Controllers\Admin\StudentDashboardController::class, 'dataIzinAlfa'])->name('students.dashboard.data-izin-alfa');
 
         // Dashboard Administrasi
         Route::get('/administrasi/dashboard', [\App\Http\Controllers\Admin\AdministrasiDashboardController::class, 'index'])->name('administrasi.dashboard');
@@ -221,6 +226,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/subjects/{subject}/syllabi/{syllabus}/questions', [\App\Http\Controllers\Admin\QuestionController::class, 'store'])->name('subjects.syllabi.questions.store');
         Route::put('/subjects/{subject}/syllabi/{syllabus}/questions/{question}', [\App\Http\Controllers\Admin\QuestionController::class, 'update'])->name('subjects.syllabi.questions.update');
         Route::delete('/subjects/{subject}/syllabi/{syllabus}/questions/{question}', [\App\Http\Controllers\Admin\QuestionController::class, 'destroy'])->name('subjects.syllabi.questions.destroy');
+
+        // Modul Belajar
+        Route::get('/modules', [\App\Http\Controllers\Admin\ModuleController::class, 'index'])->name('modules.index');
+        Route::post('/modules', [\App\Http\Controllers\Admin\ModuleController::class, 'store'])->name('modules.store');
+        Route::put('/modules/{module}', [\App\Http\Controllers\Admin\ModuleController::class, 'update'])->name('modules.update');
+        Route::delete('/modules/{module}', [\App\Http\Controllers\Admin\ModuleController::class, 'destroy'])->name('modules.destroy');
+        Route::get('/modules/{module}/download', [\App\Http\Controllers\Admin\ModuleController::class, 'download'])->name('modules.download');
 
         // Program
         Route::get('/programs', [ProgramController::class, 'index'])->name('programs.index');

@@ -35,4 +35,9 @@ class Subject extends Model
     {
         return $this->hasMany(Syllabus::class);
     }
+
+    public function modules()
+    {
+        return $this->hasMany(Module::class);
+    }
 }

@@ -123,6 +123,12 @@
             <span class="nav-link-title"> Evaluasi </span>
           </a>
         </li>
+        <li class="nav-item {{ request()->routeIs('admin.modules*') ? 'active' : '' }}">
+          <a class="nav-link" href="{{ route('admin.modules.index') }}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="bi bi-folder2-open fs-2"></i></span>
+            <span class="nav-link-title"> Modul </span>
+          </a>
+        </li>
         <li class="nav-item {{ request()->routeIs('admin.registrations*') ? 'active' : '' }}">
           <a class="nav-link" href="{{ route('admin.registrations') }}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
