@@ -310,6 +310,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/schedule-slots/{scheduleSlot}/tutor-pengganti', [\App\Http\Controllers\Admin\ScheduleSlotController::class, 'qualifiedTutors'])->name('schedule-slots.tutor-pengganti');
         Route::put('/schedule-slots/{scheduleSlot}/assign', [\App\Http\Controllers\Admin\ScheduleSlotController::class, 'assign'])->name('schedule-slots.assign');
         Route::put('/schedule-slots/{scheduleSlot}/unassign', [\App\Http\Controllers\Admin\ScheduleSlotController::class, 'unassign'])->name('schedule-slots.unassign');
+        Route::put('/schedule-slots/{scheduleSlot}/release-tutor', [\App\Http\Controllers\Admin\ScheduleSlotController::class, 'releaseTutor'])->name('schedule-slots.release-tutor');
         Route::put('/schedule-slots/{scheduleSlot}/close', [\App\Http\Controllers\Admin\ScheduleSlotController::class, 'close'])->name('schedule-slots.close');
         Route::put('/schedule-slots/{scheduleSlot}/reopen', [\App\Http\Controllers\Admin\ScheduleSlotController::class, 'reopen'])->name('schedule-slots.reopen');
 

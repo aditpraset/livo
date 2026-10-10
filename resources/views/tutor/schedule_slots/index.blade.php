@@ -21,9 +21,9 @@
     </div>
     <div class="col-md-5 text-md-end mt-2 mt-md-0">
         <div class="btn-group">
-            <a href="{{ route('tutor.schedule-slots.index', ['week' => $prevWeek]) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i></a>
+            <a href="{{ route('tutor.schedule-slots.index', ['week' => $prevWeek]) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i> Minggu Lalu</a>
             <a href="{{ route('tutor.schedule-slots.index') }}" class="btn btn-outline-primary btn-sm">Minggu Ini</a>
-            <a href="{{ route('tutor.schedule-slots.index', ['week' => $nextWeek]) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-right"></i></a>
+            <a href="{{ route('tutor.schedule-slots.index', ['week' => $nextWeek]) }}" class="btn btn-outline-secondary btn-sm">Minggu Depan <i class="bi bi-chevron-right"></i></a>
         </div>
     </div>
 </div>
@@ -59,9 +59,9 @@
         <span class="badge bg-primary ms-1">{{ $tersedia->count() }}</span>
     </h2>
 </div>
-<p class="text-muted small">
-    {{ $weekStart->translatedFormat('d M Y') }} – {{ $weekEnd->translatedFormat('d M Y') }}.
-    Anda boleh memilih beberapa; admin yang menentukan siapa yang mengisi.
+<p class="small">
+    <strong class="text-dark">{{ $weekStart->translatedFormat('d M Y') }} – {{ $weekEnd->translatedFormat('d M Y') }}</strong>.
+    <span class="text-muted">Anda boleh memilih beberapa; admin yang menentukan siapa yang mengisi.</span>
 </p>
 
 <div class="row row-cards mb-4">

@@ -295,6 +295,31 @@ class ScheduleSlotController extends Controller
         return response()->json(['success' => true, 'message' => $pesan . '.']);
     }
 
+    /**
+     * Admin melepas tutor dari slot `pending_confirmation` (bawaan minggu lalu)
+     * secara paksa — dipakai saat tutor tidak kunjung konfirmasi. Beda dengan
+     * tutor mengambil IZIN sendiri (status jadi `vacant`, kepemilikan pola tetap
+     * dipertahankan untuk minggu berikutnya): di sini kepemilikan pola benar-benar
+     * dilepas, slot kembali `open` dan dilelang ulang ke SELURUH tutor berkualifikasi.
+     */
+    public function releaseTutor(ScheduleSlot $scheduleSlot)
+    {
+        if (!$scheduleSlot->needsTutorConfirmation()) {
+            return response()->json(['message' => 'Slot ini tidak sedang menunggu konfirmasi tutor.'], 422);
+        }
+
+        $scheduleSlot->update([
+            'assigned_tutor_id'    => null,
+            'status'               => ScheduleSlot::STATUS_OPEN,
+            'carried_from_slot_id' => null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Tutor dilepas dari slot ini. Slot kembali dibuka untuk dilamar seluruh tutor.',
+        ]);
+    }
+
     /** Tutup slot (tidak jadi dipakai minggu ini). */
     public function close(ScheduleSlot $scheduleSlot)
     {

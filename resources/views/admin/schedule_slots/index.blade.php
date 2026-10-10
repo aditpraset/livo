@@ -96,7 +96,20 @@
                                             <div class="small text-muted mt-1">{{ $slot->session->name ?? '-' }}</div>
                                         </td>
                                         <td>{{ $slot->subject->subject_name ?? '-' }}</td>
-                                        <td>{{ $slot->studentGroup->name ?? '-' }}</td>
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span>{{ $slot->studentGroup->name ?? '-' }}</span>
+                                                @if($slot->studentGroup)
+                                                    <button type="button" class="btn btn-sm btn-outline-primary btn-lihat-siswa"
+                                                        data-judul="{{ $slot->hari }}, {{ $slot->class_date->translatedFormat('d M Y') }} · {{ $slot->session->name ?? '-' }} · {{ $slot->subject->subject_name ?? '-' }}"
+                                                        data-group="{{ $slot->studentGroup->name }}"
+                                                        data-siswa='{{ $slot->studentGroup->students->map(fn ($s) => ["nama" => $s->full_name, "nis" => $s->nis ?: "-", "grade" => $s->grade ?: "-"])->values()->toJson() }}'
+                                                        title="Lihat Siswa">
+                                                        <i class="bi bi-people me-1"></i>{{ $slot->studentGroup->students->count() }}
+                                                    </button>
+                                                @endif
+                                            </div>
+                                        </td>
                                         <td>
                                             <span class="badge {{ $badge }}">{{ $slot->statusLabel() }}</span>
                                             @if($slot->carried_from_slot_id)
@@ -135,6 +148,9 @@
                                                     @endif
                                                     @if($slot->status === 'vacant')
                                                         <button class="btn btn-outline-danger btn-pengganti" data-id="{{ $slot->id }}">Pilih Pengganti</button>
+                                                    @endif
+                                                    @if($slot->status === 'pending_confirmation')
+                                                        <button class="btn btn-outline-danger btn-release-tutor" data-id="{{ $slot->id }}" data-tutor="{{ $slot->assignedTutor->name ?? '-' }}">Lepas Tutor</button>
                                                     @endif
                                                     @if($slot->status === 'closed')
                                                         <button class="btn btn-outline-primary btn-reopen" data-id="{{ $slot->id }}">Buka</button>
@@ -238,6 +254,29 @@
         </div>
     </div>
 </div>
+
+{{-- Modal: daftar siswa di sebuah jadwal (dipakai bersama oleh semua baris) --}}
+<div class="modal fade" id="modal-siswa" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title"><i class="bi bi-people me-2 text-primary"></i>Siswa di Jadwal Ini</h5>
+                    <p class="text-muted small mb-0" id="siswa-judul">—</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-sm table-striped align-middle mb-0">
+                    <thead>
+                        <tr><th style="width:40px">#</th><th>Nama Siswa</th><th>NIS</th><th>Jenjang</th></tr>
+                    </thead>
+                    <tbody id="siswa-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('js')
@@ -250,6 +289,25 @@ $(function () {
         Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2200, showConfirmButton: false })
             .then(function () { location.reload(); });
     }
+
+    // Daftar siswa sudah ikut di-render di data-attribute tombol → tanpa request tambahan.
+    $(document).on('click', '.btn-lihat-siswa', function () {
+        var $b = $(this);
+        var siswa = $b.data('siswa') || [];
+
+        $('#siswa-judul').text($b.data('judul') + ' · ' + $b.data('group'));
+
+        var html = '';
+        siswa.forEach(function (s, i) {
+            html += '<tr><td class="text-muted">' + (i + 1) + '</td>' +
+                    '<td class="fw-semibold">' + $('<div>').text(s.nama).html() + '</td>' +
+                    '<td>' + $('<div>').text(s.nis).html() + '</td>' +
+                    '<td>' + $('<div>').text(s.grade).html() + '</td></tr>';
+        });
+        $('#siswa-body').html(html || '<tr><td colspan="4" class="text-center text-muted py-3">Tidak ada siswa aktif.</td></tr>');
+
+        $('#modal-siswa').modal('show');
+    });
 
     $('#btn-prepare').on('click', function () { $('#modal-prepare').modal('show'); });
 
@@ -318,6 +376,19 @@ $(function () {
         }).then(function (r) {
             if (!r.isConfirmed) return;
             $.ajax({ url: '/admin/schedule-slots/' + id + '/unassign', type: 'PUT', data: { _token: token }, success: sukses, error: gagal });
+        });
+    });
+
+    $(document).on('click', '.btn-release-tutor', function () {
+        var id = $(this).data('id'), tutor = $(this).data('tutor');
+        Swal.fire({
+            title: 'Lepas ' + tutor + ' dari jadwal ini?',
+            html: 'Kepemilikan jadwal rutin ini akan dilepas sepenuhnya.<br><small class="text-muted">Jadwal kembali dibuka dan bisa dilamar oleh seluruh tutor berkualifikasi, bukan hanya pengganti sesaat.</small>',
+            icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33',
+            confirmButtonText: 'Ya, Lepas', cancelButtonText: 'Batal'
+        }).then(function (r) {
+            if (!r.isConfirmed) return;
+            $.ajax({ url: '/admin/schedule-slots/' + id + '/release-tutor', type: 'PUT', data: { _token: token }, success: sukses, error: gagal });
         });
     });
 
