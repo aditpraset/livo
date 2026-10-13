@@ -266,17 +266,7 @@ class ScheduleController extends Controller
                 continue;
             }
 
-            // Sisa kuota yang bisa dijadwalkan = kuota siswa - jadwal yang masih terjadwal (belum selesai/batal).
-            // Kuota 0 → tidak digenerate; kuota 1 dengan 2 jadwal → hanya 1 yang digenerate.
-            $pendingCount = Schedule::where('student_id', $student->id)
-                ->where('status_schedule', 'scheduled')
-                ->count();
-            $remaining = (int) ($student->quota_sessions ?? 0) - $pendingCount;
-
-            if ($remaining <= 0) {
-                $skipped++;
-                continue;
-            }
+            // Kuota TIDAK membatasi pembuatan jadwal — lihat catatan di generateByGroup().
 
             // Ambil subject pertama dari program siswa
             $subjectId = null;
@@ -289,10 +279,6 @@ class ScheduleController extends Controller
             }
 
             foreach ($slots as $slot) {
-                if ($remaining <= 0) {
-                    break; // kuota habis untuk siswa ini
-                }
-
                 if (!array_key_exists($slot['hari'], $dayOffset) || !$slot['session']) {
                     $skipped++;
                     continue;
@@ -325,7 +311,6 @@ class ScheduleController extends Controller
                 ]);
 
                 $created++;
-                $remaining--;
             }
         }
 
@@ -434,19 +419,10 @@ class ScheduleController extends Controller
                 }
             }
 
-            // Kuota yang belum "kepakai" = jadwal yang belum dievaluasi & belum dibatalkan
-            // (bukan hanya status "scheduled" — jadwal grouping langsung dibuat "done").
-            $pendingCount = Schedule::where('student_id', $student->id)
-                ->where('status_schedule', '!=', 'canceled')
-                ->whereDoesntHave('evaluation')
-                ->count();
-            $remaining = (int) ($student->quota_sessions ?? 0) - $pendingCount;
-
-            if ($remaining <= 0) {
-                $skipped++;
-                continue;
-            }
-
+            // Kuota TIDAK membatasi pembuatan jadwal — siswa tetap bisa dijadwalkan
+            // walau kuotanya sudah habis/minus. Defisitnya baru kelihatan saat sesi
+            // dievaluasi (lihat ManagesEvaluations::syncQuota) dan otomatis terbayar
+            // saat kuota ditambah lewat pembayaran berikutnya.
             $exists = Schedule::where('student_id', $student->id)
                 ->where('class_date', $classDate->toDateString())
                 ->where('start_time', $startTime)
@@ -483,7 +459,7 @@ class ScheduleController extends Controller
 
         $message = $created . ' jadwal berhasil dibuat untuk grouping ini';
         if ($skipped > 0) {
-            $reason = $useExplicitGroup ? 'kuota habis atau jadwal sudah ada' : 'kuota habis, jadwal sudah ada, atau mapel tidak cocok';
+            $reason = $useExplicitGroup ? 'jadwal sudah ada' : 'jadwal sudah ada atau mapel tidak cocok';
             $message .= ', ' . $skipped . ' siswa dilewati (' . $reason . ')';
         }
         $message .= '.';
@@ -507,41 +483,14 @@ class ScheduleController extends Controller
             return response()->json(['message' => $error, 'errors' => ['subject_id' => [$error]]], 422);
         }
 
-        if ($error = $this->quotaError($validated['student_id'])) {
-            return response()->json(['message' => $error, 'errors' => ['student_id' => [$error]]], 422);
-        }
+        // Kuota TIDAK membatasi pembuatan jadwal — siswa tetap bisa dijadwalkan
+        // walau kuotanya sudah habis/minus. Defisitnya baru kelihatan saat sesi
+        // dievaluasi (lihat ManagesEvaluations::syncQuota) dan otomatis terbayar
+        // saat kuota ditambah lewat pembayaran berikutnya.
 
         // Tutor boleh dipilih di berbagai siswa (tanpa cek bentrok waktu).
         Schedule::create($validated + ['status_schedule' => 'scheduled']);
         return response()->json(['success' => true, 'message' => 'Jadwal berhasil ditambahkan.']);
-    }
-
-    /**
-     * Pastikan kuota sesi siswa masih cukup untuk jadwal baru: kuota dikurangi
-     * jadwal yang sudah ada tapi belum dievaluasi & belum dibatalkan (konsisten
-     * dengan generateByGroup()). Mengembalikan pesan error bila kuota sudah
-     * habis/terpakai oleh jadwal pending, null bila masih ada sisa.
-     */
-    private function quotaError(int $studentId): ?string
-    {
-        $student = Student::find($studentId);
-        if (!$student) {
-            return null;
-        }
-
-        $pendingCount = Schedule::where('student_id', $studentId)
-            ->where('status_schedule', '!=', 'canceled')
-            ->whereDoesntHave('evaluation')
-            ->count();
-
-        $remaining = (int) ($student->quota_sessions ?? 0) - $pendingCount;
-
-        if ($remaining <= 0) {
-            return 'Kuota sesi siswa ini sudah habis (kuota: ' . (int) ($student->quota_sessions ?? 0)
-                . ', jadwal belum dievaluasi: ' . $pendingCount . '). Tambah kuota terlebih dahulu sebelum membuat jadwal baru.';
-        }
-
-        return null;
     }
 
     /**

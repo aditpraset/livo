@@ -28,6 +28,12 @@ trait ManagesEvaluations
      * kuota berkurang 1 saat siswa "hadir" atau "alfa" dan dievaluasi, dan
      * dikembalikan jika status kehadiran diubah menjadi "izin". Penanda
      * quota_consumed mencegah pemotongan dobel saat evaluasi disimpan berulang.
+     *
+     * Kuota BOLEH menjadi minus (utang sesi) — siswa bisa saja sudah dijadwalkan
+     * & diajar melebihi kuota yang dibayar. Minusnya otomatis terbayar begitu
+     * kuota ditambah lewat pembayaran berikutnya (lihat Admin\PaymentController /
+     * Admin\AdminController, yang cuma increment() biasa — jalan sendiri untuk
+     * nilai negatif).
      */
     protected function syncQuota(Evaluation $evaluation): void
     {
@@ -39,7 +45,7 @@ trait ManagesEvaluations
         // Kuota terpotong untuk kehadiran "hadir" maupun "alfa"; "izin" tidak memotong.
         $consumes = in_array($evaluation->student_attendance, ['hadir', 'alfa'], true);
 
-        if ($consumes && !$evaluation->quota_consumed && $student->quota_sessions > 0) {
+        if ($consumes && !$evaluation->quota_consumed) {
             $student->decrement('quota_sessions');
             $evaluation->update(['quota_consumed' => true]);
         } elseif (!$consumes && $evaluation->quota_consumed) {

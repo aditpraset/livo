@@ -165,7 +165,7 @@ class ScheduleSlotController extends BaseTutorController
 
         $pesan = "Jadwal dikonfirmasi. {$hasil['created']} jadwal mengajar dibuat";
         if ($hasil['skipped']) {
-            $pesan .= ", {$hasil['skipped']} siswa dilewati (kuota habis atau sudah ada jadwal)";
+            $pesan .= ", {$hasil['skipped']} siswa dilewati (sudah ada jadwal)";
         }
 
         return response()->json(['success' => true, 'message' => $pesan . '.']);

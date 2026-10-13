@@ -252,8 +252,7 @@ class ScheduleSlotController extends Controller
         $tutor = Tutor::find($data['tutor_id']);
         $pesan = "Slot ditetapkan ke {$tutor->name}. {$hasil['created']} jadwal dibuat";
         if ($hasil['skipped']) {
-            $pesan .= ", {$hasil['skipped']} siswa dilewati (kuota habis: {$hasil['reasons']['kuota_habis']}, "
-                    . "jadwal sudah ada: {$hasil['reasons']['jadwal_sudah_ada']})";
+            $pesan .= ", {$hasil['skipped']} siswa dilewati (jadwal sudah ada: {$hasil['reasons']['jadwal_sudah_ada']})";
         }
 
         return response()->json(['success' => true, 'message' => $pesan . '.']);

@@ -12,8 +12,9 @@ use Carbon\Carbon;
  * ScheduleController::generateByGroup() supaya perilakunya konsisten:
  *
  *  - Hanya siswa berstatus aktif.
- *  - Kuota: sisa = quota_sessions - jadwal yang belum dievaluasi & belum dibatalkan.
- *    Sisa <= 0 → siswa dilewati.
+ *  - Kuota TIDAK membatasi — siswa tetap dijadwalkan walau kuotanya sudah
+ *    habis/minus (defisitnya baru kelihatan saat sesi dievaluasi, lihat
+ *    ManagesEvaluations::syncQuota, dan terbayar otomatis saat kuota ditambah).
  *  - Anti-dobel: siswa sudah punya jadwal di tanggal + jam mulai yang sama
  *    (selain yang dibatalkan) → dilewati.
  *
@@ -44,7 +45,7 @@ trait MaterializesScheduleSlot
     {
         $created = 0;
         $skipped = 0;
-        $reasons = ['kuota_habis' => 0, 'jadwal_sudah_ada' => 0];
+        $reasons = ['jadwal_sudah_ada' => 0];
 
         $group   = $slot->studentGroup;
         $session = $slot->session;
@@ -59,18 +60,6 @@ trait MaterializesScheduleSlot
         $endTime   = substr($session->time_end, 0, 5);
 
         foreach ($group->students()->where('status', 1)->get() as $student) {
-            // Kuota yang belum "kepakai" = jadwal belum dievaluasi & belum dibatalkan.
-            $pending = Schedule::where('student_id', $student->id)
-                ->where('status_schedule', '!=', 'canceled')
-                ->whereDoesntHave('evaluation')
-                ->count();
-
-            if (((int) ($student->quota_sessions ?? 0) - $pending) <= 0) {
-                $skipped++;
-                $reasons['kuota_habis']++;
-                continue;
-            }
-
             $exists = Schedule::where('student_id', $student->id)
                 ->where('class_date', $classDate)
                 ->where('start_time', $startTime)
