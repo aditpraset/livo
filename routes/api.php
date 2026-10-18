@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Tutor\EvaluationController;
 use App\Http\Controllers\Api\Tutor\ProfileController;
 use App\Http\Controllers\Api\Tutor\ReportController;
 use App\Http\Controllers\Api\Tutor\ScheduleController;
+use App\Http\Controllers\Api\Tutor\ScheduleSlotController;
 use Illuminate\Support\Facades\Route;
 
 // ── Auth Tutor (Sanctum, stateless token) ──────────────────────────────────
@@ -24,6 +25,13 @@ Route::prefix('tutor')->name('api.tutor.')->group(function () {
         Route::get('/schedules/week', [ScheduleController::class, 'week'])->name('schedules.week');
         Route::get('/students/{student}', [ScheduleController::class, 'studentDetail'])->name('students.show');
         Route::get('/students/{student}/history', [ScheduleController::class, 'studentHistory'])->name('students.history');
+
+        // Jadwal dari pola: konfirmasi jadwal bawaan mingguan & pilih slot yang dibuka
+        Route::get('/schedule-slots', [ScheduleSlotController::class, 'index'])->name('schedule-slots.index');
+        Route::post('/schedule-slots/{scheduleSlot}/apply', [ScheduleSlotController::class, 'apply'])->name('schedule-slots.apply');
+        Route::put('/schedule-slots/{scheduleSlot}/withdraw', [ScheduleSlotController::class, 'withdraw'])->name('schedule-slots.withdraw');
+        Route::put('/schedule-slots/{scheduleSlot}/confirm', [ScheduleSlotController::class, 'confirm'])->name('schedule-slots.confirm');
+        Route::put('/schedule-slots/{scheduleSlot}/izin', [ScheduleSlotController::class, 'izin'])->name('schedule-slots.izin');
 
         Route::get('/evaluations', [EvaluationController::class, 'index'])->name('evaluations.index');
         Route::get('/evaluations/{schedule}', [EvaluationController::class, 'show'])->name('evaluations.show');

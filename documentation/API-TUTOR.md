@@ -12,13 +12,14 @@ REST API berformat JSON untuk role **tutor**, diautentikasi dengan **Laravel San
 2. [Autentikasi](#2-autentikasi)
 3. [Dashboard](#3-dashboard)
 4. [Jadwal & Siswa](#4-jadwal--siswa)
-5. [Evaluasi](#5-evaluasi)
-6. [Profil](#6-profil)
-7. [Rekapitulasi](#7-rekapitulasi)
-8. [Laporan (PDF)](#8-laporan-pdf)
-9. [Format Error](#9-format-error)
-10. [Referensi Objek Data](#10-referensi-objek-data)
-11. [Contoh Alur Lengkap (cURL)](#11-contoh-alur-lengkap-curl)
+5. [Jadwal dari Pola — Konfirmasi Mingguan & Pengambilan Jadwal Baru](#5-jadwal-dari-pola--konfirmasi-mingguan--pengambilan-jadwal-baru)
+6. [Evaluasi](#6-evaluasi)
+7. [Profil](#7-profil)
+8. [Rekapitulasi](#8-rekapitulasi)
+9. [Laporan (PDF)](#9-laporan-pdf)
+10. [Format Error](#10-format-error)
+11. [Referensi Objek Data](#11-referensi-objek-data)
+12. [Contoh Alur Lengkap (cURL)](#12-contoh-alur-lengkap-curl)
 
 ---
 
@@ -139,11 +140,13 @@ POST /api/tutor/auth/login
     "phone": "081234567890",
     "email": "budi@livo.co.id",
     "no_rekening": "BCA 1234567890",
+    "kategori": "freelance",
     "fee_per_session": 75000,
     "fee_per_student_private": 50000,
     "fee_per_student": 25000,
     "fee_transport_per_day": 20000,
-    "specialization": ["Matematika", "Fisika"]
+    "specialization": ["Matematika", "Fisika"],
+    "...": "field fee_* lainnya & field tutor-tetap ikut terkirim apa adanya — lihat daftar lengkap di Objek `tutor` (#11)"
   }
 }
 ```
@@ -388,16 +391,185 @@ GET /api/tutor/students/{student}/history
 
 ---
 
-## 5. Evaluasi
+## 5. Jadwal dari Pola — Konfirmasi Mingguan & Pengambilan Jadwal Baru
 
-### 5.1 Daftar Sesi Belum Dievaluasi (dipaginasi)
+Modul **berbeda** dari §4 (Jadwal & Siswa) — di §4 yang dikelola adalah jadwal mengajar yang **sudah final** (`Schedule`). Di sini (`ScheduleSlot`) yang dikelola adalah **rencana/kandidat** jadwal sebelum final: tutor yang mengajar rutin tiap minggu cukup **konfirmasi**/**izin**, dan slot baru yang belum ada tutornya ditampilkan untuk **dilamar**. Begitu dikonfirmasi/ditetapkan, modul ini **menghasilkan** baris `Schedule` baru yang baru kemudian muncul di endpoint §4.
+
+### Istilah & status slot
+
+| Istilah | Arti |
+|---|---|
+| **Slot** | Satu baris jadwal untuk satu minggu tertentu (hari + sesi + mapel + group siswa). |
+| **Pola** | Template mingguan (dikelola admin) yang menghasilkan slot baru tiap minggu di-generate. |
+| **Lamaran (application)** | Pernyataan minat tutor terhadap satu slot yang masih terbuka. |
+
+**Status slot** (field `status`):
+
+| Nilai | Arti | Siapa yang bertindak |
+|---|---|---|
+| `open` | Belum pernah ada tutor tetap, atau sudah dilepas admin — dilelang ke semua tutor berkualifikasi | Tutor melamar → admin menetapkan satu |
+| `pending_confirmation` | Tutor rutin dari minggu lalu dibawa otomatis ke minggu ini | **Tutor pemilik slot** konfirmasi atau izin |
+| `vacant` | Tutor rutin mengambil **izin** untuk minggu ini saja — kepemilikan pola TETAP miliknya, minggu depan balik lagi ke dia | Tutor lain melamar → admin menetapkan pengganti |
+| `assigned` | Tutor final sudah ada minggu ini — jadwal mengajar asli (`Schedule`) otomatis dibuat | — (final) |
+| `closed` | Admin menutup slot, tidak dipakai minggu ini | — |
+
+⚠️ **"izin" ≠ "lepas jadwal"**: izin hanya mengosongkan minggu berjalan, kepemilikan pola tetap untuk tutor yang sama di minggu berikutnya.
+
+**Status lamaran** (field `status` pada application): `pending`, `accepted`, `rejected`, `withdrawn`.
+
+### 5.1 Ringkasan Satu Minggu
+
+```
+GET /api/tutor/schedule-slots
+```
+🔒 *Butuh token*
+
+**Query**
+
+| Param | Tipe | Wajib | Keterangan |
+|---|---|---|---|
+| `week` | date (`YYYY-MM-DD`) | — | Tanggal mana pun dalam minggu yang dituju (dinormalkan ke hari Senin). Default minggu berjalan. |
+
+**Response `200 OK`**
+
+```jsonc
+{
+  "week_start": "2027-03-01",
+  "week_end": "2027-03-07",
+  "prev_week": "2027-02-22",
+  "next_week": "2027-03-08",
+  "specialization": ["Matematika", "Fisika"],
+
+  "needs_confirmation": [
+    {
+      "id": 71, "hari": "Senin", "class_date": "2027-03-01", "week_start": "2027-03-01",
+      "status": "pending_confirmation", "status_label": "Menunggu Konfirmasi",
+      "carried_from_slot_id": 54, "confirmed_at": null, "izin_at": null,
+      "session": { "id": 11, "name": "Sesi Sore", "time_start": "16:00", "time_end": "17:30" },
+      "subject": { "id": 1, "subject_name": "Matematika" },
+      "student_group": {
+        "id": 76, "name": "Group SD Kelas 3",
+        "students": [
+          { "id": 101, "full_name": "Budi Santoso", "nis": "2024001", "grade": "SD Kelas 3" }
+        ]
+      },
+      "assigned_tutor": { "id": 5, "name": "Budi Santoso" },
+      "filled_by_tutor": null
+    }
+  ],
+  "available": [
+    {
+      "id": 90, "hari": "Rabu", "class_date": "2027-03-03",
+      "status": "open", "status_label": "Tersedia",
+      "session": { "...": "..." }, "subject": { "...": "..." },
+      "student_group": { "...": "..." },
+      "assigned_tutor": null, "filled_by_tutor": null,
+      "application": {
+        "id": 14, "schedule_slot_id": 90, "status": "pending", "status_label": "Menunggu Keputusan",
+        "note": "Siap mengajar", "applied_at": "2027-02-20T09:15:00+07:00", "slot": null
+      }
+    }
+  ],
+  "decisions": [
+    {
+      "id": 9, "schedule_slot_id": 61, "status": "accepted", "status_label": "Terpilih",
+      "note": null, "applied_at": "2027-02-18T10:00:00+07:00",
+      "slot": { "id": 61, "hari": "Jumat", "status": "assigned", "status_label": "Complete", "...": "..." }
+    }
+  ]
+}
+```
+
+Catatan field:
+- `needs_confirmation` **tidak terikat `week`** — selalu menampilkan seluruh slot pending milik tutor ini lintas minggu, supaya tidak ada yang terlewat kalau admin menyiapkan jauh-jauh hari. `available`/`decisions` terikat `week`.
+- `application` pada tiap item `available` bernilai `null` bila tutor belum pernah melamar slot itu.
+- `student_group.students` hanya berisi siswa **aktif**, diurutkan nama.
+- `confirmed_at`/`izin_at`/`applied_at` berformat ISO 8601 dengan offset (`+07:00`); `class_date`/`week_start` murni tanggal tanpa jam.
+- `available` sudah difilter server sesuai `specialization` tutor — client tidak perlu filter ulang.
+
+### 5.2 Melamar Slot
+
+```
+POST /api/tutor/schedule-slots/{scheduleSlot}/apply
+```
+🔒 *Butuh token*
+
+**Body**: `note` (opsional, string) — catatan singkat ke admin.
+
+**Response `200 OK`**
+```json
+{ "success": true, "message": "Jadwal berhasil dipilih. Menunggu keputusan admin.", "application": { "...": "lihat 5.1" } }
+```
+
+**Response `422`**:
+- `"Slot ini sudah tidak dibuka lagi."` — slot bukan `open`/`vacant` lagi.
+- `"Mata pelajaran slot ini di luar kualifikasi Anda."`
+
+Melamar ulang ke slot yang sama **tidak membuat lamaran dobel** (upsert berdasar slot+tutor) — boleh lebih dari satu tutor melamar slot yang sama, admin yang memutuskan siapa yang dipilih.
+
+### 5.3 Membatalkan Lamaran
+
+```
+PUT /api/tutor/schedule-slots/{scheduleSlot}/withdraw
+```
+🔒 *Butuh token*
+
+**Response `200 OK`**: `{ "success": true, "message": "Pilihan jadwal dibatalkan." }`
+
+**Response `422`**: `"Anda belum memilih jadwal ini."` atau `"Lamaran sudah disetujui admin. Hubungi admin untuk perubahan."` (sudah ditetapkan admin, tidak bisa dibatalkan sendiri).
+
+### 5.4 Konfirmasi Jadwal Rutin
+
+```
+PUT /api/tutor/schedule-slots/{scheduleSlot}/confirm
+```
+🔒 *Butuh token* · hanya berlaku untuk slot `pending_confirmation` **milik tutor ini**.
+
+Memicu pembuatan jadwal mengajar asli (`Schedule`) otomatis untuk setiap siswa aktif di group.
+
+**Response `200 OK`**
+```json
+{
+  "success": true,
+  "message": "Jadwal dikonfirmasi. 2 jadwal mengajar dibuat.",
+  "created": 2, "skipped": 0,
+  "slot": { "id": 71, "status": "assigned", "status_label": "Complete", "...": "..." }
+}
+```
+`skipped` > 0 terjadi bila siswa sudah kebetulan punya jadwal lain di jam yang sama — tampilkan sebagai info, bukan error.
+
+**Response `422`**: `"Jadwal ini bukan milik Anda atau sudah tidak perlu dikonfirmasi."`
+
+### 5.5 Izin (Berhalangan Minggu Ini Saja)
+
+```
+PUT /api/tutor/schedule-slots/{scheduleSlot}/izin
+```
+🔒 *Butuh token* · syarat sama seperti 5.4 (slot `pending_confirmation` milik tutor ini).
+
+**Response `200 OK`**
+```json
+{
+  "success": true,
+  "message": "Izin dicatat. Jadwal minggu ini dikosongkan menunggu pengganti dari admin; jadwal rutin Anda tetap berlanjut minggu depan.",
+  "slot": { "id": 71, "status": "vacant", "status_label": "Butuh Pengganti", "...": "..." }
+}
+```
+
+**Response `422`**: sama seperti 5.4. ⚠️ Tampilkan dialog konfirmasi sebelum memanggil endpoint ini — tutor sering salah paham antara "izin" (sementara, pola tetap jadi miliknya) dan "melepas jadwal" (permanen, hanya bisa dilakukan admin).
+
+---
+
+## 6. Evaluasi
+
+### 6.1 Daftar Sesi Belum Dievaluasi (dipaginasi)
 
 ```
 GET /api/tutor/evaluations
 ```
 🔒 *Butuh token*
 
-Sesi milik tutor ini yang **belum ada evaluasi**, dan (a) berstatus `done`, atau (b) berstatus `scheduled` tapi tanggalnya sudah lewat.
+Sesi milik tutor ini yang **belum ada evaluasi**, dan berstatus `done` **atau** `scheduled` — **tidak ada syarat tanggal sudah lewat**, tutor boleh mengisi evaluasi kapan saja begitu jadwalnya dibuat, termasuk untuk sesi yang baru akan berlangsung. Sesi berstatus `canceled` tidak pernah muncul di daftar ini.
 
 **Query:** `page`, `per_page`, `search` (opsional — filter berdasarkan **nama siswa**, partial match tidak case-sensitive, sama seperti pada [4.1 Jadwal Satu Minggu](#41-jadwal-satu-minggu)).
 
@@ -417,7 +589,7 @@ Sesi milik tutor ini yang **belum ada evaluasi**, dan (a) berstatus `done`, atau
 }
 ```
 
-### 5.2 Detail Sesi untuk Form Evaluasi
+### 6.2 Detail Sesi untuk Form Evaluasi
 
 ```
 GET /api/tutor/evaluations/{schedule}
@@ -467,7 +639,7 @@ Catatan:
 - Bila siswa **belum punya `grade`** tercatat, filter kelas dilewati (fallback) — seluruh silabus mata pelajaran tsb ditampilkan tanpa disaring kelas.
 - `syllabi` selalu **kosong** bila sesi tidak punya `subject_id`.
 
-### 5.3 Simpan Evaluasi
+### 6.3 Simpan Evaluasi
 
 ```
 POST /api/tutor/evaluations/{schedule}
@@ -490,7 +662,7 @@ Membuat evaluasi baru, atau **memperbarui** bila sesi ini sudah pernah dievaluas
 | `kepercayaan_diri` | integer 1–100 | — | |
 | `tutor_notes` | string, maks 1000 | — | |
 
-> Feedback siswa **bukan** bagian dari endpoint ini — lihat [5.4 Simpan Feedback Siswa](#54-simpan-feedback-siswa), field terpisah yang melekat pada sesi (Schedule), bisa diisi kapan saja termasuk sebelum sesi ini dievaluasi.
+> Feedback siswa **bukan** bagian dari endpoint ini — lihat [6.4 Simpan Feedback Siswa](#64-simpan-feedback-siswa), field terpisah yang melekat pada sesi (Schedule), bisa diisi kapan saja termasuk sebelum sesi ini dievaluasi.
 
 **Efek samping otomatis:**
 - Bila `status_schedule` sesi masih `scheduled`, otomatis diubah menjadi `done`.
@@ -519,9 +691,9 @@ Membuat evaluasi baru, atau **memperbarui** bila sesi ini sudah pernah dievaluas
 }
 ```
 
-**Response `422`** — validasi gagal (lihat [format error](#9-format-error)). **Response `403`** — sesi bukan milik tutor ini.
+**Response `422`** — validasi gagal (lihat [format error](#10-format-error)). **Response `403`** — sesi bukan milik tutor ini.
 
-### 5.4 Simpan Feedback Siswa
+### 6.4 Simpan Feedback Siswa
 
 ```
 PUT /api/tutor/evaluations/{schedule}/feedback
@@ -555,9 +727,9 @@ Set/ubah feedback siswa untuk satu sesi. **Terpisah dari evaluasi** — field in
 
 ---
 
-## 6. Profil
+## 7. Profil
 
-### 6.1 Lihat Profil
+### 7.1 Lihat Profil
 
 ```
 GET /api/tutor/profile
@@ -573,16 +745,18 @@ GET /api/tutor/profile
     "phone": "081234567890",
     "email": "budi@livo.co.id",
     "no_rekening": "BCA 1234567890",
+    "kategori": "freelance",
     "fee_per_session": 75000,
     "fee_per_student_private": 50000,
     "fee_per_student": 25000,
     "fee_transport_per_day": 20000,
-    "specialization": ["Matematika", "Fisika"]
+    "specialization": ["Matematika", "Fisika"],
+    "...": "field fee_* lainnya & field tutor-tetap ikut terkirim apa adanya — lihat daftar lengkap di Objek `tutor` (#11)"
   }
 }
 ```
 
-### 6.2 Perbarui Profil
+### 7.2 Perbarui Profil
 
 ```
 POST /api/tutor/profile
@@ -610,9 +784,9 @@ Tutor **hanya boleh mengubah** kontak, no. rekening, dan foto. Nama, email, dan 
 
 ---
 
-## 7. Rekapitulasi
+## 8. Rekapitulasi
 
-### 7.1 Rekap Pengajaran per Bulan (dipaginasi)
+### 8.1 Rekap Pengajaran per Bulan (dipaginasi)
 
 ```
 GET /api/tutor/rekap-pengajaran
@@ -662,7 +836,7 @@ GET /api/tutor/rekap-pengajaran
 - `done` = jumlah **sesi unik** (grouping per slot tanggal+jam), sama seperti Dashboard.
 - `students` = **total kehadiran hadir** (sama persis dengan field `hadir` di bawahnya) — **bukan** jumlah siswa unik. Field ini sengaja redundan dengan `hadir` demi konsistensi dengan tampilan web.
 
-### 7.2 Rekap Fee per Tahun
+### 8.2 Rekap Fee per Tahun
 
 ```
 GET /api/tutor/rekap-fee
@@ -684,64 +858,93 @@ GET /api/tutor/rekap-fee
 {
   "year": 2026,
   "rates": {
-    "session": 75000,
-    "private": 50000,
-    "student": 25000,
-    "transport": 20000
+    "session": 15000,
+    "private": 30000,
+    "student": 10000,
+    "transport": 20000,
+    "kategori": "freelance",
+    "gaji_pokok": 0,
+    "tunjangan": 0,
+    "maks_sesi": null
   },
   "rows": [
     {
       "private_count": 0, "regular_count": 0, "session_count": 0, "day_count": 0,
-      "fee_private": 0, "fee_regular": 0, "fee_session": 0, "fee_transport": 0, "total": 0,
-      "month": 1, "month_label": "Januari", "published": false
+      "fee_private": 0, "fee_regular": 0, "fee_session": 0, "fee_transport": 0,
+      "fee_pokok": 0, "fee_tunjangan": 0, "extra_session_count": 0, "fee_extra_session": 0, "fee_insentif": 0,
+      "total": 0, "month": 1, "month_label": "Januari", "published": false
     },
     {
-      "private_count": 3, "regular_count": 20, "session_count": 12, "day_count": 10,
-      "fee_private": 150000, "fee_regular": 500000, "fee_session": 900000, "fee_transport": 200000, "total": 1750000,
-      "month": 2, "month_label": "Februari", "published": true
+      "private_count": 5, "regular_count": 20, "session_count": 12, "day_count": 10,
+      "fee_private": 150000, "fee_regular": 200000, "fee_session": 180000, "fee_transport": 200000,
+      "fee_pokok": 0, "fee_tunjangan": 0, "extra_session_count": 0, "fee_extra_session": 0, "fee_insentif": 50000,
+      "total": 780000, "month": 2, "month_label": "Februari", "published": true
     }
   ],
   "totals": {
-    "private_count": 3, "regular_count": 20, "session_count": 12, "day_count": 10,
-    "fee_private": 150000, "fee_regular": 500000, "fee_session": 900000, "fee_transport": 200000, "total": 1750000
+    "private_count": 5, "regular_count": 20, "session_count": 12, "day_count": 10,
+    "fee_private": 150000, "fee_regular": 200000, "fee_session": 180000, "fee_transport": 200000,
+    "fee_pokok": 0, "fee_tunjangan": 0, "extra_session_count": 0, "fee_extra_session": 0, "fee_insentif": 50000,
+    "total": 780000
   }
 }
 ```
 
-`rows` selalu berisi **12 elemen** (Januari–Desember), dipotong pada contoh di atas agar ringkas. `totals` adalah penjumlahan seluruh `rows` sepanjang tahun (hanya bulan `published` yang bernilai > 0).
+`rows` selalu berisi **12 elemen** (Januari–Desember), dipotong pada contoh di atas agar ringkas. `totals` adalah penjumlahan seluruh `rows` sepanjang tahun (hanya bulan `published` yang bernilai > 0). `rates.kategori` adalah `freelance`\|`tetap` — **field-field berikut maknanya berbeda tergantung kategori ini**, lihat tabel di bawah.
 
-**Rincian fee = a + b + c + d**, dihitung admin saat generate dan disimpan apa adanya (bisa diedit manual sebelum terbit). Satu **sesi** = satu slot mengajar (tanggal + jam), boleh diisi banyak siswa sekaligus:
+Satu **sesi** = satu slot mengajar (tanggal + jam + tutor), boleh diisi banyak siswa sekaligus. **Tarif per sesi mengikuti PAKET KELAS siswa** di sesi itu, bukan satu tarif flat untuk semua — ada 6 jenis paket, masing-masing kolom tarifnya sendiri di master Tutor:
 
-| Komponen | Field jumlah | Field nominal | Rumus |
+| Paket | Kolom tarif di `tutor` |
+|---|---|
+| Privat | `fee_per_student_private` |
+| TKA Visit *(dibayar per sesi saja — lihat catatan di bawah)* | `fee_tka_visit` |
+| Privat Khusus | `fee_private_khusus` |
+| Privat SMA | `fee_private_sma` |
+| TKA Reguler | `fee_tka_regular` |
+| Semi Privat / tanpa paket (fallback) | `fee_per_session` |
+
+Sesi **campuran** (berisi siswa dari beberapa paket sekaligus) diklasifikasikan ke **satu** paket saja memakai urutan prioritas di atas (Privat menang lebih dulu, lalu TKA Visit, dst — urutan ini TIDAK berubah meski kategori tutor berbeda). Siswa yang memilih **Privat dan Semi Privat sekaligus** dipetakan ke salah satunya berdasar jadwal kelas terdaftar siswa per hari, atau (bila tidak ada) mayoritas jenis sesi (sendirian = Privat, ramai 2+ siswa = Semi Privat) — bukan sekadar nilai `package_id` yang tersimpan di profil siswa.
+
+**Kategori `freelance`** — dibayar murni dari aktivitas mengajar, total = a + b + c + d + insentif:
+
+| Komponen | Field jumlah | Field nominal | Keterangan |
 |---|---|---|---|
-| a) Sesi Privat — sesi yang berisi **minimal satu** siswa paket Privat, flat per sesi (bukan dikali jumlah siswa) | `private_count` | `fee_private` | `private_count × rates.private` |
-| b) Sesi Semi-Privat — sesi yang **tidak** berisi siswa Privat sama sekali, flat per sesi (alternatif dari a) | `session_count` | `fee_session` | `session_count × rates.session` |
-| c) Total siswa hadir — seluruh kehadiran `hadir` di semua sesi bulan itu, **tanpa memandang paket**, dikali per kepala | `regular_count` | `fee_regular` | `regular_count × rates.student` |
-| d) Transport (per hari yang ada minimal 1 sesi) | `day_count` | `fee_transport` | `day_count × rates.transport` |
+| a) Sesi Privat | `private_count` | `fee_private` | Flat per sesi (bukan dikali jumlah siswa) |
+| b) Sesi paket lain (Semi Privat, TKA Reguler, Privat Khusus, Privat SMA, TKA Visit) | `session_count` | `fee_session` | Flat per sesi, tarif mengikuti paket masing-masing (lihat tabel tarif) |
+| c) Total siswa hadir | `regular_count` | `fee_regular` | `fee_per_student` × kehadiran "hadir" di semua sesi — **kecuali siswa paket TKA Visit**, yang dibayar penuh lewat (b), tidak dihitung lagi di sini |
+| d) Transport | `day_count` | `fee_transport` | Per hari mengajar; hari yang isinya **hanya** sesi TKA Visit tidak dihitung |
+| Insentif | — | `fee_insentif` | Diisi **manual** oleh admin tiap bulan, berlaku untuk kategori apa pun |
 
-Catatan penting:
-- Nama field `private_count`/`session_count`/`regular_count` dipertahankan agar skema API tidak berubah, tapi maknanya **bukan lagi jumlah siswa untuk ketiganya** — `private_count` & `session_count` sekarang **jumlah sesi**, hanya `regular_count` yang tetap jumlah siswa (dan sekarang mencakup semua paket, bukan cuma Semi-Privat).
-- Sesi **campuran** (ada siswa Privat & non-Privat sekaligus) diklasifikasikan sebagai sesi Privat (a) — siswa non-Privat di sesi itu tetap ikut dihitung pada komponen (c).
-- Siswa dengan `package_id` kosong/tidak valid diperlakukan sebagai non-Privat (fallback ke sesi tipe b / komponen c), supaya tidak ada kehadiran yang "hilang" dari perhitungan.
+**Kategori `tetap`** — **tidak** dibayar dari a/c/d; total = gaji pokok + tunjangan + kelebihan sesi + sesi TKA Visit + insentif:
 
-`total = fee_private + fee_regular + fee_session + fee_transport`. `rates.*` diambil dari master Tutor (`fee_per_student_private`, `fee_per_student`, `fee_per_session`, `fee_transport_per_day`) — nilai ini hanya untuk referensi tampilan; angka aktual pada `rows[].fee_*` sudah final saat di-generate (dan bisa berbeda dari `rates` bila admin melakukan edit manual sebelum menerbitkan).
+| Field | Keterangan |
+|---|---|
+| `fee_pokok` | = `rates.gaji_pokok` (tetap per bulan) |
+| `fee_tunjangan` | = `rates.tunjangan` (tetap per bulan) |
+| `extra_session_count` / `fee_extra_session` | Sesi yang MELEBIHI `rates.maks_sesi` (kuota tunjangan bulanan) dibayar tambahan memakai tarif `fee_per_session`. Sesi paket TKA Visit **tidak ikut membebani kuota ini**. Bila `rates.maks_sesi` masih `null` (belum diisi admin), dianggap tanpa batas → tidak pernah ada fee tambahan. |
+| `fee_session` | Tetap terisi **hanya** untuk sesi TKA Visit (dibayar penuh per sesi walau tutor tetap, karena mengajarnya di luar jadwal rutin) — `private_count`/`fee_private`/`regular_count`/`fee_regular`/`day_count`/`fee_transport` akan `0` |
+| `fee_insentif` | Sama seperti freelance, diisi manual admin |
+
+Untuk kedua kategori, hanya sesi berstatus `done` dan kehadiran `hadir` yang dihitung (izin/alfa tidak dihitung sama sekali).
+
+`rates.*` diambil dari master Tutor (lihat [Objek `tutor`](#objek-tutor-master-tutor)) — nilai ini hanya referensi tampilan "tarif Anda saat ini"; angka aktual pada `rows[].fee_*` sudah final saat admin men-generate (dan bisa berbeda dari `rates` bila admin mengedit manual sebelum menerbitkan).
 
 Field `published` (boolean) menandai apakah bulan tsb sudah bisa ditagihkan/dicetak slip-nya — gunakan untuk menonaktifkan tombol "Unduh Slip" di UI client saat `false`.
 
 ---
 
-## 8. Laporan (PDF)
+## 9. Laporan (PDF)
 
 Kedua endpoint berikut **tidak mengembalikan JSON**, melainkan **berkas PDF biner** (`Content-Type: application/pdf`) — gunakan template Blade yang sama dengan versi web agar hasil cetak konsisten.
 
-### 8.1 Slip Gaji
+### 9.1 Slip Gaji
 
 ```
 GET /api/tutor/reports/slip-gaji
 ```
 🔒 *Butuh token* · **Query:** `month` (`YYYY-MM`, default bulan berjalan)
 
-**Syarat:** periode bulan tsb harus sudah **`published`** oleh admin (lihat [7.2 Rekap Fee](#72-rekap-fee-per-tahun)). Bila belum:
+**Syarat:** periode bulan tsb harus sudah **`published`** oleh admin (lihat [8.2 Rekap Fee](#82-rekap-fee-per-tahun)). Bila belum:
 
 **Response `404 Not Found`**
 
@@ -749,11 +952,11 @@ GET /api/tutor/reports/slip-gaji
 { "message": "Fee bulan Juli 2026 belum diterbitkan oleh admin." }
 ```
 
-Bila sudah terbit — **Response `200 OK`**: unduhan PDF ukuran A5 landscape, nama berkas `slip-gaji-YYYY-MM.pdf`. Berisi rincian 4 komponen fee (sesi, siswa privat, siswa semi-privat, transport) sesuai data yang diterbitkan admin, dan area tanda tangan.
+Bila sudah terbit — **Response `200 OK`**: unduhan PDF ukuran A5 landscape, nama berkas `slip-gaji-YYYY-MM.pdf`. Berisi rincian lengkap sesuai kategori tutor (lihat [8.2 Rekap Fee](#82-rekap-fee-per-tahun)) — field yang ditampilkan: `private_count`, `regular_count`, `session_count`, `day_count`, `fee_private`, `fee_regular`, `fee_session`, `fee_transport`, `fee_pokok`, `fee_tunjangan`, `extra_session_count`, `fee_extra_session`, `fee_insentif`, `session_breakdown` (rincian jumlah sesi & tarif per jenis paket, untuk diaudit), `total`, dan area tanda tangan.
 
 > ⚠️ **Perubahan alur:** sebelumnya slip gaji dihitung live (`sesi × fee_per_session`) dan selalu bisa diunduh kapan saja. Sekarang **hanya berhasil bila admin sudah menerbitkan** fee bulan tsb — tangani status `404` di client dengan menampilkan pesan bahwa fee bulan itu belum diterbitkan, bukan sebagai error generik.
 
-### 8.2 Summary Pengajaran
+### 9.2 Summary Pengajaran
 
 ```
 GET /api/tutor/reports/summary
@@ -764,7 +967,7 @@ Response: unduhan PDF ukuran A4 landscape, nama berkas `summary-pengajaran-YYYY-
 
 ---
 
-## 9. Format Error
+## 10. Format Error
 
 Seluruh error memakai format standar Laravel:
 
@@ -772,7 +975,7 @@ Seluruh error memakai format standar Laravel:
 |---|---|---|
 | `401 Unauthorized` | Token tidak dikirim, tidak valid, atau sudah dicabut (logout) | `{ "message": "Unauthenticated." }` |
 | `403 Forbidden` | Role bukan `tutor`; akun tutor tidak tertaut ke master Tutor; mengakses siswa/sesi/evaluasi milik tutor lain | `{ "message": "<penjelasan, bisa kosong>" }` |
-| `404 Not Found` | ID di path (`{student}`, `{schedule}`) tidak ditemukan; atau slip gaji diminta untuk bulan yang **belum diterbitkan** admin (lihat [8.1](#81-slip-gaji)) | `{ "message": "..." }` |
+| `404 Not Found` | ID di path (`{student}`, `{schedule}`) tidak ditemukan; atau slip gaji diminta untuk bulan yang **belum diterbitkan** admin (lihat [9.1](#91-slip-gaji)) | `{ "message": "..." }` |
 | `422 Unprocessable Entity` | Validasi input gagal, atau aturan bisnis login (lihat bagian 2) | `{ "message": "The given data was invalid.", "errors": { "<field>": ["<pesan>"] } }` |
 
 Contoh `403` saat akun tutor belum tertaut ke master Tutor (berlaku di **semua** endpoint terproteksi):
@@ -783,7 +986,7 @@ Contoh `403` saat akun tutor belum tertaut ke master Tutor (berlaku di **semua**
 
 ---
 
-## 10. Referensi Objek Data
+## 11. Referensi Objek Data
 
 ### Enum / status
 
@@ -805,15 +1008,25 @@ Contoh `403` saat akun tutor belum tertaut ke master Tutor (berlaku di **semua**
 | `phone` | string | |
 | `email` | string | Kunci penaut akun login |
 | `no_rekening` | string\|null | |
-| `fee_per_session` | number\|null | Tarif per sesi mengajar (komponen c) |
-| `fee_per_student_private` | number\|null | Tarif per kehadiran siswa paket **Privat** (komponen a) |
-| `fee_per_student` | number\|null | Tarif per kehadiran siswa paket **Semi-Privat** (komponen b) |
-| `fee_transport_per_day` | number\|null | Tarif transport per hari mengajar (komponen d) |
+| `kategori` | string | `freelance`\|`tetap` — menentukan rumus fee, lihat [8.2 Rekap Fee](#82-rekap-fee-per-tahun) |
 | `specialization` | string[] | Daftar mata pelajaran spesialisasi |
+| `fee_per_session` | number\|null | Tarif sesi Semi Privat / fallback (komponen b freelance; tarif kelebihan sesi utk tutor tetap) |
+| `fee_per_student_private` | number\|null | Tarif per sesi paket **Privat** (komponen a, freelance saja) |
+| `fee_per_student` | number\|null | Tarif per kehadiran siswa (komponen c, freelance saja — tidak berlaku utk siswa paket TKA Visit) |
+| `fee_transport_per_day` | number\|null | Tarif transport per hari mengajar (komponen d, freelance saja) |
+| `fee_private_khusus` | number\|null | Tarif per sesi paket **Privat Khusus** |
+| `fee_tka_regular` | number\|null | Tarif per sesi paket **TKA Reguler** |
+| `fee_private_sma` | number\|null | Tarif per sesi paket **Privat SMA** |
+| `fee_tka_visit` | number\|null | Tarif per sesi paket **TKA Visit** — dibayar penuh untuk **kedua** kategori tutor, tidak membebani kuota tunjangan tutor tetap |
+| `gaji_pokok` | number\|null | Hanya relevan bila `kategori == "tetap"` |
+| `tunjangan_per_bulan` | number\|null | Hanya relevan bila `kategori == "tetap"` |
+| `maks_sesi_tunjangan_per_bulan` | integer\|null | Hanya relevan bila `kategori == "tetap"`; `null` = tidak ada batas |
 
-> Keempat field `fee_*` adalah **tarif master** yang diatur admin di data Tutor — dipakai admin saat men-generate fee bulanan (lihat [7.2 Rekap Fee](#72-rekap-fee-per-tahun)). Bukan nominal fee aktual suatu bulan.
+> ⚠️ Objek `tutor` di seluruh endpoint (login, `/auth/me`, `/profile`, dashboard) **tidak memfilter field** — seluruh kolom di atas selalu ikut terkirim apa adanya, termasuk tarif fee yang tergolong data sensitif milik tutor sendiri. Hati-hati jangan ikut menampilkannya di layar/komponen yang bisa dilihat pengguna lain.
 
-### Objek `evaluation` (ringkas, seperti dipakai di 4.3/5.1)
+> Field `fee_*` adalah **tarif master** yang diatur admin di data Tutor — dipakai admin saat men-generate fee bulanan (lihat [8.2 Rekap Fee](#82-rekap-fee-per-tahun)). Bukan nominal fee aktual suatu bulan.
+
+### Objek `evaluation` (ringkas, seperti dipakai di 4.3/6.1)
 
 | Field | Tipe | Keterangan |
 |---|---|---|
@@ -825,7 +1038,7 @@ Contoh `403` saat akun tutor belum tertaut ke master Tutor (berlaku di **semua**
 
 ---
 
-## 11. Contoh Alur Lengkap (cURL)
+## 12. Contoh Alur Lengkap (cURL)
 
 ```bash
 BASE=https://app.livo.co.id/api/tutor
@@ -859,6 +1072,22 @@ TOKEN="1|abcdEXAMPLEtokenXYZ..."
 curl -s "$BASE/dashboard" \
   -H "Accept: application/json" \
   -H "Authorization: Bearer $TOKEN"
+
+# 3a) Lihat jadwal dari pola minggu ini (perlu konfirmasi + tersedia untuk dilamar)
+curl -s "$BASE/schedule-slots" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 3b) Konfirmasi jadwal rutin slot #71
+curl -s -X PUT "$BASE/schedule-slots/71/confirm" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 3c) Melamar slot baru #90 yang masih terbuka
+curl -s -X POST "$BASE/schedule-slots/90/apply" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d "note=Siap mengajar"
 
 # 4) Isi evaluasi sesi #502
 curl -s -X POST "$BASE/evaluations/502" \
