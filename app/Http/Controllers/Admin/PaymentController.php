@@ -340,6 +340,14 @@ class PaymentController extends Controller
         // hitung dari tanggal aktif pembelajaran + periode.
         $expiredDate = $request->expired_date ?: $this->calcExpiredDate($request->active_date, (int) $request->period);
 
+        // Efek lama (sebelum update) vs efek baru terhadap kuota sesi siswa —
+        // dihitung selisihnya agar tidak dobel-tambah/tidak kehilangan riwayat
+        // penambahan kuota sebelumnya saat admin mengedit payment.
+        $efekLama = $this->efekKuota((int) $payment->category_payment, (int) ($payment->quota ?? 0));
+        $efekBaru = $this->efekKuota((int) $request->category_payment, (int) ($request->quota ?? 0));
+        $studentIdLama = (int) $payment->student_id;
+        $samaSiswa = $studentIdLama === (int) $request->student_id;
+
         $payment->update([
             'student_id' => $request->student_id,
             'payment_date' => $request->payment_date,
@@ -356,13 +364,39 @@ class PaymentController extends Controller
             'quota' => $request->quota,
         ]);
 
+        if ($samaSiswa) {
+            $selisih = $efekBaru - $efekLama;
+            if ($selisih !== 0) {
+                Student::where('id', $request->student_id)->increment('quota_sessions', $selisih);
+            }
+        } else {
+            // Siswa berubah: balik efek lama ke siswa lama, terapkan efek baru ke siswa baru.
+            if ($efekLama !== 0) {
+                Student::where('id', $studentIdLama)->decrement('quota_sessions', $efekLama);
+            }
+            if ($efekBaru !== 0) {
+                Student::where('id', $request->student_id)->increment('quota_sessions', $efekBaru);
+            }
+        }
+
         return redirect()->route('admin.payments.index')->with('success', 'Data pembayaran berhasil diperbarui.');
     }
 
     public function destroy(Payment $payment)
     {
+        $efek = $this->efekKuota((int) $payment->category_payment, (int) ($payment->quota ?? 0));
+        if ($efek !== 0) {
+            Student::where('id', $payment->student_id)->decrement('quota_sessions', $efek);
+        }
+
         $payment->delete();
         return response()->json(['success' => true, 'message' => 'Pembayaran berhasil dihapus.']);
+    }
+
+    /** Jumlah sesi yang ditambahkan ke kuota siswa oleh satu payment (0 bila kategori bukan SPP/Registrasi+SPP). */
+    private function efekKuota(int $categoryPayment, int $quota): int
+    {
+        return in_array($categoryPayment, [2, 4], true) && $quota > 0 ? $quota : 0;
     }
 
     /**
