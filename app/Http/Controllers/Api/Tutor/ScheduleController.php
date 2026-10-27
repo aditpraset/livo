@@ -46,7 +46,52 @@ class ScheduleController extends BaseApiTutorController
         ]);
     }
 
-    /** Detail siswa — hanya siswa yang pernah/akan diajar tutor ini. */
+    /**
+     * Daftar siswa yang pernah/akan diajar tutor ini (distinct dari riwayat jadwal),
+     * dipaginasi. Dipakai mis. untuk pencarian siswa di aplikasi mobile tanpa harus
+     * menyusurinya lewat jadwal mingguan terlebih dahulu.
+     */
+    public function index(Request $request)
+    {
+        $tutor = $this->tutor();
+
+        $studentIds = Schedule::where('tutor_id', $tutor->id)->distinct()->pluck('student_id');
+
+        $students = Student::whereIn('id', $studentIds)
+            ->when($request->filled('search'), fn ($q) => $q->where('full_name', 'like', '%' . $request->input('search') . '%'))
+            ->orderBy('full_name')
+            ->paginate($request->integer('per_page', 15));
+
+        // Agregat jumlah sesi & tanggal terakhir per siswa, satu query untuk seluruh halaman
+        // ini (bukan N+1 per baris).
+        $agg = Schedule::where('tutor_id', $tutor->id)
+            ->whereIn('student_id', $students->getCollection()->pluck('id'))
+            ->selectRaw('student_id, count(*) as total_sessions, max(class_date) as last_class_date')
+            ->groupBy('student_id')
+            ->get()
+            ->keyBy('student_id');
+
+        $students->getCollection()->transform(function (Student $s) use ($agg) {
+            $a = $agg->get($s->id);
+            return [
+                'id' => $s->id,
+                'full_name' => $s->full_name,
+                'nickname' => $s->nickname,
+                'nis' => $s->nis,
+                'grade' => $s->grade,
+                'total_sessions' => $a?->total_sessions ?? 0,
+                'last_class_date' => $a?->last_class_date ? substr($a->last_class_date, 0, 10) : null,
+            ];
+        });
+
+        return response()->json($students);
+    }
+
+    /**
+     * Detail siswa — hanya siswa yang pernah/akan diajar tutor ini. Mencakup statistik,
+     * riwayat evaluasi terbaru (10 terakhir — untuk riwayat lengkap & dipaginasi pakai
+     * endpoint studentHistory), dan daftar silabus yang pernah dinilai untuk siswa ini.
+     */
     public function studentDetail(Student $student)
     {
         $tutor = $this->tutor();
@@ -57,7 +102,10 @@ class ScheduleController extends BaseApiTutorController
             ->where('student_id', $student->id)
             ->get();
 
-        $evaluated = $schedules->filter(fn ($s) => $s->evaluation);
+        $evaluated = $schedules->filter(fn ($s) => $s->evaluation)
+            ->sortByDesc(fn ($s) => $s->class_date->toDateString() . $s->start_time)
+            ->values();
+
         $postTests = $evaluated->filter(fn ($s) => $s->evaluation->post_test !== null)
             ->map(fn ($s) => $s->evaluation->post_test);
 
@@ -71,9 +119,41 @@ class ScheduleController extends BaseApiTutorController
             'alfa' => $evaluated->filter(fn ($s) => $s->evaluation->student_attendance === 'alfa')->count(),
         ];
 
+        $riwayatEvaluasi = $evaluated->take(10)->map(fn ($s) => [
+            'schedule_id' => $s->id,
+            'class_date' => $s->class_date->toDateString(),
+            'subject' => $s->subject->subject_name ?? null,
+            'materi' => $s->evaluation->materi_display,
+            'student_attendance' => $s->evaluation->student_attendance,
+            'post_test' => $s->evaluation->post_test,
+            'is_published' => $s->evaluation->is_published,
+        ])->values();
+
+        // Silabus unik yang pernah dipakai saat menilai siswa ini (evaluasi dengan materi
+        // manual/bebas tidak ikut, karena tidak terhubung ke master silabus).
+        $silabusDinilai = $evaluated->filter(fn ($s) => $s->evaluation->syllabus)
+            ->groupBy(fn ($s) => $s->evaluation->syllabus->id)
+            ->map(function ($group) {
+                $last = $group->sortByDesc(fn ($s) => $s->class_date->toDateString())->first();
+                $syllabus = $last->evaluation->syllabus;
+
+                return [
+                    'id' => $syllabus->id,
+                    'pokok_bahasan' => $syllabus->pokok_bahasan,
+                    'sub_pokok_bahasan' => $syllabus->sub_pokok_bahasan,
+                    'kelas' => $syllabus->kelas,
+                    'jumlah_sesi' => $group->count(),
+                    'terakhir_dinilai' => $last->class_date->toDateString(),
+                ];
+            })
+            ->sortByDesc('terakhir_dinilai')
+            ->values();
+
         return response()->json([
             'student' => $student,
             'stats' => $stats,
+            'riwayat_evaluasi' => $riwayatEvaluasi,
+            'silabus_dinilai' => $silabusDinilai,
         ]);
     }
 

@@ -23,6 +23,7 @@ Route::prefix('tutor')->name('api.tutor.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
         Route::get('/schedules/week', [ScheduleController::class, 'week'])->name('schedules.week');
+        Route::get('/students', [ScheduleController::class, 'index'])->name('students.index');
         Route::get('/students/{student}', [ScheduleController::class, 'studentDetail'])->name('students.show');
         Route::get('/students/{student}/history', [ScheduleController::class, 'studentHistory'])->name('students.history');
 

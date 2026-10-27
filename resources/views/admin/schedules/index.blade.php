@@ -133,9 +133,6 @@
 .fc-list-event:hover td  { cursor: pointer; }
 .fc-list-event-title a   { color: inherit !important; text-decoration: none !important; }
 
-/* ─── Swal detail table ──────────────────────────────────────────── */
-.swal-sched-tbl td:first-child { color: #6c757d; font-weight: 500; white-space: nowrap; padding-right: 12px; font-size: .84rem; }
-.swal-sched-tbl td:last-child  { font-size: .84rem; }
 </style>
 @endpush('css')
 
@@ -173,34 +170,83 @@
     <button type="button" class="btn btn-outline-primary" data-mode="grouped"><i class="bi bi-collection me-1"></i>Grup Sesi</button>
 </div>
 
-{{-- ── Tampilan Grup per Sesi ── --}}
-<div class="gcal-card d-none mb-4" id="grouped-view">
-    <div class="p-3">
-        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-            <div>
-                <h5 class="mb-0">Jadwal per Sesi</h5>
-                <small class="text-muted">Dikelompokkan per hari &amp; sesi. Beberapa siswa dalam satu sesi tampil sebagai satu baris.</small>
+{{-- ── Tampilan Grup per Sesi (per minggu) ── --}}
+<div class="d-none mb-4" id="grouped-view">
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h4 class="mb-0 h5">{{ $weekStart->locale('id')->translatedFormat('d M Y') }} — {{ $weekEnd->locale('id')->translatedFormat('d M Y') }}</h4>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <select id="grouped-filter-tutor" class="form-select form-select-sm" style="width:180px">
+                    <option value="">Semua Tutor</option>
+                    @foreach($tutors as $t)
+                        <option value="{{ $t->id }}" {{ (string) $t->id === (string) request('filter_tutor') ? 'selected' : '' }}>{{ $t->name }}</option>
+                    @endforeach
+                </select>
+                <div class="btn-group">
+                    <a href="{{ route('admin.schedules.index', ['week' => $prevWeek, 'mode' => 'grouped', 'filter_tutor' => request('filter_tutor')]) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i> Minggu Lalu</a>
+                    <a href="{{ route('admin.schedules.index', ['mode' => 'grouped', 'filter_tutor' => request('filter_tutor')]) }}" class="btn btn-outline-primary btn-sm">Minggu Ini</a>
+                    <a href="{{ route('admin.schedules.index', ['week' => $nextWeek, 'mode' => 'grouped', 'filter_tutor' => request('filter_tutor')]) }}" class="btn btn-outline-secondary btn-sm">Minggu Depan <i class="bi bi-chevron-right"></i></a>
+                </div>
             </div>
-            <select id="grouped-filter-tutor" class="form-select form-select-sm" style="width:200px">
-                <option value="">Semua Tutor</option>
-                @foreach($tutors as $t)
-                    <option value="{{ $t->id }}">{{ $t->name }}</option>
-                @endforeach
-            </select>
         </div>
-        <div class="table-responsive">
-            <table id="grouped-table" class="table table-hover align-middle w-100">
-                <thead>
-                    <tr>
-                        <th>Hari</th>
-                        <th>Sesi</th>
-                        <th>Kelas</th>
-                        <th>Tutor</th>
-                        <th class="text-center">Aksi</th>
-                    </tr>
-                </thead>
-            </table>
-        </div>
+    </div>
+
+    <div class="row g-3">
+        @foreach(['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'] as $i => $namaHari)
+            @php
+                $tanggalHari   = $weekStart->copy()->addDays($i);
+                $grupHariIni   = $weekGroupedByDay->get($namaHari, collect());
+                $isToday       = $tanggalHari->isToday();
+                $totalSiswaHari = $grupHariIni->sum(fn($g) => count($g['siswa']));
+            @endphp
+            <div class="col-12">
+                <div class="card border-0 shadow-sm {{ $isToday ? 'border-primary border' : '' }}">
+                    <div class="card-header bg-white py-2">
+                        <h3 class="card-title mb-0 {{ $isToday ? 'text-primary' : '' }}">
+                            {{ $tanggalHari->locale('id')->translatedFormat('l, d M Y') }}
+                            @if($isToday)<span class="badge bg-primary ms-2">Hari Ini</span>@endif
+                            <span class="text-muted small ms-2">{{ $grupHariIni->count() }} sesi · {{ $totalSiswaHari }} siswa</span>
+                        </h3>
+                    </div>
+                    @if($grupHariIni->isEmpty())
+                        <div class="card-body py-3 text-muted small">Tidak ada jadwal.</div>
+                    @else
+                        <div class="table-responsive">
+                            <table class="table table-vcenter card-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th style="width:160px">Sesi (Jam)</th>
+                                        <th>Mata Pelajaran</th>
+                                        <th>Kelas</th>
+                                        <th>Tutor</th>
+                                        <th class="text-center" style="width:160px">Siswa</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($grupHariIni as $grup)
+                                        <tr>
+                                            <td><span class="badge bg-secondary-subtle text-secondary">{{ $grup['start_time'] }}–{{ $grup['end_time'] }}</span>
+                                                <div class="small text-muted mt-1">{{ $grup['sesi_label'] }}</div>
+                                            </td>
+                                            <td>{{ $grup['mapel'] }}</td>
+                                            <td>{{ $grup['kelas'] }}</td>
+                                            <td>{{ $grup['tutor'] }}</td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-primary btn-group-students"
+                                                    data-label="{{ $tanggalHari->locale('id')->translatedFormat('l, d M Y') }} · {{ $grup['sesi_label'] }}"
+                                                    data-siswa='{{ collect($grup['siswa'])->toJson() }}'>
+                                                    <i class="bi bi-people me-1"></i>Lihat Siswa ({{ count($grup['siswa']) }})
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        @endforeach
     </div>
 </div>
 
@@ -654,65 +700,12 @@ $(function () {
                 $('#modal-schedule').modal('show');
             },
 
-            /* Klik event → detail popup + aksi */
+            /* Klik event (satu event = satu sesi, bisa berisi banyak siswa) → popup
+               daftar siswa yang sama dengan tab Grup Sesi, dengan aksi per siswa. */
             eventClick: function (info) {
                 info.jsEvent.preventDefault();
-                var p  = info.event.extendedProps;
-                var id = info.event.id;
-
-                var pad = function (n) { return ('0' + n).slice(-2); };
-                var startStr = info.event.start
-                    ? pad(info.event.start.getHours()) + ':' + pad(info.event.start.getMinutes()) : '';
-                var endStr = info.event.end
-                    ? pad(info.event.end.getHours())   + ':' + pad(info.event.end.getMinutes())   : '';
-                var dateStr = info.event.start
-                    ? info.event.start.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '';
-
-                var statusBadge = {
-                    scheduled: '<span class="badge bg-primary">Dijadwalkan</span>',
-                    done:      '<span class="badge bg-success">Selesai</span>',
-                    canceled:  '<span class="badge bg-secondary">Dibatalkan</span>',
-                }[p.status] || p.status;
-
-                var actionsHtml = '<div class="d-flex gap-2 flex-wrap justify-content-center mt-3">';
-                if (p.status === 'scheduled') {
-                    actionsHtml += '<button class="btn btn-sm btn-success" id="swal-done"><i class="bi bi-check-lg me-1"></i>Selesai</button>';
-                    var editLabel = (!p.tutor || p.tutor === '-' || !p.subject || p.subject === '-')
-                        ? '<i class="bi bi-pencil me-1"></i>Isi Tutor/Materi'
-                        : '<i class="bi bi-pencil me-1"></i>Edit';
-                    actionsHtml += '<button class="btn btn-sm btn-warning" id="swal-edit">' + editLabel + '</button>';
-                    actionsHtml += '<button class="btn btn-sm btn-outline-secondary" id="swal-cancel-sched"><i class="bi bi-x-circle me-1"></i>Batalkan</button>';
-                }
-                if (p.status === 'done') {
-                    actionsHtml += '<button class="btn btn-sm btn-warning" id="swal-edit"><i class="bi bi-pencil me-1"></i>Edit Jadwal</button>';
-                    var evalLabel = p.has_eval ? 'Edit Evaluasi' : 'Isi Evaluasi';
-                    actionsHtml += '<button class="btn btn-sm btn-info text-white" id="swal-eval"><i class="bi bi-clipboard2-check me-1"></i>' + evalLabel + '</button>';
-                }
-                actionsHtml += '</div>';
-
-                Swal.fire({
-                    title: '<span class="fw-bold" style="font-size:1rem">' + p.student + '</span>',
-                    html:  '<table class="table table-sm table-borderless swal-sched-tbl mb-0 text-start">' +
-                           '<tr><td>Mata Pelajaran</td><td>' + p.subject  + '</td></tr>' +
-                           '<tr><td>Tutor</td><td>'          + p.tutor    + '</td></tr>' +
-                           '<tr><td>Tanggal</td><td>'        + dateStr    + '</td></tr>' +
-                           '<tr><td>Jam</td><td>'            + startStr   + ' – ' + endStr + '</td></tr>' +
-                           '<tr><td>Status</td><td>'         + statusBadge + '</td></tr>' +
-                           '</table>' + actionsHtml,
-                    showConfirmButton: false,
-                    showCloseButton: true,
-                    didOpen: function () {
-                        var btn;
-                        btn = document.getElementById('swal-done');
-                        if (btn) btn.addEventListener('click', function () { Swal.close(); doMarkDone(id); });
-                        btn = document.getElementById('swal-edit');
-                        if (btn) btn.addEventListener('click', function () { Swal.close(); doEdit(id); });
-                        btn = document.getElementById('swal-cancel-sched');
-                        if (btn) btn.addEventListener('click', function () { Swal.close(); doCancel(id); });
-                        btn = document.getElementById('swal-eval');
-                        if (btn) btn.addEventListener('click', function () { Swal.close(); doEval(id); });
-                    }
-                });
+                var p = info.event.extendedProps;
+                renderGroupStudentsModal(p.label, p.siswa || []);
             }
         });
         calendar.render();
@@ -902,7 +895,6 @@ $(function () {
                 data: { status: 'done', _token: '{{ csrf_token() }}' },
                 success: function (res) {
                     calendar.refetchEvents();
-                    if (groupedTable) groupedTable.ajax.reload(null, false);
                     Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2000, showConfirmButton: false });
                 },
                 error: showAjaxError
@@ -923,7 +915,6 @@ $(function () {
                 data: { status: 'canceled', _token: '{{ csrf_token() }}' },
                 success: function (res) {
                     calendar.refetchEvents();
-                    if (groupedTable) groupedTable.ajax.reload(null, false);
                     Swal.fire({ icon: 'success', title: 'Dibatalkan', text: res.message, timer: 2000, showConfirmButton: false });
                 },
                 error: showAjaxError
@@ -1016,7 +1007,6 @@ $(function () {
             success: function (res) {
                 $('#modal-schedule').modal('hide');
                 calendar.refetchEvents();
-                if (groupedTable) groupedTable.ajax.reload(null, false);
                 Swal.fire({ icon: 'success', title: 'Berhasil', text: res.message, timer: 2000, showConfirmButton: false });
             },
             error: function (xhr) {
@@ -1269,32 +1259,19 @@ $(function () {
     });
 
     /* ================================================================
-       Tampilan Grup per Sesi
+       Tampilan Grup per Sesi (per minggu, server-rendered)
     ================================================================ */
-    var groupedTable = null;
-    function initGroupedTable() {
-        if (groupedTable) return;
-        groupedTable = $('#grouped-table').DataTable({
-            processing: true,
-            serverSide: true,
-            ajax: {
-                url: "{{ route('admin.schedules.grouped') }}",
-                data: function (d) { d.filter_tutor = $('#grouped-filter-tutor').val(); }
-            },
-            columns: [
-                { data: 'hari' },
-                { data: 'sesi' },
-                { data: 'kelas' },
-                { data: 'tutor' },
-                { data: 'action', orderable: false, searchable: false, className: 'text-center' }
-            ],
-            order: []
-        });
-    }
 
-    $('#grouped-filter-tutor').on('change', function () { if (groupedTable) groupedTable.ajax.reload(); });
+    // Pindah minggu/tutor lewat link <a> biasa — cukup sisipkan parameter mode=grouped
+    // supaya tab Grup Sesi tetap aktif setelah halaman dimuat ulang.
+    $('#grouped-filter-tutor').on('change', function () {
+        var url = new URL(window.location.href);
+        url.searchParams.set('mode', 'grouped');
+        url.searchParams.set('filter_tutor', $(this).val());
+        window.location.href = url.toString();
+    });
 
-    // Toggle Kalender / Grup Sesi
+    // Toggle Kalender / Grup Sesi (murni tampilan client-side, data kedua tab sudah di-render sekaligus)
     $('#view-mode-toggle button').on('click', function () {
         var mode = $(this).data('mode');
         $('#view-mode-toggle button').removeClass('btn-primary').addClass('btn-outline-primary');
@@ -1302,8 +1279,6 @@ $(function () {
         if (mode === 'grouped') {
             $('#calendar-view').addClass('d-none');
             $('#grouped-view').removeClass('d-none');
-            initGroupedTable();
-            if (groupedTable) groupedTable.columns.adjust();
         } else {
             $('#grouped-view').addClass('d-none');
             $('#calendar-view').removeClass('d-none');
@@ -1311,38 +1286,53 @@ $(function () {
         }
     });
 
-    // Lihat daftar siswa pada satu grup sesi
+    // Setelah navigasi minggu (reload halaman dengan ?mode=grouped), tetap tampilkan tab Grup Sesi.
+    if (new URL(window.location.href).searchParams.get('mode') === 'grouped') {
+        $('#view-mode-toggle button[data-mode="grouped"]').trigger('click');
+    }
+
+    /* Dipakai bersama oleh tab "Grup Sesi" (klik tombol Lihat Siswa) dan tab Kalender
+       (klik event) — satu sesi bisa diisi banyak siswa, masing-masing baris punya aksi
+       sendiri (Selesai/Edit/Batalkan/Evaluasi) sesuai status jadwalnya. */
+    function renderGroupStudentsModal(label, siswa) {
+        $('#group-students-label').text(label);
+
+        var badge = { done: 'bg-success', scheduled: 'bg-primary', canceled: 'bg-secondary' };
+        var statusLabel = { done: 'Selesai', scheduled: 'Dijadwalkan', canceled: 'Dibatalkan' };
+        var html = '';
+        (siswa || []).forEach(function (r, i) {
+            var aksi = '<div class="btn-group btn-group-sm">';
+            if (r.status === 'scheduled') {
+                aksi += '<button class="btn btn-outline-success btn-row-done" data-id="' + r.id + '" title="Tandai Selesai"><i class="bi bi-check-lg"></i></button>';
+                aksi += '<button class="btn btn-outline-warning btn-row-edit" data-id="' + r.id + '" title="Edit"><i class="bi bi-pencil"></i></button>';
+                aksi += '<button class="btn btn-outline-secondary btn-row-cancel" data-id="' + r.id + '" title="Batalkan"><i class="bi bi-x-circle"></i></button>';
+            } else if (r.status === 'done') {
+                aksi += '<button class="btn btn-outline-warning btn-row-edit" data-id="' + r.id + '" title="Edit"><i class="bi bi-pencil"></i></button>';
+                aksi += '<button class="btn btn-outline-info btn-row-eval" data-id="' + r.id + '" title="' + (r.has_eval ? 'Edit Evaluasi' : 'Isi Evaluasi') + '"><i class="bi bi-clipboard2-check"></i></button>';
+            }
+            aksi += '</div>';
+
+            html += '<tr><td>' + (i + 1) + '</td><td>' + $('<div>').text(r.nama).html() + '</td><td>' + $('<div>').text(r.nis).html() + '</td><td>' + $('<div>').text(r.grade).html() +
+                '</td><td>' + $('<div>').text(r.subject).html() + '</td><td><span class="badge ' + (badge[r.status] || 'bg-light text-dark') +
+                '">' + (statusLabel[r.status] || r.status) + '</span></td>' +
+                '<td class="text-center">' + aksi + '</td></tr>';
+        });
+        $('#group-students-body').html(html || '<tr><td colspan="7" class="text-center text-muted py-3">Tidak ada siswa.</td></tr>');
+        $('#modal-group-students').modal('show');
+    }
+
+    // Tab Grup Sesi: data siswa sudah tertanam di tombol, tanpa request tambahan.
     $(document).on('click', '.btn-group-students', function () {
         var $b = $(this);
-        $('#group-students-label').text($b.data('label'));
-        var body = $('#group-students-body').html('<tr><td colspan="7" class="text-center text-muted py-3">Memuat...</td></tr>');
-        $('#modal-group-students').modal('show');
-        $.get("{{ route('admin.schedules.group-students') }}", {
-            date: $b.data('date'), start: $b.data('start'), end: $b.data('end'), tutor_id: $b.data('tutor')
-        }, function (rows) {
-            if (!rows.length) { body.html('<tr><td colspan="7" class="text-center text-muted py-3">Tidak ada siswa.</td></tr>'); return; }
-            var badge = { done: 'bg-success', scheduled: 'bg-primary', canceled: 'bg-secondary' };
-            var label = { done: 'Selesai', scheduled: 'Dijadwalkan', canceled: 'Dibatalkan' };
-            var html = '';
-            rows.forEach(function (r, i) {
-                html += '<tr><td>' + (i + 1) + '</td><td>' + r.name + '</td><td>' + r.nis + '</td><td>' + r.grade +
-                    '</td><td>' + r.subject + '</td><td><span class="badge ' + (badge[r.status] || 'bg-light text-dark') +
-                    '">' + (label[r.status] || r.status) + '</span></td>' +
-                    '<td class="text-center"><button class="btn btn-sm btn-outline-warning btn-edit-student-schedule" data-id="' + r.id +
-                    '"><i class="bi bi-pencil me-1"></i>Edit Jadwal</button></td></tr>';
-            });
-            body.html(html);
-        }).fail(function () {
-            body.html('<tr><td colspan="7" class="text-center text-danger py-3">Gagal memuat data.</td></tr>');
-        });
+        renderGroupStudentsModal($b.data('label'), $b.data('siswa') || []);
     });
 
-    // Edit jadwal seorang siswa dari modal daftar siswa (berlaku juga untuk status Selesai)
-    $(document).on('click', '.btn-edit-student-schedule', function () {
-        var id = $(this).data('id');
-        $('#modal-group-students').modal('hide');
-        doEdit(id);
-    });
+    // Aksi per siswa dari dalam modal — tutup modal dulu, lalu jalankan aksi yang sama
+    // persis dengan tombol di tabel/kalender (refetch kalender tetap terjadi di dalamnya).
+    $(document).on('click', '.btn-row-done', function () { var id = $(this).data('id'); $('#modal-group-students').modal('hide'); doMarkDone(id); });
+    $(document).on('click', '.btn-row-edit', function () { var id = $(this).data('id'); $('#modal-group-students').modal('hide'); doEdit(id); });
+    $(document).on('click', '.btn-row-cancel', function () { var id = $(this).data('id'); $('#modal-group-students').modal('hide'); doCancel(id); });
+    $(document).on('click', '.btn-row-eval', function () { var id = $(this).data('id'); $('#modal-group-students').modal('hide'); doEval(id); });
 
 });
 </script>

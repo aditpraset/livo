@@ -321,7 +321,39 @@ GET /api/tutor/schedules/week
 
 `schedules_by_day` berisi 7 key (satu per hari Senin–Minggu sesuai `days`), masing-masing array sesi (bisa kosong). Field `evaluation` berisi objek ringkas bila sesi sudah dievaluasi, atau `null` bila belum. Field `search` menggemakan kembali kata kunci yang dikirim (`null` bila parameter `search` tidak disertakan); `total` mengikuti hasil yang sudah difilter oleh `search`.
 
-### 4.2 Detail Siswa
+### 4.2 Daftar Siswa (dipaginasi)
+
+```
+GET /api/tutor/students
+```
+🔒 *Butuh token*
+
+Daftar siswa yang pernah/akan diajar tutor ini (distinct dari riwayat jadwal) — dipakai mis. untuk pencarian siswa tanpa harus menyusurinya lewat jadwal mingguan terlebih dahulu.
+
+**Query**
+
+| Param | Tipe | Wajib | Keterangan |
+|---|---|---|---|
+| `search` | string | — | Filter berdasarkan **nama siswa** (partial match, tidak case-sensitive). |
+| `page`, `per_page` | — | — | Lihat [konvensi paginasi](#1-dasar--konvensi). |
+
+**Response `200 OK`** — paginator dengan `data` berisi:
+
+```json
+{
+  "id": 8,
+  "full_name": "Siswa Uji",
+  "nickname": "Uji",
+  "nis": "2024001",
+  "grade": "SMA 10",
+  "total_sessions": 12,
+  "last_class_date": "2026-07-10"
+}
+```
+
+`total_sessions` & `last_class_date` dihitung khusus dari jadwal **tutor ini** dengan siswa tsb (bukan akumulasi seluruh tutor). `last_class_date` bisa `null` jika entah bagaimana tidak ada jadwal sama sekali (seharusnya tidak terjadi, karena siswa hanya muncul di daftar ini bila punya minimal 1 jadwal dengan tutor ini).
+
+### 4.3 Detail Siswa
 
 ```
 GET /api/tutor/students/{student}
@@ -348,9 +380,34 @@ GET /api/tutor/students/{student}
     "hadir": 9,
     "izin": 1,
     "alfa": 0
-  }
+  },
+  "riwayat_evaluasi": [
+    {
+      "schedule_id": 501,
+      "class_date": "2026-07-10",
+      "subject": "Matematika",
+      "materi": { "pokok": "Aljabar", "sub": "Persamaan Linear" },
+      "student_attendance": "hadir",
+      "post_test": 90,
+      "is_published": true
+    }
+  ],
+  "silabus_dinilai": [
+    {
+      "id": 11,
+      "pokok_bahasan": "Aljabar",
+      "sub_pokok_bahasan": "Persamaan Linear",
+      "kelas": "SMA 10",
+      "jumlah_sesi": 3,
+      "terakhir_dinilai": "2026-07-10"
+    }
+  ]
 }
 ```
+
+Catatan field:
+- `riwayat_evaluasi` berisi maksimal **10 sesi terevaluasi terbaru** (urut tanggal terbaru dulu) — untuk riwayat lengkap & dipaginasi, pakai [4.4 Riwayat Sesi Siswa](#44-riwayat-sesi-siswa-dipaginasi).
+- `silabus_dinilai` adalah daftar **unik** topik silabus yang pernah dipakai saat menilai siswa ini bersama tutor ini, diurutkan dari yang **terakhir dinilai**. Evaluasi dengan materi manual/bebas (tanpa `syllabus_id`) tidak ikut masuk ke daftar ini karena tidak terhubung ke master silabus.
 
 **Response `403`** bila siswa tersebut tidak pernah dijadwalkan bersama tutor ini:
 
@@ -358,12 +415,12 @@ GET /api/tutor/students/{student}
 { "message": "Siswa ini tidak terdaftar pada jadwal Anda." }
 ```
 
-### 4.3 Riwayat Sesi Siswa (dipaginasi)
+### 4.4 Riwayat Sesi Siswa (dipaginasi)
 
 ```
 GET /api/tutor/students/{student}/history
 ```
-🔒 *Butuh token* · proteksi kepemilikan sama seperti 4.2.
+🔒 *Butuh token* · proteksi kepemilikan sama seperti 4.3.
 
 **Query:** `page`, `per_page` (lihat [konvensi paginasi](#1-dasar--konvensi)).
 
@@ -1026,7 +1083,7 @@ Contoh `403` saat akun tutor belum tertaut ke master Tutor (berlaku di **semua**
 
 > Field `fee_*` adalah **tarif master** yang diatur admin di data Tutor — dipakai admin saat men-generate fee bulanan (lihat [8.2 Rekap Fee](#82-rekap-fee-per-tahun)). Bukan nominal fee aktual suatu bulan.
 
-### Objek `evaluation` (ringkas, seperti dipakai di 4.3/6.1)
+### Objek `evaluation` (ringkas, seperti dipakai di 4.4/6.1)
 
 | Field | Tipe | Keterangan |
 |---|---|---|

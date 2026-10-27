@@ -127,7 +127,8 @@ Mencabut **token yang sedang dipakai saja** (device lain tetap login kalau ada).
 | POST | `/auth/logout` | 🔒 | Cabut token perangkat ini |
 | GET | `/dashboard` | 🔒 | Ringkasan statistik tutor |
 | GET | `/schedules/week?week=` | 🔒 | Jadwal satu minggu (sesi berjalan/sudah lewat), dikelompokkan per hari |
-| GET | `/students/{id}` | 🔒 | Statistik ringkas satu siswa |
+| GET | `/students?search=` | 🔒 | Daftar siswa yang pernah/akan diajar tutor ini (dipaginasi) |
+| GET | `/students/{id}` | 🔒 | Detail siswa: statistik, riwayat evaluasi terbaru, silabus yang pernah dinilai |
 | GET | `/students/{id}/history` | 🔒 | Riwayat sesi siswa itu bersama tutor ini (dipaginasi) |
 | GET | `/schedule-slots?week=` | 🔒 | Ringkasan pola mingguan: perlu dikonfirmasi, tersedia, keputusan admin |
 | POST | `/schedule-slots/{id}/apply` | 🔒 | Lamar slot yang terbuka |
@@ -232,9 +233,27 @@ Berbeda dengan §6 — modul ini menampilkan **jadwal yang sudah final/sedang be
 ```
 `schedules_by_day` **selalu punya ketujuh key tanggal** (Senin–Minggu), walau array-nya kosong — memudahkan render kalender 7 kolom tanpa perlu cek key hilang. `status_schedule` bernilai `scheduled` | `done` | `canceled`. `evaluation` berisi objek (`id`, `materi`, `student_attendance`, `post_test`, `is_published`) kalau sesi sudah dievaluasi, atau `null` kalau belum.
 
+### `GET /students?search=&per_page=` 🔒
+
+Daftar siswa yang pernah/akan diajar tutor ini, distinct dari riwayat `Schedule` (bukan daftar siswa global) — **dipaginasi**. Dipakai untuk fitur pencarian siswa tanpa harus menyusuri jadwal mingguan terlebih dahulu.
+
+**Response `200`** — paginator Laravel standar, `data` berisi:
+```json
+{
+  "id": 8,
+  "full_name": "Siswa Uji",
+  "nickname": "Uji",
+  "nis": "2024001",
+  "grade": "SMA 10",
+  "total_sessions": 24,
+  "last_class_date": "2027-03-02"
+}
+```
+`total_sessions`/`last_class_date` khusus dihitung dari jadwal **tutor yang login**, bukan akumulasi semua tutor siswa tsb.
+
 ### `GET /students/{id}` 🔒
 
-Statistik ringkas satu siswa — **hanya siswa yang pernah/akan diajar tutor ini** (dicek lewat relasi `Schedule`, bukan daftar siswa global).
+Detail satu siswa — **hanya siswa yang pernah/akan diajar tutor ini** (dicek lewat relasi `Schedule`, bukan daftar siswa global).
 
 **Error `403`**: `"Siswa ini tidak terdaftar pada jadwal Anda."` — siswa valid tapi tidak pernah diajar tutor yang login. **Mobile wajib menangani ini** kalau ada fitur "cari siswa" yang scope-nya lebih luas dari jadwal tutor sendiri.
 
@@ -242,9 +261,20 @@ Statistik ringkas satu siswa — **hanya siswa yang pernah/akan diajar tutor ini
 ```json
 {
   "student": { "...": "objek Student penuh (hasil toJson model, termasuk field admin seperti nis/alamat/dll jika ada)" },
-  "stats": { "total": 24, "done": 20, "evaluated": 18, "avg_post_test": 81.5, "hadir": 17, "izin": 2, "alfa": 1 }
+  "stats": { "total": 24, "done": 20, "evaluated": 18, "avg_post_test": 81.5, "hadir": 17, "izin": 2, "alfa": 1 },
+  "riwayat_evaluasi": [
+    {
+      "schedule_id": 501, "class_date": "2027-03-01", "subject": "Matematika",
+      "materi": { "pokok": "Aljabar", "sub": "Persamaan Linear" },
+      "student_attendance": "hadir", "post_test": 90, "is_published": true
+    }
+  ],
+  "silabus_dinilai": [
+    { "id": 11, "pokok_bahasan": "Aljabar", "sub_pokok_bahasan": "Persamaan Linear", "kelas": "SMA 10", "jumlah_sesi": 3, "terakhir_dinilai": "2027-03-01" }
+  ]
 }
 ```
+`riwayat_evaluasi` dibatasi **10 sesi terevaluasi terbaru** (urut terbaru dulu) — untuk riwayat lengkap & dipaginasi, pakai `GET /students/{id}/history` di bawah. `silabus_dinilai` adalah daftar **unik** topik silabus (dari master Silabus) yang pernah dipakai menilai siswa ini bersama tutor ini, diurutkan dari yang terakhir dinilai; evaluasi dengan materi manual/bebas (tanpa silabus) tidak ikut masuk ke daftar ini.
 
 ### `GET /students/{id}/history?per_page=` 🔒
 

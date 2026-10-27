@@ -192,6 +192,81 @@ class TutorApiTest extends TestCase
             ->assertOk()->assertJsonPath('total', 1);
     }
 
+    public function test_students_index_lists_only_students_taught_by_this_tutor(): void
+    {
+        $this->makeSchedule(['class_date' => now()->subDay()->toDateString()]);
+        $this->makeSchedule(['class_date' => now()->toDateString()]);
+
+        $belumPernahDiajar = Student::create(['full_name' => 'Siswa Belum Diajar', 'program' => 'IPA', 'quota_sessions' => 1]);
+        $tutorLain = Tutor::create(['name' => 'Tutor Lain', 'phone' => '0813', 'specialization' => ['IPA']]);
+        Schedule::create([
+            'student_id' => $belumPernahDiajar->id, 'tutor_id' => $tutorLain->id, 'subject_id' => $this->subject->id,
+            'class_date' => now()->toDateString(), 'start_time' => '08:00', 'end_time' => '09:00', 'status_schedule' => 'done',
+        ]);
+
+        $resp = $this->getJson('/api/tutor/students', $this->authHeaders());
+
+        $resp->assertOk();
+        $ids = collect($resp->json('data'))->pluck('id');
+        $this->assertTrue($ids->contains($this->student->id));
+        $this->assertFalse($ids->contains($belumPernahDiajar->id), 'Siswa yang tidak pernah diajar tutor ini tidak boleh ikut muncul');
+
+        $row = collect($resp->json('data'))->firstWhere('id', $this->student->id);
+        $this->assertSame(2, $row['total_sessions']);
+        $this->assertSame(now()->toDateString(), $row['last_class_date']);
+
+        // Pencarian nama
+        $this->getJson('/api/tutor/students?search=Belum', $this->authHeaders())
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_student_detail_includes_evaluation_history_and_assessed_syllabi(): void
+    {
+        $syllabusA = \App\Models\Syllabus::create([
+            'subject_id' => $this->subject->id, 'pokok_bahasan' => 'Aljabar', 'sub_pokok_bahasan' => 'Persamaan Linear',
+            'kelas' => 'SMA 10', 'jenis_kurikulum' => 'Kurikulum Merdeka',
+        ]);
+        $syllabusB = \App\Models\Syllabus::create([
+            'subject_id' => $this->subject->id, 'pokok_bahasan' => 'Geometri', 'sub_pokok_bahasan' => 'Segitiga',
+            'kelas' => 'SMA 10', 'jenis_kurikulum' => 'Kurikulum Merdeka',
+        ]);
+
+        $s1 = $this->makeSchedule(['class_date' => now()->subDays(3)->toDateString()]);
+        Evaluation::create(['schedule_id' => $s1->id, 'syllabus_id' => $syllabusA->id, 'student_attendance' => 'hadir', 'post_test' => 80]);
+
+        $s2 = $this->makeSchedule(['class_date' => now()->subDays(2)->toDateString()]);
+        Evaluation::create(['schedule_id' => $s2->id, 'syllabus_id' => $syllabusA->id, 'student_attendance' => 'hadir', 'post_test' => 90]);
+
+        $s3 = $this->makeSchedule(['class_date' => now()->subDay()->toDateString()]);
+        Evaluation::create(['schedule_id' => $s3->id, 'syllabus_id' => $syllabusB->id, 'student_attendance' => 'hadir', 'post_test' => 85]);
+
+        // Evaluasi materi manual (tanpa silabus) — tidak boleh ikut masuk ke silabus_dinilai.
+        $s4 = $this->makeSchedule(['class_date' => now()->toDateString()]);
+        Evaluation::create(['schedule_id' => $s4->id, 'materi_manual' => 'Latihan soal', 'student_attendance' => 'hadir', 'post_test' => 70]);
+
+        $resp = $this->getJson('/api/tutor/students/' . $this->student->id, $this->authHeaders());
+        $resp->assertOk();
+
+        // Riwayat evaluasi: 4 sesi, terbaru lebih dulu.
+        $riwayat = $resp->json('riwayat_evaluasi');
+        $this->assertCount(4, $riwayat);
+        $this->assertSame(now()->toDateString(), $riwayat[0]['class_date']);
+        $this->assertSame('Latihan soal', $riwayat[0]['materi']['pokok']);
+
+        // Silabus dinilai: hanya 2 (A & B), terdeduplikasi — materi manual tidak ikut.
+        $silabus = collect($resp->json('silabus_dinilai'));
+        $this->assertCount(2, $silabus);
+
+        $topikA = $silabus->firstWhere('id', $syllabusA->id);
+        $this->assertSame('Aljabar', $topikA['pokok_bahasan']);
+        $this->assertSame(2, $topikA['jumlah_sesi'], 'Syllabus A dipakai di 2 sesi (s1 & s2)');
+
+        $topikB = $silabus->firstWhere('id', $syllabusB->id);
+        $this->assertSame('Geometri', $topikB['pokok_bahasan']);
+        $this->assertSame(1, $topikB['jumlah_sesi']);
+    }
+
     public function test_pending_evaluation_list_and_store(): void
     {
         $schedule = $this->makeSchedule();

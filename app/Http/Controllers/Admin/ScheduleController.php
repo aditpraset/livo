@@ -24,7 +24,7 @@ use Yajra\DataTables\Facades\DataTables;
 
 class ScheduleController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $students         = Student::orderBy('full_name')->get(['id', 'full_name', 'schedule_session_id', 'grade_id', 'program']);
         $tutors           = Tutor::orderBy('name')->get(['id', 'name']);
@@ -41,7 +41,87 @@ class ScheduleController extends Controller
             return [$s->id => $ids];
         });
 
-        return view('admin.schedules.index', compact('students', 'tutors', 'subjects', 'scheduleSessions', 'studentGroups', 'studentSubjectIds'));
+        // ── Tampilan "Grup Sesi": jadwal minggu terpilih, dikelompokkan per hari & sesi ──
+        $weekStart = $request->filled('week')
+            ? \Carbon\Carbon::parse($request->week)->startOfWeek(\Carbon\Carbon::MONDAY)
+            : now()->startOfWeek(\Carbon\Carbon::MONDAY);
+        $weekEnd  = $weekStart->copy()->endOfWeek(\Carbon\Carbon::SUNDAY);
+        $prevWeek = $weekStart->copy()->subWeek()->toDateString();
+        $nextWeek = $weekStart->copy()->addWeek()->toDateString();
+
+        $weekGroupedByDay = $this->weekGroupedByDay($weekStart, $weekEnd, $request->filter_tutor);
+
+        return view('admin.schedules.index', compact(
+            'students', 'tutors', 'subjects', 'scheduleSessions', 'studentGroups', 'studentSubjectIds',
+            'weekStart', 'weekEnd', 'prevWeek', 'nextWeek', 'weekGroupedByDay'
+        ));
+    }
+
+    /**
+     * Jadwal satu minggu, dikelompokkan per (tanggal + jam + tutor) lalu dikelompokkan lagi
+     * per hari (Senin..Minggu) — dipakai tampilan "Grup Sesi" di halaman Penjadwalan.
+     * Daftar siswa tiap grup ikut disertakan langsung (bukan lewat request AJAX terpisah)
+     * supaya popup "Lihat Siswa" bisa tampil instan, meniru pola di Siapkan Jadwal Mingguan.
+     */
+    private function weekGroupedByDay(\Carbon\Carbon $weekStart, \Carbon\Carbon $weekEnd, $filterTutor = null): \Illuminate\Support\Collection
+    {
+        $query = Schedule::with(['student', 'tutor', 'subject', 'evaluation'])
+            ->whereBetween('class_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->when($filterTutor, fn($q) => $q->where('tutor_id', $filterTutor))
+            ->orderBy('start_time');
+
+        $groups = $this->groupSchedules($query)->sortBy(fn($g) => $g['class_date'] . $g['start_time'])->values();
+
+        return $groups->groupBy(fn($g) => \Carbon\Carbon::parse($g['class_date'])->locale('id')->translatedFormat('l'));
+    }
+
+    /**
+     * Kelompokkan hasil query Schedule per (tanggal + jam mulai + jam selesai + tutor) — satu
+     * grup = satu "sesi" yang ditampilkan sebagai satu kartu/event, walau diisi banyak siswa.
+     * Dipakai bersama oleh tampilan "Grup Sesi" (mingguan) dan tab Kalender, supaya keduanya
+     * konsisten: beberapa siswa di sesi+tutor yang sama selalu tampil sebagai satu entri,
+     * dengan status "paling aktif" (scheduled > done > canceled) sebagai status grup.
+     */
+    private function groupSchedules(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Support\Collection
+    {
+        $sessionNames = ScheduleSession::get()->mapWithKeys(fn($s) => [
+            substr($s->time_start, 0, 5) . '-' . substr($s->time_end, 0, 5) => $s->name,
+        ]);
+
+        return $query->get()
+            ->groupBy(fn($s) => \Carbon\Carbon::parse($s->class_date)->toDateString() . '|' . $s->start_time . '|' . $s->end_time . '|' . $s->tutor_id)
+            ->map(function ($g) use ($sessionNames) {
+                $first = $g->first();
+                $date  = \Carbon\Carbon::parse($first->class_date);
+                $range = substr($first->start_time, 0, 5) . '-' . substr($first->end_time, 0, 5);
+
+                $statuses = $g->pluck('status_schedule')->unique();
+                $status = $statuses->contains('scheduled') ? 'scheduled' : ($statuses->contains('done') ? 'done' : 'canceled');
+
+                return [
+                    'ids'        => $g->pluck('id')->values(),
+                    'class_date' => $date->toDateString(),
+                    'hari'       => $date->locale('id')->translatedFormat('l, d M Y'),
+                    'start_time' => substr($first->start_time, 0, 5),
+                    'end_time'   => substr($first->end_time, 0, 5),
+                    'sesi_label' => ($sessionNames[$range] ?? 'Sesi') . ' (' . str_replace('-', ' – ', $range) . ')',
+                    'kelas'      => $g->pluck('student.grade')->filter()->unique()->values()->implode(', ') ?: '-',
+                    'mapel'      => $g->pluck('subject.subject_name')->filter()->unique()->values()->implode(', ') ?: '-',
+                    'tutor'      => $first->tutor->name ?? '-',
+                    'tutor_id'   => $first->tutor_id,
+                    'status'     => $status,
+                    'siswa'      => $g->map(fn($s) => [
+                        'id'       => $s->id,
+                        'nama'     => $s->student->full_name ?? '-',
+                        'nis'      => $s->student->nis ?: '-',
+                        'grade'    => $s->student->grade ?: '-',
+                        'subject'  => $s->subject->subject_name ?? '-',
+                        'status'   => $s->status_schedule,
+                        'has_eval' => (bool) $s->evaluation,
+                    ])->values(),
+                ];
+            })
+            ->values();
     }
 
     public function data()
@@ -91,104 +171,43 @@ class ScheduleController extends Controller
     }
 
     /**
-     * Data jadwal dikelompokkan per sesi (tanggal + jam + tutor).
-     * Beberapa siswa pada slot yang sama tampil sebagai satu baris.
+     * Event kalender dikelompokkan per sesi (tanggal + jam + tutor), sama seperti tampilan
+     * "Grup Sesi" — satu sesi dengan banyak siswa tampil sebagai SATU event, bukan satu
+     * event per siswa, supaya kalender tidak penuh sesak saat satu sesi diisi banyak siswa.
+     * Daftar siswa & aksi per siswa ikut tertanam di extendedProps untuk popup saat diklik.
      */
-    public function grouped(Request $request)
-    {
-        // Peta nama sesi berdasarkan rentang jam (HH:MM-HH:MM)
-        $sessionNames = ScheduleSession::get()->mapWithKeys(fn($s) => [
-            substr($s->time_start, 0, 5) . '-' . substr($s->time_end, 0, 5) => $s->name,
-        ]);
-
-        $groups = Schedule::with(['tutor', 'subject', 'student'])
-            ->when($request->filter_tutor, fn($q) => $q->where('tutor_id', $request->filter_tutor))
-            ->orderByDesc('class_date')->orderBy('start_time')
-            ->get()
-            ->groupBy(fn($s) => \Carbon\Carbon::parse($s->class_date)->toDateString() . '|' . $s->start_time . '|' . $s->end_time . '|' . $s->tutor_id)
-            ->map(function ($g) use ($sessionNames) {
-                $first = $g->first();
-                $date  = \Carbon\Carbon::parse($first->class_date);
-                $range = substr($first->start_time, 0, 5) . '-' . substr($first->end_time, 0, 5);
-
-                return [
-                    'class_date'  => $date->toDateString(),
-                    'hari'        => $date->locale('id')->translatedFormat('l, d M Y'),
-                    'sesi'        => ($sessionNames[$range] ?? 'Sesi') . ' (' . str_replace('-', ' - ', $range) . ')',
-                    'kelas'       => $g->pluck('student.grade')->filter()->unique()->values()->implode(', ') ?: '-',
-                    'mapel'       => $g->pluck('subject.subject_name')->filter()->unique()->values()->implode(', ') ?: '-',
-                    'tutor'       => $first->tutor->name ?? '-',
-                    'jumlah'      => $g->pluck('student_id')->unique()->count(),
-                    'start_time'  => substr($first->start_time, 0, 5),
-                    'end_time'    => substr($first->end_time, 0, 5),
-                    'tutor_id'    => $first->tutor_id,
-                ];
-            })->values();
-
-        return DataTables::of($groups)
-            ->addColumn('action', function ($row) {
-                return '<button class="btn btn-sm btn-outline-primary btn-group-students" '
-                    . 'data-date="' . $row['class_date'] . '" '
-                    . 'data-start="' . $row['start_time'] . '" '
-                    . 'data-end="' . $row['end_time'] . '" '
-                    . 'data-tutor="' . $row['tutor_id'] . '" '
-                    . 'data-label="' . e($row['hari'] . ' · ' . $row['sesi']) . '">'
-                    . '<i class="bi bi-people me-1"></i>Lihat Siswa (' . $row['jumlah'] . ')</button>';
-            })
-            ->rawColumns(['action'])
-            ->make(true);
-    }
-
-    /** Daftar siswa pada satu grup sesi (tanggal + jam + tutor). */
-    public function groupStudents(Request $request)
-    {
-        $students = Schedule::with(['student', 'subject'])
-            ->whereDate('class_date', $request->date)
-            ->whereRaw('LEFT(start_time,5) = ?', [$request->start])
-            ->whereRaw('LEFT(end_time,5) = ?', [$request->end])
-            ->where('tutor_id', $request->tutor_id)
-            ->get()
-            ->map(fn($s) => [
-                'id'      => $s->id,
-                'name'    => $s->student->full_name ?? '-',
-                'nis'     => $s->student->nis ?? '-',
-                'grade'   => $s->student->grade ?? '-',
-                'subject' => $s->subject->subject_name ?? '-',
-                'status'  => $s->status_schedule,
-            ])->values();
-
-        return response()->json($students);
-    }
-
     public function events(Request $request)
     {
-        $events = Schedule::with(['student', 'tutor', 'subject', 'evaluation'])
+        $query = Schedule::with(['student', 'tutor', 'subject', 'evaluation'])
             ->when($request->start,         fn($q) => $q->where('class_date', '>=', substr($request->start, 0, 10)))
             ->when($request->end,           fn($q) => $q->where('class_date', '<=', substr($request->end,   0, 10)))
             ->when($request->filter_status, fn($q) => $q->where('status_schedule', $request->filter_status))
-            ->when($request->filter_tutor,  fn($q) => $q->where('tutor_id', $request->filter_tutor))
-            ->get()
-            ->map(function ($s) {
-                $color = match ($s->status_schedule) {
-                    'scheduled' => '#4299e1',
-                    'done'      => '#2fb344',
-                    'canceled'  => '#9ca3af',
-                };
-                return [
-                    'id'    => $s->id,
-                    'title' => ($s->student->full_name ?? '?') . ' – ' . ($s->subject->subject_name ?? '?'),
-                    'start' => $s->class_date->format('Y-m-d') . 'T' . $s->start_time,
-                    'end'   => $s->class_date->format('Y-m-d') . 'T' . $s->end_time,
-                    'color' => $color,
-                    'extendedProps' => [
-                        'student'  => $s->student->full_name ?? '-',
-                        'tutor'    => $s->tutor->name ?? '-',
-                        'subject'  => $s->subject->subject_name ?? '-',
-                        'status'   => $s->status_schedule,
-                        'has_eval' => (bool) $s->evaluation,
-                    ],
-                ];
-            });
+            ->when($request->filter_tutor,  fn($q) => $q->where('tutor_id', $request->filter_tutor));
+
+        $events = $this->groupSchedules($query)->map(function ($g) {
+            $color = match ($g['status']) {
+                'scheduled' => '#4299e1',
+                'done'      => '#2fb344',
+                'canceled'  => '#9ca3af',
+            };
+            $jumlah = count($g['siswa']);
+
+            return [
+                'id'    => $g['ids']->implode(','),
+                'title' => $g['mapel'] . ' · ' . $g['tutor'] . ' (' . $jumlah . ')',
+                'start' => $g['class_date'] . 'T' . $g['start_time'],
+                'end'   => $g['class_date'] . 'T' . $g['end_time'],
+                'color' => $color,
+                'extendedProps' => [
+                    'label'  => $g['hari'] . ' · ' . $g['sesi_label'],
+                    'tutor'  => $g['tutor'],
+                    'mapel'  => $g['mapel'],
+                    'kelas'  => $g['kelas'],
+                    'status' => $g['status'],
+                    'siswa'  => $g['siswa'],
+                ],
+            ];
+        })->values();
 
         return response()->json($events);
     }

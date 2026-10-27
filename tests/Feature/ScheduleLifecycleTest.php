@@ -95,13 +95,15 @@ class ScheduleLifecycleTest extends TestCase
         $this->assertSame('scheduled', $schedule->status_schedule, 'Jadwal baru harus berstatus scheduled');
         $this->assertSame(5, $this->student->fresh()->quota_sessions, 'Kuota belum boleh terpotong saat baru dijadwalkan');
 
-        /* ── 2. Tampil di kalender (biru = dijadwalkan) ────────────────── */
+        /* ── 2. Tampil di kalender (biru = dijadwalkan), dikelompokkan per sesi ── */
         $events = $this->events();
         $this->assertCount(1, $events);
         $this->assertSame('#4299e1', $events[0]['color']);
         $this->assertSame('scheduled', $events[0]['extendedProps']['status']);
-        $this->assertFalse($events[0]['extendedProps']['has_eval']);
-        $this->assertStringContainsString('Siswa Lifecycle', $events[0]['title']);
+        $this->assertFalse($events[0]['extendedProps']['siswa'][0]['has_eval']);
+        $this->assertStringContainsString('Matematika', $events[0]['title']);
+        $this->assertStringContainsString('Tutor Lifecycle', $events[0]['title']);
+        $this->assertSame('Siswa Lifecycle', $events[0]['extendedProps']['siswa'][0]['nama']);
 
         /* ── 3. Klik event → muat detail ───────────────────────────────── */
         $this->actingAs($this->admin)->getJson("/admin/schedules/{$schedule->id}")
@@ -134,7 +136,7 @@ class ScheduleLifecycleTest extends TestCase
         $events = $this->events();
         $this->assertSame('#2fb344', $events[0]['color']);
         $this->assertSame('done', $events[0]['extendedProps']['status']);
-        $this->assertFalse($events[0]['extendedProps']['has_eval']);
+        $this->assertFalse($events[0]['extendedProps']['siswa'][0]['has_eval']);
 
         /* ── 7. Masuk reminder "belum dievaluasi" di Dashboard Administrasi ─ */
         $this->assertSame(1, $this->pendingEvalCount(), 'Sesi selesai tanpa evaluasi harus muncul di reminder');
@@ -161,7 +163,7 @@ class ScheduleLifecycleTest extends TestCase
 
         /* ── 10. Kalender menandai sudah dievaluasi & hilang dari reminder ─ */
         $events = $this->events();
-        $this->assertTrue($events[0]['extendedProps']['has_eval']);
+        $this->assertTrue($events[0]['extendedProps']['siswa'][0]['has_eval']);
         $this->assertSame(0, $this->pendingEvalCount(), 'Setelah dievaluasi harus hilang dari reminder');
     }
 
