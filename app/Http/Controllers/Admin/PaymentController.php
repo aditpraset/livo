@@ -195,7 +195,7 @@ class PaymentController extends Controller
             $joinedLabel = implode(' ', $parts);
         }
 
-        $quotaPurchased = $lastPayment->quota ?? null;
+        $quotaPurchased = $this->resolveQuotaPurchased($program, $lastPayment);
         $quotaRemaining = (int) ($student->quota_sessions ?? 0);
         $quotaUsed = $quotaPurchased !== null ? max(0, $quotaPurchased - $quotaRemaining) : null;
 
@@ -231,6 +231,23 @@ class PaymentController extends Controller
         return $pdf->stream('reminder-payment-' . str()->slug($student->full_name) . '.pdf');
     }
 
+    /**
+     * Kuota yang ditampilkan di PDF reminder HARUS mengikuti kuota master Program (dikali
+     * periode dalam bulan), bukan field payments.quota — field itu diisi manual saat input
+     * pembayaran dan rawan salah/tidak disesuaikan saat siswa pindah program (lihat bug:
+     * Program Intensif kuota master 12, tapi payments.quota tersimpan 8 karena default form
+     * tidak pernah diubah admin). Fallback ke payments.quota hanya bila siswa belum punya
+     * program_id atau payment tidak punya period (data lama/longgar).
+     */
+    public function resolveQuotaPurchased(?Program $program, ?Payment $lastPayment): ?int
+    {
+        if ($program && $lastPayment && $lastPayment->period) {
+            return $program->kuota * $lastPayment->period;
+        }
+
+        return $lastPayment->quota ?? null;
+    }
+
     public function create()
     {
         $students = Student::where('status', 1)->orderBy('full_name')->get();
@@ -247,11 +264,18 @@ class PaymentController extends Controller
             return [$s->id => optional($priceMap->get($key))->price];
         });
 
+        // Kuota per bulan dari master Program siswa — dikali Periode (bulan) di JS untuk
+        // mengisi "Kuota Sesi" otomatis, supaya tidak lagi diisi manual lepas dari master
+        // Program (lihat bug: Program Intensif kuota 12, tapi form ini sebelumnya selalu
+        // default ke 8 tanpa mengikuti program siswa yang dipilih).
+        $programKuotaById = Program::all()->pluck('kuota', 'id');
+        $studentKuotas = $students->mapWithKeys(fn($s) => [$s->id => $programKuotaById->get($s->program_id)]);
+
         $today = now();
         $count = Payment::whereDate('created_at', $today->toDateString())->count() + 1;
         $noPayment = 'LVR-' . $today->format('ymd') . str_pad($count, 4, '0', STR_PAD_LEFT);
 
-        return view('admin.payments.create', compact('students', 'noPayment', 'studentPrices', 'prefillStudentId'));
+        return view('admin.payments.create', compact('students', 'noPayment', 'studentPrices', 'studentKuotas', 'prefillStudentId'));
     }
 
     public function store(Request $request)

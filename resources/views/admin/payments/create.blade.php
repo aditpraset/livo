@@ -35,7 +35,7 @@
                             <select name="student_id" class="form-select @error('student_id') is-invalid @enderror" required>
                                 <option value="">-- Pilih Siswa --</option>
                                 @foreach($students as $student)
-                                    <option value="{{ $student->id }}" data-duration="{{ $student->duration ?? '' }}" {{ old('student_id', $prefillStudentId ?? '') == $student->id ? 'selected' : '' }}>
+                                    <option value="{{ $student->id }}" data-duration="{{ $student->duration ?? '' }}" data-kuota="{{ $studentKuotas[$student->id] ?? '' }}" {{ old('student_id', $prefillStudentId ?? '') == $student->id ? 'selected' : '' }}>
                                         {{ $student->full_name }} {{ $student->nis ? '(' . $student->nis . ')' : '' }}
                                     </option>
                                 @endforeach
@@ -116,8 +116,9 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Kuota Sesi</label>
-                            <input type="number" name="quota" class="form-control @error('quota') is-invalid @enderror" value="{{ old('quota', 8) }}">
+                            <input type="number" id="payment-quota" name="quota" class="form-control @error('quota') is-invalid @enderror" value="{{ old('quota') }}">
                             @error('quota') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <small id="quota-auto-hint" class="text-success d-none"><i class="bi bi-magic me-1"></i>Kuota terisi otomatis dari master Program &times; Periode.</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Dari (Nama Pembayar) <span class="text-danger">*</span></label>
@@ -157,7 +158,24 @@
     var studentSelect = document.querySelector('select[name="student_id"]');
     var amountInput   = document.getElementById('payment-amount');
     var hint          = document.getElementById('amount-auto-hint');
+    var quotaInput    = document.getElementById('payment-quota');
+    var quotaHint     = document.getElementById('quota-auto-hint');
     if (!studentSelect || !amountInput) return;
+
+    // Kuota Sesi = kuota master Program siswa terpilih × Periode (bulan) — bukan diisi manual
+    // lepas dari master Program (lihat catatan bug di PaymentController::create()).
+    function recalcQuota() {
+        if (!quotaInput) return;
+        var opt   = studentSelect.options[studentSelect.selectedIndex];
+        var kuota = opt ? parseInt(opt.getAttribute('data-kuota'), 10) : NaN;
+        var bulan = periodSelect ? parseInt(periodSelect.value, 10) : NaN;
+        if (!isNaN(kuota) && !isNaN(bulan) && bulan > 0) {
+            quotaInput.value = kuota * bulan;
+            if (quotaHint) quotaHint.classList.remove('d-none');
+        } else {
+            if (quotaHint) quotaHint.classList.add('d-none');
+        }
+    }
 
     studentSelect.addEventListener('change', function () {
         var price = studentPrices[this.value];
@@ -174,6 +192,7 @@
             periodSelect.value = String(duration);
         }
         recalcExpired();
+        recalcQuota();
     });
 
     /* ── Auto-hitung Tanggal Expired dari Tanggal Aktif Pembelajaran + Periode ──
@@ -222,6 +241,7 @@
 
     if (activeDate)   activeDate.addEventListener('change', recalcExpired);
     if (periodSelect) periodSelect.addEventListener('change', recalcExpired);
+    if (periodSelect) periodSelect.addEventListener('change', recalcQuota);
     if (expiredDate)  expiredDate.addEventListener('change', function () { syncMasaFromExpired(); checkEndOfMonth(); });
 
     // Saat load: jangan timpa tanggal expired yang sudah diisi manual (mis. old input setelah error validasi)
@@ -230,6 +250,10 @@
         checkEndOfMonth();
     } else {
         recalcExpired();
+    }
+    // Isi Kuota Sesi otomatis saat load bila siswa sudah terpilih (mis. prefill dari halaman lain, atau old input setelah error validasi)
+    if (!quotaInput || !quotaInput.value) {
+        recalcQuota();
     }
 })();
 </script>
