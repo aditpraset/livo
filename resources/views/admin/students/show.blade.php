@@ -621,6 +621,30 @@ $(function () {
     var STUDENT_ID = {{ $student->id }};
 
     /* ================================================================
+       Pertahankan tab aktif lewat URL hash — supaya aksi AJAX di tab
+       "Jadwal Belajar"/"Evaluasi" (Tandai Selesai, Batalkan, Hapus,
+       Simpan Evaluasi) yang me-reload halaman ini (location.reload())
+       membawa admin balik ke tab yang sama, bukan reset ke tab
+       "Data Informasi" (tab pertama/default Bootstrap).
+    ================================================================ */
+    (function () {
+        var tabButtons = document.querySelectorAll('#studentTab button[data-bs-toggle="tab"]');
+
+        tabButtons.forEach(function (btn) {
+            btn.addEventListener('shown.bs.tab', function (e) {
+                history.replaceState(null, '', e.target.getAttribute('data-bs-target'));
+            });
+        });
+
+        if (location.hash) {
+            var $targetBtn = $('#studentTab button[data-bs-target="' + location.hash + '"]');
+            if ($targetBtn.length) {
+                $targetBtn.tab('show');
+            }
+        }
+    })();
+
+    /* ================================================================
        Ringkasan rata-rata evaluasi per bulan, dikelompokkan per program
     ================================================================ */
     (function () {
