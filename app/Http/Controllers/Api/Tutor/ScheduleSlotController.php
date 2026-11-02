@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Tutor;
 
+use App\Http\Controllers\Concerns\ChecksTutorScheduleConflict;
 use App\Http\Controllers\Concerns\MaterializesScheduleSlot;
 use App\Models\ScheduleSlot;
 use App\Models\ScheduleSlotApplication;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 class ScheduleSlotController extends BaseApiTutorController
 {
     use MaterializesScheduleSlot;
+    use ChecksTutorScheduleConflict;
 
     /** Ringkasan satu minggu: jadwal perlu dikonfirmasi, jadwal tersedia, dan keputusan admin minggu itu. */
     public function index(Request $request)
@@ -101,6 +103,20 @@ class ScheduleSlotController extends BaseApiTutorController
             return response()->json(['message' => 'Mata pelajaran slot ini di luar kualifikasi Anda.'], 422);
         }
 
+        if ($scheduleSlot->session) {
+            $conflict = $this->findTutorScheduleConflict(
+                $tutor->id,
+                $scheduleSlot->class_date->toDateString(),
+                $scheduleSlot->session->time_start,
+                $scheduleSlot->session->time_end,
+                [],
+                [$scheduleSlot->id]
+            );
+            if ($conflict) {
+                return response()->json(['message' => "Sesi ini tidak dapat dipilih karena Anda sudah mengajar {$conflict} pada jam yang sama."], 422);
+            }
+        }
+
         $lamaran = ScheduleSlotApplication::updateOrCreate(
             ['schedule_slot_id' => $scheduleSlot->id, 'tutor_id' => $tutor->id],
             [
@@ -146,6 +162,22 @@ class ScheduleSlotController extends BaseApiTutorController
 
         if (!$scheduleSlot->needsTutorConfirmation() || (int) $scheduleSlot->assigned_tutor_id !== (int) $tutor->id) {
             return response()->json(['message' => 'Jadwal ini bukan milik Anda atau sudah tidak perlu dikonfirmasi.'], 422);
+        }
+
+        // Jaga-jaga: pastikan belum ada komitmen lain yang bentrok di jam ini (mis. jadwal
+        // manual baru dari admin) sejak slot ini terbentuk minggu lalu.
+        if ($scheduleSlot->session) {
+            $conflict = $this->findTutorScheduleConflict(
+                $tutor->id,
+                $scheduleSlot->class_date->toDateString(),
+                $scheduleSlot->session->time_start,
+                $scheduleSlot->session->time_end,
+                [],
+                [$scheduleSlot->id]
+            );
+            if ($conflict) {
+                return response()->json(['message' => "Tidak dapat dikonfirmasi — Anda sudah mengajar {$conflict} pada jam yang sama. Hubungi admin."], 422);
+            }
         }
 
         $hasil = DB::transaction(function () use ($scheduleSlot) {

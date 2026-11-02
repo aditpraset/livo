@@ -195,8 +195,23 @@
         @foreach(['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'] as $i => $namaHari)
             @php
                 $tanggalHari   = $weekStart->copy()->addDays($i);
-                $grupHariIni   = $weekGroupedByDay->get($namaHari, collect());
                 $isToday       = $tanggalHari->isToday();
+
+                // Beri warna badge jam yang berbeda-beda per sesi, khusus utk tutor yang
+                // punya lebih dari 1 sesi pada hari ini (supaya mudah dibedakan sekilas).
+                $sesiWarnaPalet = ['primary', 'success', 'warning', 'info', 'danger', 'dark'];
+                $grupHariIni = $weekGroupedByDay->get($namaHari, collect())
+                    ->groupBy('tutor_id')
+                    ->flatMap(function ($grupTutor) use ($sesiWarnaPalet) {
+                        $multiSesi = $grupTutor->count() > 1;
+                        return $grupTutor->values()->map(function ($grup, $idx) use ($multiSesi, $sesiWarnaPalet) {
+                            $grup['warna'] = $multiSesi ? $sesiWarnaPalet[$idx % count($sesiWarnaPalet)] : 'secondary';
+                            return $grup;
+                        });
+                    })
+                    ->sortBy('start_time')
+                    ->values();
+
                 $totalSiswaHari = $grupHariIni->sum(fn($g) => count($g['siswa']));
             @endphp
             <div class="col-12">
@@ -225,7 +240,7 @@
                                 <tbody>
                                     @foreach($grupHariIni as $grup)
                                         <tr>
-                                            <td><span class="badge bg-secondary-subtle text-secondary">{{ $grup['start_time'] }}–{{ $grup['end_time'] }}</span>
+                                            <td><span class="badge bg-{{ $grup['warna'] }}-subtle text-{{ $grup['warna'] }} border border-{{ $grup['warna'] }}-subtle">{{ $grup['start_time'] }}–{{ $grup['end_time'] }}</span>
                                                 <div class="small text-muted mt-1">{{ $grup['sesi_label'] }}</div>
                                             </td>
                                             <td>{{ $grup['mapel'] }}</td>

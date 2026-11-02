@@ -48,9 +48,11 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                @php $sesiColors = ['primary', 'success', 'warning', 'info', 'danger', 'dark']; @endphp
                                 @foreach($sessions as $session)
+                                    @php $sesiWarna = $sessions->count() > 1 ? $sesiColors[$loop->index % count($sesiColors)] : 'secondary'; @endphp
                                     <tr>
-                                        <td><span class="badge bg-secondary-subtle text-secondary">{{ substr($session['start_time'], 0, 5) }}–{{ substr($session['end_time'], 0, 5) }}</span></td>
+                                        <td><span class="badge bg-{{ $sesiWarna }}-subtle text-{{ $sesiWarna }} border border-{{ $sesiWarna }}-subtle">{{ substr($session['start_time'], 0, 5) }}–{{ substr($session['end_time'], 0, 5) }}</span></td>
                                         <td>{{ $session['room'] }}</td>
                                         <td>{{ $session['subject'] }}</td>
                                         <td>

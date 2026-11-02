@@ -561,6 +561,7 @@ POST /api/tutor/schedule-slots/{scheduleSlot}/apply
 **Response `422`**:
 - `"Slot ini sudah tidak dibuka lagi."` — slot bukan `open`/`vacant` lagi.
 - `"Mata pelajaran slot ini di luar kualifikasi Anda."`
+- `"Sesi ini tidak dapat dipilih karena Anda sudah mengajar ... pada jam yang sama."` — tutor sudah punya komitmen mengajar lain (jadwal manual ATAU slot pola lain) yang jamnya tumpang tindih di tanggal yang sama. Satu tutor tidak boleh mengajar dua tempat sekaligus — cek ini berlaku di SEMUA alur penjadwalan, bukan cuma di sini.
 
 Melamar ulang ke slot yang sama **tidak membuat lamaran dobel** (upsert berdasar slot+tutor) — boleh lebih dari satu tutor melamar slot yang sama, admin yang memutuskan siapa yang dipilih.
 
@@ -595,7 +596,9 @@ Memicu pembuatan jadwal mengajar asli (`Schedule`) otomatis untuk setiap siswa a
 ```
 `skipped` > 0 terjadi bila siswa sudah kebetulan punya jadwal lain di jam yang sama — tampilkan sebagai info, bukan error.
 
-**Response `422`**: `"Jadwal ini bukan milik Anda atau sudah tidak perlu dikonfirmasi."`
+**Response `422`**:
+- `"Jadwal ini bukan milik Anda atau sudah tidak perlu dikonfirmasi."`
+- `"Tidak dapat dikonfirmasi — Anda sudah mengajar ... pada jam yang sama. Hubungi admin."` — jaga-jaga bila muncul komitmen baru yang bentrok setelah slot ini terbentuk (mis. admin menambahkan jadwal manual lain untuk tutor ini di jam yang sama). Jarang terjadi, tapi tetap dicek.
 
 ### 5.5 Izin (Berhalangan Minggu Ini Saja)
 

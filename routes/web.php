@@ -266,8 +266,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/tutors', [TutorController::class, 'index'])->name('tutors.index');
         Route::get('/data/tutors', [TutorController::class, 'data'])->name('tutors.data');
         Route::post('/tutors', [TutorController::class, 'store'])->name('tutors.store');
+        Route::get('/tutors/{tutor}', [TutorController::class, 'show'])->name('tutors.show');
+        Route::get('/tutors/{tutor}/data/schedules', [TutorController::class, 'scheduleData'])->name('tutors.schedules.data');
         Route::put('/tutors/{tutor}', [TutorController::class, 'update'])->name('tutors.update');
         Route::delete('/tutors/{tutor}', [TutorController::class, 'destroy'])->name('tutors.destroy');
+        Route::post('/tutors/{tutor}/pattern-items', [TutorController::class, 'storePatternItem'])->name('tutors.pattern-items.store');
+        Route::post('/tutors/{tutor}/pattern-items/{item}/assign-week', [TutorController::class, 'assignWeek'])->name('tutors.pattern-items.assign-week');
 
         // Fee Tutor: generate per bulan → review → terbitkan
         Route::get('/tutor-fees', [TutorFeeController::class, 'index'])->name('tutor-fees.index');
@@ -299,6 +303,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('/schedule-patterns/{schedulePattern}', [\App\Http\Controllers\Admin\SchedulePatternController::class, 'update'])->name('schedule-patterns.update');
         Route::delete('/schedule-patterns/{schedulePattern}', [\App\Http\Controllers\Admin\SchedulePatternController::class, 'destroy'])->name('schedule-patterns.destroy');
         Route::post('/schedule-patterns/{schedulePattern}/items', [\App\Http\Controllers\Admin\SchedulePatternController::class, 'storeItem'])->name('schedule-patterns.items.store');
+        Route::put('/schedule-pattern-items/{item}', [\App\Http\Controllers\Admin\SchedulePatternController::class, 'updateItem'])->name('schedule-patterns.items.update');
         Route::delete('/schedule-pattern-items/{item}', [\App\Http\Controllers\Admin\SchedulePatternController::class, 'destroyItem'])->name('schedule-patterns.items.destroy');
 
         // Siapkan jadwal mingguan dari pola + kelola slot & pelamar

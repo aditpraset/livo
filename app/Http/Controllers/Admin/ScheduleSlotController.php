@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\ChecksTutorScheduleConflict;
 use App\Http\Controllers\Concerns\ComputesTutorEvaluationPerformance;
 use App\Http\Controllers\Concerns\MaterializesScheduleSlot;
 use App\Http\Controllers\Controller;
+use App\Models\Schedule;
 use App\Models\SchedulePattern;
 use App\Models\ScheduleSlot;
 use App\Models\ScheduleSlotApplication;
@@ -31,6 +33,7 @@ class ScheduleSlotController extends Controller
 {
     use MaterializesScheduleSlot;
     use ComputesTutorEvaluationPerformance;
+    use ChecksTutorScheduleConflict;
 
     /**
      * Bobot skor gabungan untuk mengurutkan pelamar: waktu mendaftar (siapa
@@ -222,6 +225,24 @@ class ScheduleSlotController extends Controller
             return response()->json(['message' => 'Slot ini sudah ditutup. Buka kembali sebelum menetapkan tutor.'], 422);
         }
 
+        // Tutor yang dipilih tidak boleh sudah punya komitmen mengajar lain pada jam yang
+        // sama — kecuali bentroknya dengan slot ini sendiri (penetapan ulang/pengganti).
+        if (!$scheduleSlot->session) {
+            return response()->json(['message' => 'Slot ini belum punya sesi/jam yang valid.'], 422);
+        }
+        $excludeScheduleIds = Schedule::where('schedule_slot_id', $scheduleSlot->id)->pluck('id')->all();
+        $conflict = $this->findTutorScheduleConflict(
+            $data['tutor_id'],
+            $scheduleSlot->class_date->toDateString(),
+            $scheduleSlot->session->time_start,
+            $scheduleSlot->session->time_end,
+            $excludeScheduleIds,
+            [$scheduleSlot->id]
+        );
+        if ($conflict) {
+            return response()->json(['message' => "Tutor ini sudah mengajar {$conflict} pada jam yang sama. Sesi ini tidak dapat dipilih untuk tutor tersebut."], 422);
+        }
+
         $hasil = DB::transaction(function () use ($scheduleSlot, $data) {
             // Slot `vacant`: tutor rutin tetap sama (assigned_tutor_id tidak diubah),
             // hanya dicatat siapa pengganti minggu ini. Slot `open`: baru pertama
@@ -346,12 +367,29 @@ class ScheduleSlotController extends Controller
         return response()->json(['success' => true, 'message' => 'Slot dibuka kembali.']);
     }
 
-    /** Daftar tutor berkualifikasi untuk mata pelajaran slot ini (dipakai saat memilih pengganti). */
+    /**
+     * Daftar tutor berkualifikasi untuk mata pelajaran slot ini (dipakai saat memilih
+     * pengganti) — tutor yang sudah punya komitmen mengajar lain pada jam yang sama
+     * disaring, supaya tidak bisa dipilih untuk sesi yang akan bentrok.
+     */
     public function qualifiedTutors(ScheduleSlot $scheduleSlot)
     {
         $tutors = Tutor::qualifiedFor($scheduleSlot->subject->subject_name ?? null)
             ->orderBy('name')
             ->get(['id', 'name']);
+
+        if ($scheduleSlot->session) {
+            $tutors = $tutors->filter(function ($tutor) use ($scheduleSlot) {
+                return $this->findTutorScheduleConflict(
+                    $tutor->id,
+                    $scheduleSlot->class_date->toDateString(),
+                    $scheduleSlot->session->time_start,
+                    $scheduleSlot->session->time_end,
+                    [],
+                    [$scheduleSlot->id]
+                ) === null;
+            })->values();
+        }
 
         return response()->json(['tutors' => $tutors]);
     }

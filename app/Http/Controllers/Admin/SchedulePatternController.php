@@ -123,6 +123,40 @@ class SchedulePatternController extends Controller
         return response()->json(['success' => true, 'message' => 'Baris pola berhasil ditambahkan.']);
     }
 
+    /** Ubah hari/sesi/mapel/group satu baris pola (tidak memengaruhi slot yang sudah pernah dibuat). */
+    public function updateItem(Request $request, SchedulePatternItem $item)
+    {
+        $data = $request->validate([
+            'hari'             => ['required', Rule::in(SchedulePatternItem::HARI)],
+            'session_id'       => 'required|exists:schedule_sessions,id',
+            'subject_id'       => 'required|exists:subjects,id',
+            'student_group_id' => 'required|exists:student_groups,id',
+        ], [], [
+            'hari'             => 'Hari',
+            'session_id'       => 'Sesi',
+            'subject_id'       => 'Mata Pelajaran',
+            'student_group_id' => 'Group Siswa',
+        ]);
+
+        $sudahAda = SchedulePatternItem::where('schedule_pattern_id', $item->schedule_pattern_id)
+            ->where('id', '!=', $item->id)
+            ->where('hari', $data['hari'])
+            ->where('session_id', $data['session_id'])
+            ->where('student_group_id', $data['student_group_id'])
+            ->exists();
+
+        if ($sudahAda) {
+            return response()->json([
+                'message' => 'Group ini sudah punya jadwal di hari & sesi tersebut pada pola ini.',
+                'errors'  => ['student_group_id' => ['Group sudah terpakai di hari & sesi itu.']],
+            ], 422);
+        }
+
+        $item->update($data);
+
+        return response()->json(['success' => true, 'message' => 'Baris pola berhasil diperbarui.']);
+    }
+
     public function destroyItem(SchedulePatternItem $item)
     {
         $item->delete();

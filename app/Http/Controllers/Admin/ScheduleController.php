@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\ChecksTutorScheduleConflict;
 use App\Http\Controllers\Controller;
 use App\Models\ClassSchedule;
 use App\Models\Evaluation;
@@ -24,6 +25,8 @@ use Yajra\DataTables\Facades\DataTables;
 
 class ScheduleController extends Controller
 {
+    use ChecksTutorScheduleConflict;
+
     public function index(Request $request)
     {
         $students         = Student::orderBy('full_name')->get(['id', 'full_name', 'schedule_session_id', 'grade_id', 'program']);
@@ -384,6 +387,15 @@ class ScheduleController extends Controller
         $startTime = substr($session->time_start, 0, 5);
         $endTime   = substr($session->time_end, 0, 5);
 
+        // Tutor tidak boleh bentrok dengan komitmen mengajar lain pada jam yang sama —
+        // dicek sekali untuk seluruh grouping karena tutor & jamnya sama untuk semua siswa.
+        if ($conflict = $this->findTutorScheduleConflict($validated['tutor_id'], $classDate->toDateString(), $startTime, $endTime)) {
+            return response()->json([
+                'success' => false,
+                'message' => "Tutor ini sudah mengajar {$conflict} pada jam yang sama. Pilih tutor atau jam lain.",
+            ], 422);
+        }
+
         $useExplicitGroup = !empty($validated['student_group_id']);
 
         if ($useExplicitGroup) {
@@ -507,7 +519,12 @@ class ScheduleController extends Controller
         // dievaluasi (lihat ManagesEvaluations::syncQuota) dan otomatis terbayar
         // saat kuota ditambah lewat pembayaran berikutnya.
 
-        // Tutor boleh dipilih di berbagai siswa (tanpa cek bentrok waktu).
+        // Tutor TIDAK boleh bentrok dengan komitmen mengajar lain pada jam yang sama.
+        if ($conflict = $this->findTutorScheduleConflict($validated['tutor_id'], $validated['class_date'], $validated['start_time'], $validated['end_time'])) {
+            $error = "Tutor ini sudah mengajar {$conflict} pada jam yang sama.";
+            return response()->json(['message' => $error, 'errors' => ['tutor_id' => [$error]]], 422);
+        }
+
         Schedule::create($validated + ['status_schedule' => 'scheduled']);
         return response()->json(['success' => true, 'message' => 'Jadwal berhasil ditambahkan.']);
     }
@@ -571,7 +588,14 @@ class ScheduleController extends Controller
             return response()->json(['message' => $error, 'errors' => ['subject_id' => [$error]]], 422);
         }
 
-        // Tutor boleh dipilih di berbagai siswa (tanpa cek bentrok waktu).
+        // Tutor TIDAK boleh bentrok dengan komitmen mengajar lain pada jam yang sama
+        // (kecuali bentroknya dengan jadwal ini sendiri — wajar saat jam/tutornya tidak diubah).
+        $excludeSlotIds = $schedule->schedule_slot_id ? [$schedule->schedule_slot_id] : [];
+        if ($conflict = $this->findTutorScheduleConflict($validated['tutor_id'], $validated['class_date'], $validated['start_time'], $validated['end_time'], [$schedule->id], $excludeSlotIds)) {
+            $error = "Tutor ini sudah mengajar {$conflict} pada jam yang sama.";
+            return response()->json(['message' => $error, 'errors' => ['tutor_id' => [$error]]], 422);
+        }
+
         $schedule->update($validated);
         return response()->json(['success' => true, 'message' => 'Jadwal berhasil diperbarui.']);
     }
