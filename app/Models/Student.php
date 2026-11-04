@@ -5,10 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class Student extends Model
 {
     use HasFactory, SoftDeletes;
+
+    protected $appends = ['photo_url'];
 
     protected $fillable = [
         'registration_code',
@@ -102,6 +105,12 @@ class Student extends Model
             return collect();
         }
         return ClassSchedule::with('session')->whereIn('id', $ids)->get();
+    }
+
+    /** URL foto profil siap pakai (null bila belum punya foto) — dipakai API mobile. */
+    public function getPhotoUrlAttribute(): ?string
+    {
+        return $this->photo ? Storage::disk('public')->url($this->photo) : null;
     }
 
     public function scheduleSession()

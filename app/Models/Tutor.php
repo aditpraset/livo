@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Tutor extends Model
 {
@@ -11,6 +12,8 @@ class Tutor extends Model
         'freelance' => 'Freelance',
         'tetap'     => 'Tetap',
     ];
+
+    protected $appends = ['photo_url'];
 
     protected $fillable = [
         'name',
@@ -36,6 +39,12 @@ class Tutor extends Model
     protected $casts = [
         'specialization' => 'array',
     ];
+
+    /** URL foto profil siap pakai (null bila belum punya foto) — dipakai API mobile. */
+    public function getPhotoUrlAttribute(): ?string
+    {
+        return $this->photo ? Storage::disk('public')->url($this->photo) : null;
+    }
 
     public function schedules()
     {

@@ -389,7 +389,7 @@ class ScheduleController extends Controller
 
         // Tutor tidak boleh bentrok dengan komitmen mengajar lain pada jam yang sama —
         // dicek sekali untuk seluruh grouping karena tutor & jamnya sama untuk semua siswa.
-        if ($conflict = $this->findTutorScheduleConflict($validated['tutor_id'], $classDate->toDateString(), $startTime, $endTime)) {
+        if ($conflict = $this->findTutorScheduleConflict($validated['tutor_id'], $classDate->toDateString(), $startTime, $endTime, [], [], $subject->id)) {
             return response()->json([
                 'success' => false,
                 'message' => "Tutor ini sudah mengajar {$conflict} pada jam yang sama. Pilih tutor atau jam lain.",
@@ -520,7 +520,7 @@ class ScheduleController extends Controller
         // saat kuota ditambah lewat pembayaran berikutnya.
 
         // Tutor TIDAK boleh bentrok dengan komitmen mengajar lain pada jam yang sama.
-        if ($conflict = $this->findTutorScheduleConflict($validated['tutor_id'], $validated['class_date'], $validated['start_time'], $validated['end_time'])) {
+        if ($conflict = $this->findTutorScheduleConflict($validated['tutor_id'], $validated['class_date'], $validated['start_time'], $validated['end_time'], [], [], $validated['subject_id'])) {
             $error = "Tutor ini sudah mengajar {$conflict} pada jam yang sama.";
             return response()->json(['message' => $error, 'errors' => ['tutor_id' => [$error]]], 422);
         }
@@ -591,7 +591,7 @@ class ScheduleController extends Controller
         // Tutor TIDAK boleh bentrok dengan komitmen mengajar lain pada jam yang sama
         // (kecuali bentroknya dengan jadwal ini sendiri — wajar saat jam/tutornya tidak diubah).
         $excludeSlotIds = $schedule->schedule_slot_id ? [$schedule->schedule_slot_id] : [];
-        if ($conflict = $this->findTutorScheduleConflict($validated['tutor_id'], $validated['class_date'], $validated['start_time'], $validated['end_time'], [$schedule->id], $excludeSlotIds)) {
+        if ($conflict = $this->findTutorScheduleConflict($validated['tutor_id'], $validated['class_date'], $validated['start_time'], $validated['end_time'], [$schedule->id], $excludeSlotIds, $validated['subject_id'])) {
             $error = "Tutor ini sudah mengajar {$conflict} pada jam yang sama.";
             return response()->json(['message' => $error, 'errors' => ['tutor_id' => [$error]]], 422);
         }

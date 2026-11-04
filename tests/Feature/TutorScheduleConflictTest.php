@@ -31,6 +31,7 @@ class TutorScheduleConflictTest extends TestCase
     private Student $siswaA;
     private Student $siswaB;
     private Subject $subject;
+    private Subject $subjectLain;
 
     protected function setUp(): void
     {
@@ -45,8 +46,9 @@ class TutorScheduleConflictTest extends TestCase
         $this->admin->syncRoles(['admin']);
 
         $this->subject = Subject::create(['subject_name' => 'Matematika']);
-        $this->tutor = Tutor::create(['name' => 'Tutor Bentrok', 'phone' => '0811', 'specialization' => ['Matematika']]);
-        $this->tutorLain = Tutor::create(['name' => 'Tutor Lain', 'phone' => '0812', 'specialization' => ['Matematika']]);
+        $this->subjectLain = Subject::create(['subject_name' => 'Fisika']);
+        $this->tutor = Tutor::create(['name' => 'Tutor Bentrok', 'phone' => '0811', 'specialization' => ['Matematika', 'Fisika']]);
+        $this->tutorLain = Tutor::create(['name' => 'Tutor Lain', 'phone' => '0812', 'specialization' => ['Matematika', 'Fisika']]);
 
         $this->siswaA = Student::create(['full_name' => 'Siswa A', 'grade' => 'SMA 10', 'program' => json_encode(['Matematika']), 'quota_sessions' => 10, 'status' => 1]);
         $this->siswaB = Student::create(['full_name' => 'Siswa B', 'grade' => 'SMA 10', 'program' => json_encode(['Matematika']), 'quota_sessions' => 10, 'status' => 1]);
@@ -90,6 +92,25 @@ class TutorScheduleConflictTest extends TestCase
         $resp = $this->actingAs($this->admin)->postJson('/admin/schedules', [
             'student_id' => $this->siswaB->id, 'tutor_id' => $this->tutor->id, 'subject_id' => $this->subject->id,
             'class_date' => '2027-01-04', 'start_time' => '13:00', 'end_time' => '14:30', // tidak overlap
+        ]);
+
+        $resp->assertOk()->assertJson(['success' => true]);
+        $this->assertSame(2, Schedule::count());
+    }
+
+    public function test_tambah_jadwal_manual_diperbolehkan_bila_sesi_identik_menambah_siswa_ke_grup_yang_sama(): void
+    {
+        Schedule::create([
+            'student_id' => $this->siswaA->id, 'tutor_id' => $this->tutor->id, 'subject_id' => $this->subject->id,
+            'class_date' => '2027-01-04', 'start_time' => '10:00', 'end_time' => '11:30', 'status_schedule' => 'scheduled',
+        ]);
+
+        // Tutor, tanggal, jam, DAN mapel identik dengan jadwal siswaA yang sudah ada —
+        // ini dianggap "sesi yang sama" (menambah siswaB ke sesi yang sudah ada tutornya),
+        // bukan bentrok, jadi harus diperbolehkan.
+        $resp = $this->actingAs($this->admin)->postJson('/admin/schedules', [
+            'student_id' => $this->siswaB->id, 'tutor_id' => $this->tutor->id, 'subject_id' => $this->subject->id,
+            'class_date' => '2027-01-04', 'start_time' => '10:00', 'end_time' => '11:30',
         ]);
 
         $resp->assertOk()->assertJson(['success' => true]);
@@ -163,13 +184,39 @@ class TutorScheduleConflictTest extends TestCase
         $group = StudentGroup::create(['name' => 'Group Grouping', 'session_id' => $session->id, 'hari' => 'Senin']);
         $group->students()->attach($this->siswaB->id);
 
+        // Mapel grouping baru SENGAJA dibuat beda (Fisika) dari jadwal yang sudah ada
+        // (Matematika) — jam sama persis tapi mapel beda tetap bentrok asli (tutor
+        // tidak mungkin mengajar 2 mapel berbeda di waktu bersamaan).
+        $resp = $this->actingAs($this->admin)->postJson('/admin/schedules/generate-by-group', [
+            'student_group_id' => $group->id, 'session_id' => $session->id, 'hari' => 'Senin',
+            'subject_id' => $this->subjectLain->id, 'tutor_id' => $this->tutor->id, 'week_date' => '2027-01-04',
+        ]);
+
+        $resp->assertStatus(422);
+        $this->assertSame(1, Schedule::count(), 'Tidak ada jadwal baru yang boleh terbentuk untuk grouping ini');
+    }
+
+    public function test_buat_per_grouping_diperbolehkan_bila_sesi_identik_menambah_siswa_ke_grup_yang_sama(): void
+    {
+        Schedule::create([
+            'student_id' => $this->siswaA->id, 'tutor_id' => $this->tutor->id, 'subject_id' => $this->subject->id,
+            'class_date' => '2027-01-04', 'start_time' => '10:00', 'end_time' => '11:30', 'status_schedule' => 'scheduled',
+        ]);
+
+        $session = ScheduleSession::create(['name' => 'Sesi Pagi', 'time_start' => '10:00', 'time_end' => '11:30']);
+        $group = StudentGroup::create(['name' => 'Group Grouping', 'session_id' => $session->id, 'hari' => 'Senin']);
+        $group->students()->attach($this->siswaB->id);
+
+        // Tutor, tanggal, jam, DAN mapel identik dengan jadwal siswaA yang sudah ada —
+        // ini dianggap "sesi yang sama" (menambah siswaB ke grup yang sudah ada),
+        // bukan bentrok, jadi harus diperbolehkan.
         $resp = $this->actingAs($this->admin)->postJson('/admin/schedules/generate-by-group', [
             'student_group_id' => $group->id, 'session_id' => $session->id, 'hari' => 'Senin',
             'subject_id' => $this->subject->id, 'tutor_id' => $this->tutor->id, 'week_date' => '2027-01-04',
         ]);
 
-        $resp->assertStatus(422);
-        $this->assertSame(1, Schedule::count(), 'Tidak ada jadwal baru yang boleh terbentuk untuk grouping ini');
+        $resp->assertOk()->assertJson(['success' => true]);
+        $this->assertSame(2, Schedule::count());
     }
 
     /* ============================================================
@@ -189,11 +236,13 @@ class TutorScheduleConflictTest extends TestCase
         $group = StudentGroup::create(['name' => 'Group Slot', 'session_id' => $session->id, 'hari' => 'Senin']);
         $group->students()->attach($this->siswaB->id);
         $pattern = SchedulePattern::create(['name' => 'Pola Uji Bentrok', 'is_active' => true]);
-        $item = $pattern->items()->create(['hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subject->id, 'student_group_id' => $group->id]);
+        // Mapel slot SENGAJA beda (Fisika) dari jadwal Schedule yang sudah ada (Matematika)
+        // di jam yang sama persis — supaya tetap bentrok asli, bukan "sesi yang sama".
+        $item = $pattern->items()->create(['hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subjectLain->id, 'student_group_id' => $group->id]);
 
         $slot = ScheduleSlot::create([
             'schedule_pattern_item_id' => $item->id, 'week_start' => '2027-01-04', 'class_date' => '2027-01-04',
-            'hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subject->id,
+            'hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subjectLain->id,
             'student_group_id' => $group->id, 'status' => ScheduleSlot::STATUS_OPEN,
         ]);
 
@@ -216,11 +265,13 @@ class TutorScheduleConflictTest extends TestCase
         $group = StudentGroup::create(['name' => 'Group Slot', 'session_id' => $session->id, 'hari' => 'Senin']);
         $group->students()->attach($this->siswaB->id);
         $pattern = SchedulePattern::create(['name' => 'Pola Uji Pengganti', 'is_active' => true]);
-        $item = $pattern->items()->create(['hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subject->id, 'student_group_id' => $group->id]);
+        // Mapel slot SENGAJA beda (Fisika) dari jadwal Schedule yang sudah ada (Matematika)
+        // di jam yang sama persis — supaya tetap bentrok asli, bukan "sesi yang sama".
+        $item = $pattern->items()->create(['hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subjectLain->id, 'student_group_id' => $group->id]);
 
         $slot = ScheduleSlot::create([
             'schedule_pattern_item_id' => $item->id, 'week_start' => '2027-01-04', 'class_date' => '2027-01-04',
-            'hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subject->id,
+            'hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subjectLain->id,
             'student_group_id' => $group->id, 'status' => ScheduleSlot::STATUS_VACANT,
         ]);
 
@@ -249,11 +300,13 @@ class TutorScheduleConflictTest extends TestCase
         $group = StudentGroup::create(['name' => 'Group Lamar', 'session_id' => $session->id, 'hari' => 'Senin']);
         $group->students()->attach($this->siswaB->id);
         $pattern = SchedulePattern::create(['name' => 'Pola Uji Lamar', 'is_active' => true]);
-        $item = $pattern->items()->create(['hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subject->id, 'student_group_id' => $group->id]);
+        // Mapel slot SENGAJA beda (Fisika) dari jadwal Schedule yang sudah ada (Matematika)
+        // di jam yang sama persis — supaya tetap bentrok asli, bukan "sesi yang sama".
+        $item = $pattern->items()->create(['hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subjectLain->id, 'student_group_id' => $group->id]);
 
         $slot = ScheduleSlot::create([
             'schedule_pattern_item_id' => $item->id, 'week_start' => '2027-01-04', 'class_date' => '2027-01-04',
-            'hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subject->id,
+            'hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subjectLain->id,
             'student_group_id' => $group->id, 'status' => ScheduleSlot::STATUS_OPEN,
         ]);
 
@@ -271,11 +324,13 @@ class TutorScheduleConflictTest extends TestCase
         $group = StudentGroup::create(['name' => 'Group Konfirmasi', 'session_id' => $session->id, 'hari' => 'Senin']);
         $group->students()->attach($this->siswaB->id);
         $pattern = SchedulePattern::create(['name' => 'Pola Uji Konfirmasi', 'is_active' => true]);
-        $item = $pattern->items()->create(['hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subject->id, 'student_group_id' => $group->id]);
+        // Mapel slot SENGAJA beda (Fisika) dari jadwal Schedule yang akan ditambahkan admin
+        // (Matematika) di jam yang sama persis — supaya tetap bentrok asli.
+        $item = $pattern->items()->create(['hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subjectLain->id, 'student_group_id' => $group->id]);
 
         $slot = ScheduleSlot::create([
             'schedule_pattern_item_id' => $item->id, 'week_start' => '2027-01-04', 'class_date' => '2027-01-04',
-            'hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subject->id,
+            'hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subjectLain->id,
             'student_group_id' => $group->id, 'status' => ScheduleSlot::STATUS_PENDING_CONFIRMATION,
             'assigned_tutor_id' => $this->tutor->id,
         ]);
@@ -312,11 +367,13 @@ class TutorScheduleConflictTest extends TestCase
         $group = StudentGroup::create(['name' => 'Group API', 'session_id' => $session->id, 'hari' => 'Senin']);
         $group->students()->attach($this->siswaB->id);
         $pattern = SchedulePattern::create(['name' => 'Pola Uji API', 'is_active' => true]);
-        $item = $pattern->items()->create(['hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subject->id, 'student_group_id' => $group->id]);
+        // Mapel slot SENGAJA beda (Fisika) dari jadwal Schedule yang sudah ada (Matematika)
+        // di jam yang sama persis — supaya tetap bentrok asli, bukan "sesi yang sama".
+        $item = $pattern->items()->create(['hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subjectLain->id, 'student_group_id' => $group->id]);
 
         $slot = ScheduleSlot::create([
             'schedule_pattern_item_id' => $item->id, 'week_start' => '2027-01-04', 'class_date' => '2027-01-04',
-            'hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subject->id,
+            'hari' => 'Senin', 'session_id' => $session->id, 'subject_id' => $this->subjectLain->id,
             'student_group_id' => $group->id, 'status' => ScheduleSlot::STATUS_OPEN,
         ]);
 

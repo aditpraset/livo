@@ -137,6 +137,7 @@ POST /api/tutor/auth/login
     "id": 4,
     "name": "Budi Santoso",
     "photo": "tutors/xyz.jpg",
+    "photo_url": "https://livo.co.id/storage/tutors/xyz.jpg",
     "phone": "081234567890",
     "email": "budi@livo.co.id",
     "no_rekening": "BCA 1234567890",
@@ -150,6 +151,8 @@ POST /api/tutor/auth/login
   }
 }
 ```
+
+`photo` adalah path relatif tersimpan di DB (tidak bisa langsung dipakai); `photo_url` adalah URL absolut siap pakai untuk `<img>`/`Image.network` — `null` bila tutor belum punya foto.
 
 **Response `422`** — email/password salah, bukan akun tutor, atau akun `nonaktif` (pesan generik "Email atau password salah." untuk mencegah enumerasi akun).
 
@@ -346,12 +349,13 @@ Daftar siswa yang pernah/akan diajar tutor ini (distinct dari riwayat jadwal) �
   "nickname": "Uji",
   "nis": "2024001",
   "grade": "SMA 10",
+  "photo_url": "https://livo.co.id/storage/students/xyz.jpg",
   "total_sessions": 12,
   "last_class_date": "2026-07-10"
 }
 ```
 
-`total_sessions` & `last_class_date` dihitung khusus dari jadwal **tutor ini** dengan siswa tsb (bukan akumulasi seluruh tutor). `last_class_date` bisa `null` jika entah bagaimana tidak ada jadwal sama sekali (seharusnya tidak terjadi, karena siswa hanya muncul di daftar ini bila punya minimal 1 jadwal dengan tutor ini).
+`total_sessions` & `last_class_date` dihitung khusus dari jadwal **tutor ini** dengan siswa tsb (bukan akumulasi seluruh tutor). `last_class_date` bisa `null` jika entah bagaimana tidak ada jadwal sama sekali (seharusnya tidak terjadi, karena siswa hanya muncul di daftar ini bila punya minimal 1 jadwal dengan tutor ini). `photo_url` adalah URL absolut siap pakai (`null` bila siswa belum punya foto).
 
 ### 4.3 Detail Siswa
 
@@ -370,6 +374,8 @@ GET /api/tutor/students/{student}
     "nickname": "Uji",
     "grade": "SMA 10",
     "quota_sessions": 5,
+    "photo": "students/xyz.jpg",
+    "photo_url": "https://livo.co.id/storage/students/xyz.jpg",
     "...": "kolom lengkap tabel students"
   },
   "stats": {
@@ -802,6 +808,7 @@ GET /api/tutor/profile
     "id": 4,
     "name": "Budi Santoso",
     "photo": "tutors/xyz.jpg",
+    "photo_url": "https://livo.co.id/storage/tutors/xyz.jpg",
     "phone": "081234567890",
     "email": "budi@livo.co.id",
     "no_rekening": "BCA 1234567890",
@@ -1064,7 +1071,8 @@ Contoh `403` saat akun tutor belum tertaut ke master Tutor (berlaku di **semua**
 |---|---|---|
 | `id` | integer | |
 | `name` | string | |
-| `photo` | string\|null | Path relatif storage (gabungkan dengan base URL `storage/` untuk menampilkan gambar) |
+| `photo` | string\|null | Path relatif storage (bukan URL siap pakai — gunakan `photo_url`) |
+| `photo_url` | string\|null | URL absolut siap pakai (`<img>`/`Image.network`) — `null` bila belum punya foto |
 | `phone` | string | |
 | `email` | string | Kunci penaut akun login |
 | `no_rekening` | string\|null | |

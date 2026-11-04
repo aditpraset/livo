@@ -79,6 +79,7 @@ class ScheduleController extends BaseApiTutorController
                 'nickname' => $s->nickname,
                 'nis' => $s->nis,
                 'grade' => $s->grade,
+                'photo_url' => $s->photo_url,
                 'total_sessions' => $a?->total_sessions ?? 0,
                 'last_class_date' => $a?->last_class_date ? substr($a->last_class_date, 0, 10) : null,
             ];
@@ -193,6 +194,7 @@ class ScheduleController extends BaseApiTutorController
                 'id' => $s->student->id ?? null,
                 'full_name' => $s->student->full_name ?? null,
                 'grade' => $s->student->grade ?? null,
+                'photo_url' => $s->student->photo_url ?? null,
             ] : null,
             'subject' => $s->relationLoaded('subject') ? [
                 'id' => $s->subject->id ?? null,

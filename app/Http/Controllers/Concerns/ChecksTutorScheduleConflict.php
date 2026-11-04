@@ -14,6 +14,11 @@ use App\Models\ScheduleSlot;
  *
  * `ScheduleSlot` berstatus `vacant` SENGAJA tidak dihitung bentrok — tutor
  * rutin yang sedang izin minggu itu memang kosong, boleh diisi komitmen lain.
+ *
+ * Komitmen yang jamnya identik (bukan cuma tumpang tindih) DAN mata pelajarannya
+ * sama persis dianggap "sesi yang sama" (mis. admin menambah siswa baru ke
+ * grup/sesi yang sudah ada tutornya) — ini SENGAJA tidak dihitung bentrok,
+ * selama `$subjectId` dikirim oleh pemanggil.
  */
 trait ChecksTutorScheduleConflict
 {
@@ -27,7 +32,8 @@ trait ChecksTutorScheduleConflict
         string $startTime,
         string $endTime,
         array $excludeScheduleIds = [],
-        array $excludeSlotIds = []
+        array $excludeSlotIds = [],
+        ?int $subjectId = null
     ): ?string {
         $start = substr($startTime, 0, 5);
         $end = substr($endTime, 0, 5);
@@ -40,11 +46,20 @@ trait ChecksTutorScheduleConflict
             ->where('status_schedule', '!=', 'canceled')
             ->when($excludeScheduleIds, fn ($q) => $q->whereNotIn('id', $excludeScheduleIds))
             ->get()
-            ->first(function ($schedule) use ($start, $end) {
+            ->first(function ($schedule) use ($start, $end, $subjectId) {
                 $schedStart = substr($schedule->start_time, 0, 5);
                 $schedEnd = substr($schedule->end_time, 0, 5);
 
-                return $schedStart < $end && $start < $schedEnd;
+                if (!($schedStart < $end && $start < $schedEnd)) {
+                    return false;
+                }
+
+                $isSameSession = $subjectId !== null
+                    && (int) $schedule->subject_id === $subjectId
+                    && $schedStart === $start
+                    && $schedEnd === $end;
+
+                return !$isSameSession;
             });
 
         if ($conflictSchedule) {
@@ -63,14 +78,23 @@ trait ChecksTutorScheduleConflict
             ->where(fn ($q) => $q->where('assigned_tutor_id', $tutorId)->orWhere('filled_by_tutor_id', $tutorId))
             ->when($excludeSlotIds, fn ($q) => $q->whereNotIn('id', $excludeSlotIds))
             ->get()
-            ->first(function ($slot) use ($start, $end) {
+            ->first(function ($slot) use ($start, $end, $subjectId) {
                 if (!$slot->session) {
                     return false;
                 }
                 $slotStart = substr($slot->session->time_start, 0, 5);
                 $slotEnd = substr($slot->session->time_end, 0, 5);
 
-                return $slotStart < $end && $start < $slotEnd;
+                if (!($slotStart < $end && $start < $slotEnd)) {
+                    return false;
+                }
+
+                $isSameSession = $subjectId !== null
+                    && (int) $slot->subject_id === $subjectId
+                    && $slotStart === $start
+                    && $slotEnd === $end;
+
+                return !$isSameSession;
             });
 
         if ($conflictSlot) {

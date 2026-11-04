@@ -116,7 +116,8 @@ class ScheduleSlotController extends BaseTutorController
                 $scheduleSlot->session->time_start,
                 $scheduleSlot->session->time_end,
                 [],
-                [$scheduleSlot->id]
+                [$scheduleSlot->id],
+                $scheduleSlot->subject_id
             );
             if ($conflict) {
                 return response()->json(['message' => "Sesi ini tidak dapat dipilih karena Anda sudah mengajar {$conflict} pada jam yang sama."], 422);
@@ -178,7 +179,8 @@ class ScheduleSlotController extends BaseTutorController
                 $scheduleSlot->session->time_start,
                 $scheduleSlot->session->time_end,
                 [],
-                [$scheduleSlot->id]
+                [$scheduleSlot->id],
+                $scheduleSlot->subject_id
             );
             if ($conflict) {
                 return response()->json(['message' => "Tidak dapat dikonfirmasi — Anda sudah mengajar {$conflict} pada jam yang sama. Hubungi admin."], 422);
