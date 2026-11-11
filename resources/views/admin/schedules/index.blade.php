@@ -197,20 +197,14 @@
                 $tanggalHari   = $weekStart->copy()->addDays($i);
                 $isToday       = $tanggalHari->isToday();
 
-                // Beri warna badge jam yang berbeda-beda per sesi, khusus utk tutor yang
-                // punya lebih dari 1 sesi pada hari ini (supaya mudah dibedakan sekilas).
-                $sesiWarnaPalet = ['primary', 'success', 'warning', 'info', 'danger', 'dark'];
+                // Warna label jam tetap & identik per sesi (mis. Sesi 1 selalu biru, Sesi 2
+                // selalu kuning, dst — lihat $sessionColorMap di controller), bukan relatif
+                // ke posisi dalam satu hari, supaya warnanya konsisten di seluruh tampilan.
                 $grupHariIni = $weekGroupedByDay->get($namaHari, collect())
-                    ->groupBy('tutor_id')
-                    ->flatMap(function ($grupTutor) use ($sesiWarnaPalet) {
-                        $multiSesi = $grupTutor->count() > 1;
-                        return $grupTutor->values()->map(function ($grup, $idx) use ($multiSesi, $sesiWarnaPalet) {
-                            $grup['warna'] = $multiSesi ? $sesiWarnaPalet[$idx % count($sesiWarnaPalet)] : 'secondary';
-                            return $grup;
-                        });
-                    })
-                    ->sortBy('start_time')
-                    ->values();
+                    ->map(function ($grup) use ($sessionColorMap) {
+                        $grup['warna'] = $sessionColorMap->get($grup['session_id'], 'secondary');
+                        return $grup;
+                    });
 
                 $totalSiswaHari = $grupHariIni->sum(fn($g) => count($g['siswa']));
             @endphp
@@ -233,6 +227,7 @@
                                         <th style="width:160px">Sesi (Jam)</th>
                                         <th>Mata Pelajaran</th>
                                         <th>Kelas</th>
+                                        <th>Ruangan</th>
                                         <th>Tutor</th>
                                         <th class="text-center" style="width:160px">Siswa</th>
                                     </tr>
@@ -245,6 +240,7 @@
                                             </td>
                                             <td>{{ $grup['mapel'] }}</td>
                                             <td>{{ $grup['kelas'] }}</td>
+                                            <td>{{ $grup['ruang'] }}</td>
                                             <td>{{ $grup['tutor'] }}</td>
                                             <td class="text-center">
                                                 <button type="button" class="btn btn-sm btn-outline-primary btn-group-students"

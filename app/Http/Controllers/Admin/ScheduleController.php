@@ -54,9 +54,16 @@ class ScheduleController extends Controller
 
         $weekGroupedByDay = $this->weekGroupedByDay($weekStart, $weekEnd, $request->filter_tutor);
 
+        // Warna label jam di tab "Grup Sesi": tetap & identik per sesi (mis. Sesi 1 selalu
+        // biru, Sesi 2 selalu kuning, dst) — urutan warna mengikuti urutan jam mulai sesi,
+        // BUKAN posisi relatif dalam satu hari, supaya warnanya konsisten di seluruh tampilan.
+        $sesiWarnaPalet = ['primary', 'warning', 'success', 'info', 'danger', 'dark'];
+        $sessionColorMap = $scheduleSessions->values()
+            ->mapWithKeys(fn ($s, $i) => [$s->id => $sesiWarnaPalet[$i % count($sesiWarnaPalet)]]);
+
         return view('admin.schedules.index', compact(
             'students', 'tutors', 'subjects', 'scheduleSessions', 'studentGroups', 'studentSubjectIds',
-            'weekStart', 'weekEnd', 'prevWeek', 'nextWeek', 'weekGroupedByDay'
+            'weekStart', 'weekEnd', 'prevWeek', 'nextWeek', 'weekGroupedByDay', 'sessionColorMap'
         ));
     }
 
@@ -87,16 +94,17 @@ class ScheduleController extends Controller
      */
     private function groupSchedules(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Support\Collection
     {
-        $sessionNames = ScheduleSession::get()->mapWithKeys(fn($s) => [
-            substr($s->time_start, 0, 5) . '-' . substr($s->time_end, 0, 5) => $s->name,
+        $sessionsByRange = ScheduleSession::get()->mapWithKeys(fn($s) => [
+            substr($s->time_start, 0, 5) . '-' . substr($s->time_end, 0, 5) => $s,
         ]);
 
         return $query->get()
             ->groupBy(fn($s) => \Carbon\Carbon::parse($s->class_date)->toDateString() . '|' . $s->start_time . '|' . $s->end_time . '|' . $s->tutor_id)
-            ->map(function ($g) use ($sessionNames) {
+            ->map(function ($g) use ($sessionsByRange) {
                 $first = $g->first();
                 $date  = \Carbon\Carbon::parse($first->class_date);
                 $range = substr($first->start_time, 0, 5) . '-' . substr($first->end_time, 0, 5);
+                $session = $sessionsByRange->get($range);
 
                 $statuses = $g->pluck('status_schedule')->unique();
                 $status = $statuses->contains('scheduled') ? 'scheduled' : ($statuses->contains('done') ? 'done' : 'canceled');
@@ -107,8 +115,10 @@ class ScheduleController extends Controller
                     'hari'       => $date->locale('id')->translatedFormat('l, d M Y'),
                     'start_time' => substr($first->start_time, 0, 5),
                     'end_time'   => substr($first->end_time, 0, 5),
-                    'sesi_label' => ($sessionNames[$range] ?? 'Sesi') . ' (' . str_replace('-', ' – ', $range) . ')',
+                    'session_id' => $session->id ?? null,
+                    'sesi_label' => ($session->name ?? 'Sesi') . ' (' . str_replace('-', ' – ', $range) . ')',
                     'kelas'      => $g->pluck('student.grade')->filter()->unique()->values()->implode(', ') ?: '-',
+                    'ruang'      => $g->pluck('room')->filter()->unique()->values()->implode(', ') ?: '-',
                     'mapel'      => $g->pluck('subject.subject_name')->filter()->unique()->values()->implode(', ') ?: '-',
                     'tutor'      => $first->tutor->name ?? '-',
                     'tutor_id'   => $first->tutor_id,
