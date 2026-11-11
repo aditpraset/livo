@@ -197,12 +197,12 @@
                 $tanggalHari   = $weekStart->copy()->addDays($i);
                 $isToday       = $tanggalHari->isToday();
 
-                // Warna label jam tetap & identik per sesi (mis. Sesi 1 selalu biru, Sesi 2
-                // selalu kuning, dst — lihat $sessionColorMap di controller), bukan relatif
-                // ke posisi dalam satu hari, supaya warnanya konsisten di seluruh tampilan.
+                // Warna label jam tetap & identik per sesi (lihat $sessionColorMap di
+                // controller), bukan relatif ke posisi dalam satu hari, supaya warnanya
+                // konsisten di seluruh tampilan & tidak pernah bentrok antar sesi.
                 $grupHariIni = $weekGroupedByDay->get($namaHari, collect())
                     ->map(function ($grup) use ($sessionColorMap) {
-                        $grup['warna'] = $sessionColorMap->get($grup['session_id'], 'secondary');
+                        $grup['warna'] = $sessionColorMap->get($grup['session_id']) ?? \App\Models\ScheduleSession::defaultColor();
                         return $grup;
                     });
 
@@ -235,7 +235,7 @@
                                 <tbody>
                                     @foreach($grupHariIni as $grup)
                                         <tr>
-                                            <td><span class="badge bg-{{ $grup['warna'] }}-subtle text-{{ $grup['warna'] }} border border-{{ $grup['warna'] }}-subtle">{{ $grup['start_time'] }}–{{ $grup['end_time'] }}</span>
+                                            <td><span class="badge" style="background-color: {{ $grup['warna']['bg'] }}; color: {{ $grup['warna']['text'] }}; border: 1px solid {{ $grup['warna']['border'] }};">{{ $grup['start_time'] }}–{{ $grup['end_time'] }}</span>
                                                 <div class="small text-muted mt-1">{{ $grup['sesi_label'] }}</div>
                                             </td>
                                             <td>{{ $grup['mapel'] }}</td>

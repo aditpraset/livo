@@ -49,9 +49,9 @@
                             </thead>
                             <tbody>
                                 @foreach($sessions as $session)
-                                    @php $sesiWarna = $sessionColorMap->get($session['session_id'], 'secondary'); @endphp
+                                    @php $sesiWarna = $sessionColorMap->get($session['session_id']) ?? \App\Models\ScheduleSession::defaultColor(); @endphp
                                     <tr>
-                                        <td><span class="badge bg-{{ $sesiWarna }}-subtle text-{{ $sesiWarna }} border border-{{ $sesiWarna }}-subtle">{{ substr($session['start_time'], 0, 5) }}–{{ substr($session['end_time'], 0, 5) }}</span></td>
+                                        <td><span class="badge" style="background-color: {{ $sesiWarna['bg'] }}; color: {{ $sesiWarna['text'] }}; border: 1px solid {{ $sesiWarna['border'] }};">{{ substr($session['start_time'], 0, 5) }}–{{ substr($session['end_time'], 0, 5) }}</span></td>
                                         <td>{{ $session['room'] }}</td>
                                         <td>{{ $session['subject'] }}</td>
                                         <td>

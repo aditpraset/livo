@@ -72,12 +72,9 @@ class ScheduleController extends BaseTutorController
         $totalWeek = $sessionsByDay->sum->count();
         $sesiPerDay = $sessionsByDay->map->count();
 
-        // Warna label jam tetap & identik per sesi (mis. Sesi 1 selalu biru, Sesi 2 selalu
-        // kuning, dst) — urutan warna mengikuti urutan jam mulai sesi, sama seperti tab
-        // Grup Sesi di admin, supaya konsisten di seluruh tampilan jadwal.
-        $sesiWarnaPalet = ['primary', 'warning', 'success', 'info', 'danger', 'dark'];
-        $sessionColorMap = ScheduleSession::orderBy('time_start')->get()->values()
-            ->mapWithKeys(fn ($s, $i) => [$s->id => $sesiWarnaPalet[$i % count($sesiWarnaPalet)]]);
+        // Warna label jam tetap & identik per sesi, sama seperti tab Grup Sesi di admin
+        // (lihat ScheduleSession::colorMap()).
+        $sessionColorMap = ScheduleSession::colorMap();
 
         return view('tutor.schedules.week', [
             'tutor' => $tutor,
